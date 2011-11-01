@@ -12,9 +12,9 @@ class MainHandler(tornado.web.RequestHandler):
         
     def post(self):
         timestamp = time.time()
-        argument = self.get_argument("message",False)
-        print argument
-        #self.write(argument+timestamp)
+        argument = self.get_argument("message", False)
+        if (argument):
+            self.write(argument + ";timestamp: " + str(timestamp))
 
 
 application = tornado.web.Application([
