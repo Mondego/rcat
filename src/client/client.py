@@ -4,14 +4,6 @@ Created on Oct 29, 2011
 @author: tdebeauv
 '''
 
-#
-#import urllib
-#
-#url = 'http://localhost:8888'
-#u = urllib.urlopen(url)
-## u is a file-like object
-#data = u.read()
-#print data
 
 import httplib
 
@@ -27,5 +19,5 @@ else:
     allheaders = res.getheaders()
     print 'data: ', data 
     for header in allheaders:
-        print '  ', header[0], ':', header[1]  
+        print '  ', header[0], ':', header[1]
 
