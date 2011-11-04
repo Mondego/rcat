@@ -21,7 +21,7 @@ application = tornado.web.Application([
     (r"/", MainHandler),
 ])
 
-if __name__ == "__main__":
+class Main():
     tornado.options.parse_command_line()
     application.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()

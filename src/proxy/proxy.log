@@ -1,0 +1,24 @@
+2011-11-02 15:31:09,396 | INFO [root]: [Proxy]:Start ProxyFront
+2011-11-02 15:31:21,484 | ERROR [root]: Uncaught exception GET /?test=aaaa (127.0.0.1)
+HTTPRequest(protocol='http', host='localhost:8888', method='GET', uri='/?test=aaaa', version='HTTP/1.1', remote_ip='127.0.0.1', body='', headers={'Accept-Language': 'en-US,en;q=0.8', 'Accept-Encoding': 'gzip,deflate,sdch', 'Host': 'localhost:8888', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.1 (KHTML, like Gecko) Ubuntu/11.10 Chromium/14.0.835.202 Chrome/14.0.835.202 Safari/535.1', 'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3', 'Connection': 'keep-alive', 'Cache-Control': 'max-age=0', 'If-None-Match': '"e02aa1b106d5c7c6a98def2b13005d5b84fd8dc8"'})
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/tornado/web.py", line 954, in _execute
+    getattr(self, self.request.method.lower())(*args, **kwargs)
+TypeError: get() takes exactly 2 arguments (1 given)
+2011-11-02 15:31:21,485 | ERROR [root]: 500 GET /?test=aaaa (127.0.0.1) 1.47ms
+2011-11-02 15:31:21,590 | WARNING [root]: 404 GET /favicon.ico (127.0.0.1) 0.40ms
+2011-11-02 15:31:29,697 | ERROR [root]: Uncaught exception GET / (127.0.0.1)
+HTTPRequest(protocol='http', host='localhost:8888', method='GET', uri='/', version='HTTP/1.1', remote_ip='127.0.0.1', body='', headers={'Accept-Language': 'en-US,en;q=0.8', 'Accept-Encoding': 'gzip,deflate,sdch', 'Host': 'localhost:8888', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.1 (KHTML, like Gecko) Ubuntu/11.10 Chromium/14.0.835.202 Chrome/14.0.835.202 Safari/535.1', 'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3', 'Connection': 'keep-alive', 'If-None-Match': '"e02aa1b106d5c7c6a98def2b13005d5b84fd8dc8"'})
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/tornado/web.py", line 954, in _execute
+    getattr(self, self.request.method.lower())(*args, **kwargs)
+TypeError: get() takes exactly 2 arguments (1 given)
+2011-11-02 15:31:29,697 | ERROR [root]: 500 GET / (127.0.0.1) 0.79ms
+2011-11-02 15:31:29,779 | WARNING [root]: 404 GET /favicon.ico (127.0.0.1) 0.47ms
+2011-11-02 15:32:29,453 | INFO [root]: [Proxy]:Start ProxyFront
+2011-11-02 15:32:31,594 | INFO [root]: 200 GET / (127.0.0.1) 0.78ms
+2011-11-02 15:32:31,694 | WARNING [root]: 404 GET /favicon.ico (127.0.0.1) 0.42ms
+2011-11-02 15:33:13,049 | INFO [root]: 200 GET /?test=aaaa (127.0.0.1) 0.23ms
+2011-11-02 15:33:13,146 | WARNING [root]: 404 GET /favicon.ico (127.0.0.1) 0.23ms
+2011-11-03 17:53:13,134 | INFO [root]: Start ProxyFront
+2011-11-03 17:55:22,635 | INFO [root]: Start ProxyFront
