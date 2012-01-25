@@ -1,28 +1,62 @@
-import tornado.ioloop
+import sys
 import tornado.web
+import tornado.websocket
 import time
+import Queue
+from multiprocessing import Process
+from common.message import MESSAGE_TYPE
+from proxy.back.Back import ServerHandler 
+import json
 
-from tornado.options import define, options
+def SendToClient(handler,msg):
+    handler.write(msg)
 
-define("port", default=8888, help="run on the given port", type=int)
-
-class MainHandler(tornado.web.RequestHandler):
+class Handler(tornado.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        SendToClient(self,"Hello World")
         
     def post(self):
         timestamp = time.time()
         argument = self.get_argument("message", False)
         if (argument):
-            self.write(argument + ";timestamp: " + str(timestamp))
+            #self.write(argument + ";timestamp: " + str(timestamp))
+            msg = argument + ";timestamp: " + str(timestamp)
+            #pool.apply_async(SendToClient, (self,msg,))
 
+class ClientHandler(tornado.websocket.WebSocketHandler):
+    def open(self):
+        print "WebSocket opened"
+        
+    def on_message(self, message):
+        try:
+            msg = json.loads(message)
+            if msg["type"] == MESSAGE_TYPE.CONNECT:
+                print "CONNECTING"
+            ServerHandler.send_message(message)
+        except Exception as inst:
+            self.write_message("Not valid JSON")
+            print inst
 
-application = tornado.web.Application([
-    (r"/", MainHandler),
-])
+    def on_close(self):
+        print "WebSocket closed"
+        
+    def accept_client(self,client,handler):
+        
 
-class Main():
-    tornado.options.parse_command_line()
-    application.listen(options.port)
-    tornado.ioloop.IOLoop.instance().start()
+class ClientLayer():
+    dq = {}
     
+    def __init__(self):
+        p = Process(target=SendLoop, args=(self.dq,))
+        p.start()
+        
+    def ClientConnect(self, userid):
+        self.dq[userid] = Queue()
+
+
+
+def SendLoop(dq):
+    for client in dq:
+        #Send message to client
+        print "Hey"
+        pass
