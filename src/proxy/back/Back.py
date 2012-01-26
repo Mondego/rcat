@@ -1,7 +1,8 @@
 import json
 import tornado.web
 import tornado.websocket
-from proxy.front.Front import ClientHandler
+#from proxy.front.Front import ClientHandler
+#import proxy.front.Front.ClientHandler as ClientHandler
 from common.message import MESSAGE_TYPE
 
 servers = []
