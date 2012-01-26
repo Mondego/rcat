@@ -3,7 +3,9 @@ import uuid
 import tornado.web
 import tornado.websocket
 import time
+import traceback
 import Queue
+import logging
 from multiprocessing import Process
 from common.message import MESSAGE_TYPE
 import json
@@ -15,7 +17,7 @@ proxyref = None
 def SendToClient(handler,msg):
     handler.write(msg)
 
-class Handler(tornado.web.RequestHandler):
+class HTTPHandler(tornado.web.RequestHandler):
     def get(self):
         SendToClient(self,"Hello World")
         
@@ -27,15 +29,16 @@ class Handler(tornado.web.RequestHandler):
 
 class ClientHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        print "WebSocket opened"
+        logging.debug("WebSocket opened")
         
     def on_message(self, message):
+        global proxyref
         try:
             msg = json.loads(message)
             # Messages with "T" (for Type) are R-MUVE internal messages 
             if "T" in msg:
                 if msg["T"] == MESSAGE_TYPE.CONNECT:
-                    print "CONNECTING"
+                    logging.info("CONNECTING")
                     temp_UUID = uuid.uuid4()
                     temp_users[temp_UUID] = [msg["U"], self]
                     newmsg = {"T":MESSAGE_TYPE.CONNECT, "U":msg["U"], "TMP":temp_UUID}
@@ -44,12 +47,11 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
                 client_msg = message
             proxyref.send_message_to_server(client_msg)
             
-        except Exception as inst:
-            self.write_message("Not valid JSON")
-            print inst
+        except Exception, err:
+            traceback.print_exc()
 
     def on_close(self):
-        print "WebSocket closed"
+        logging.debug("WebSocket closed")
         
     def accept_client(self,client_id, old_id):
         #TODO: Warn Application Layer that client with this name already exists
@@ -57,24 +59,25 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         client[client_id] = temp_users[old_id][1]
         del temp_users[old_id]
         
-    def send_message(self, message, clients):
-        pass
         
 class ClientLayer():
     dq = {}
     
     def __init__(self, proxy):
+        global proxyref
         #p = Process(target=SendLoop, args=(self.dq,))
         #p.start()
         proxyref = proxy
+        proxyref.send_message_to_client = self.send_message
+        proxyref.test()
         
     def ClientConnect(self, userid):
         self.dq[userid] = Queue()
-
-
+        
+    def send_message(self, message, clients):
+        pass
 
 def SendLoop(dq):
     for client in dq:
         #Send message to client
-        print "Hey"
         pass

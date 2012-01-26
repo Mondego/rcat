@@ -8,6 +8,7 @@ Proxy starts ProxyFront and ProxyBack
 import tornado.ioloop
 import tornado.web
 import logging
+import logging.config
 import front.Front as Front
 import back.Back as Back
 from tornado.options import define, options
@@ -19,25 +20,32 @@ client={}
 # TODO: Make it anonymous?
 class Proxy():
     def send_message_to_server(self,message):
-        Back.ServerHandler.send_message(message)
+        #Back.ServerHandler.send_message(message)
+        raise
     
     def send_message_to_client(self,message, clients):
-        Front.ClientHandler.send_message(message, clients)
+        #Front.ClientHandler.send_message(message, clients)
+        raise
+        
+    def test(self):
+        logging.debug("Testing")
         
 if __name__ == "__main__":
     # Clients and servers connect to the Proxy through different URLs
-    lformat = '%(asctime)s | %(levelname)s [%(name)s]: %(message)s'
-    logging.basicConfig(filename='proxy.log', level=logging.INFO, format=lformat)
-    logging.info("Start FrontProxy")
+    lformat = '%(asctime)s | %(levelname)s [%(filename)s]: %(message)s'
+    #logging.basicConfig(filename='proxy.log', level=logging.INFO, format=lformat)
+    logging.config.fileConfig("logging.conf")
+    
     proxy = Proxy()
-    print "Starting ClientLayer"
+    logging.debug("Starting ClientLayer")
     x = Front.ClientLayer(proxy)
-    logging.info("Start BackProxy")
-    logging.info("Proxy Started")
+    logging.debug("Starting ServerLayer")
+    y = Back.ServerLayer(proxy)
+    logging.debug("Proxy Started")
 
     
     application = tornado.web.Application([
-    (r"/", Front.Handler),
+    (r"/", Front.HTTPHandler),
     (r"/client", Front.ClientHandler),
     (r"/server", Back.ServerHandler),
     ])

@@ -1,16 +1,22 @@
 import json
 import tornado.web
 import tornado.websocket
-#from proxy.front.Front import ClientHandler
-#import proxy.front.Front.ClientHandler as ClientHandler
 from common.message import MESSAGE_TYPE
+import itertools
+import logging
 
 servers = []
+server_cycle = None
+proxyref = None
 
 class ServerHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        print "WebSocket opened"
+        global servers
+        global server_cycle
+        
+        logging.debug("WebSocket opened")
         servers.append(self)
+        server_cycle = itertools.cycle(servers)
         
     def on_message(self, message):
         try:
@@ -24,8 +30,23 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             print inst
 
     def on_close(self):
-        print "WebSocket closed"
+        global servers
+        global server_cycle
+        
+        logging.debug("WebSocket closed")
+        servers.remove(self)
+        server_cycle = itertools.cycle(servers)
+
+class ServerLayer():
+    def __init__(self,proxy):
+        logging.debug("Starting ServerLayer")
+        proxyref = proxy
+        proxyref.send_message_to_server = self.send_message
         
     def send_message(self,message):
+        global server_cycle
+        global servers
+        
         if len(servers) > 0:
-            servers.pop().write_message(message)
+            server_cycle.next().write_message(message)
+        
