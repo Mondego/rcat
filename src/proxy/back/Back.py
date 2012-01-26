@@ -1,5 +1,4 @@
 import json
-import tornado.web
 import tornado.websocket
 from common.message import MESSAGE_TYPE
 import itertools

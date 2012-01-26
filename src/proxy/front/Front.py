@@ -1,4 +1,3 @@
-import sys
 import uuid
 import tornado.web
 import tornado.websocket
@@ -6,7 +5,6 @@ import time
 import traceback
 import Queue
 import logging
-from multiprocessing import Process
 from common.message import MESSAGE_TYPE
 import json
 
@@ -65,8 +63,6 @@ class ClientLayer():
     
     def __init__(self, proxy):
         global proxyref
-        #p = Process(target=SendLoop, args=(self.dq,))
-        #p.start()
         proxyref = proxy
         proxyref.send_message_to_client = self.send_message
         proxyref.test()
@@ -76,8 +72,4 @@ class ClientLayer():
         
     def send_message(self, message, clients):
         pass
-
-def SendLoop(dq):
-    for client in dq:
-        #Send message to client
-        pass
+    
