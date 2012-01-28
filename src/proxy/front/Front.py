@@ -9,7 +9,7 @@ from common.message import MESSAGE_TYPE
 import json
 
 temp_users = {}
-client = {}
+clients = {}
 proxyref = None
 
 def SendToClient(handler,msg):
@@ -38,24 +38,18 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
                 if msg["T"] == MESSAGE_TYPE.CONNECT:
                     logging.info("CONNECTING")
                     temp_UUID = uuid.uuid4()
-                    temp_users[temp_UUID] = [msg["U"], self]
-                    newmsg = {"T":MESSAGE_TYPE.CONNECT, "U":msg["U"], "TMP":temp_UUID}
+                    temp_users[unicode(temp_UUID)] = self
+                    newmsg = {"T":MESSAGE_TYPE.CONNECT, "U":msg["U"], "TMP":unicode(temp_UUID)}
                     client_msg = json.dumps(newmsg)
             else:
                 client_msg = message
             proxyref.send_message_to_server(client_msg)
             
         except Exception, err:
-            traceback.print_exc()
+            logging.exception('[Front]: Error processing message on Front module:')
 
     def on_close(self):
         logging.debug("WebSocket closed")
-        
-    def accept_client(self,client_id, old_id):
-        #TODO: Warn Application Layer that client with this name already exists
-        # temp_users[old_id][1] is the handler for this client
-        client[client_id] = temp_users[old_id][1]
-        del temp_users[old_id]
         
         
 class ClientLayer():
@@ -65,11 +59,21 @@ class ClientLayer():
         global proxyref
         proxyref = proxy
         proxyref.send_message_to_client = self.send_message
+        proxyref.authorize_client = self.authorize_client
         proxyref.test()
         
     def ClientConnect(self, userid):
         self.dq[userid] = Queue()
         
-    def send_message(self, message, clients):
-        pass
+    def send_message(self, message, clientList=None):
+        if clientList==None:
+            clientList = clients
+        for client in clientList:
+            if (client in clients):
+                clients[client].write_message(message)
+            else:
+                logging.warn("[Front]: Client " + client + " is not registered in this proxy.")
+    
+    def authorize_client(self, authclient, cuuid):
+        clients[authclient] = temp_users[cuuid]
     

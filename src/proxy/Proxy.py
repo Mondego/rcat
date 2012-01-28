@@ -18,11 +18,14 @@ client={}
 # Intermediates messages between Front and Back
 class Proxy():
     def send_message_to_server(self,message):
-        raise
+        raise Exception('Not implemented!')
     
     def send_message_to_client(self,message, clients):
-        raise
-        
+        raise Exception('[Proxy]: Not implemented!')
+    
+    def authorize_client(self, authclient, cuuid):
+        raise Exception('[Proxy]: Not implemented!')
+    
     def test(self):
         logging.debug("Testing")
         

@@ -3,6 +3,7 @@ import tornado.websocket
 from common.message import MESSAGE_TYPE
 import itertools
 import logging
+import traceback
 
 servers = []
 server_cycle = None
@@ -18,16 +19,22 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         server_cycle = itertools.cycle(servers)
         
     def on_message(self, message):
+        global proxyref
         try:
             msg = json.loads(message)
-            if msg["type"] == MESSAGE_TYPE.ACCEPTED:
-                print "Client authentication accepted."
-                
+            if "T" in msg:
+                if msg["T"] == MESSAGE_TYPE.ACCEPTED:
+                    print "Client authentication accepted."
+                    proxyref.authorize_client(msg["U"],msg["TMP"])
+            else:
+                if "U" in msg:
+                    users = msg["U"]
+                    proxyref.send_message_to_client(msg["M"],users)
+                else:
+                    proxyref.send_message_to_client(msg["M"])
+        except Exception,err:
+            logging.exception('[Back]: Error processing message on Back module:')
             
-        except Exception as inst:
-            self.write_message("Not valid JSON")
-            print inst
-
     def on_close(self):
         global servers
         global server_cycle
@@ -38,6 +45,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
 
 class ServerLayer():
     def __init__(self,proxy):
+        global proxyref
         logging.debug("Starting ServerLayer")
         proxyref = proxy
         proxyref.send_message_to_server = self.send_message
