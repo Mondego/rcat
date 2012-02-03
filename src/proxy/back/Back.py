@@ -1,6 +1,5 @@
 import json
 import tornado.websocket
-from common.message import MESSAGE_TYPE
 import itertools
 import logging
 import traceback
@@ -10,11 +9,12 @@ server_cycle = None
 proxyref = None
 
 class ServerHandler(tornado.websocket.WebSocketHandler):
+    logger = logging.getLogger("proxy")
     def open(self):
         global servers
         global server_cycle
-        
-        logging.debug("WebSocket opened")
+
+        self.logger.debug("WebSocket opened")
         servers.append(self)
         server_cycle = itertools.cycle(servers)
         
@@ -22,24 +22,20 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         global proxyref
         try:
             msg = json.loads(message)
-            if "T" in msg:
-                if msg["T"] == MESSAGE_TYPE.ACCEPTED:
-                    print "Client authentication accepted."
-                    proxyref.authorize_client(msg["U"],msg["TMP"])
+            self.logger.debug(message)
+            if "U" in msg:
+                users = msg["U"]
+                proxyref.send_message_to_client(msg["M"],users)
             else:
-                if "U" in msg:
-                    users = msg["U"]
-                    proxyref.send_message_to_client(msg["M"],users)
-                else:
-                    proxyref.send_message_to_client(msg["M"])
+                proxyref.send_message_to_client(msg["M"])
         except Exception,err:
-            logging.exception('[Back]: Error processing message on Back module:')
+            self.logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
         global servers
         global server_cycle
         
-        logging.debug("WebSocket closed")
+        self.logger.debug("WebSocket closed")
         servers.remove(self)
         server_cycle = itertools.cycle(servers)
 

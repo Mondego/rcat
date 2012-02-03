@@ -18,7 +18,7 @@ client={}
 # Intermediates messages between Front and Back
 class Proxy():
     def send_message_to_server(self,message):
-        raise Exception('Not implemented!')
+        raise Exception('[Proxy]: Not implemented!')
     
     def send_message_to_client(self,message, clients):
         raise Exception('[Proxy]: Not implemented!')
