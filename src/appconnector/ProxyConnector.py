@@ -1,7 +1,10 @@
-import logging.config
+import logging
 import websocket
 import time
 from threading import Thread
+import sys
+
+logger = logging.getLogger()
 
 class ProxyConnector():
     appWS = None
@@ -9,26 +12,31 @@ class ProxyConnector():
     events = None
     manager = None
 
-    def __init__(self,proxyURL,appURL):
+    def __init__(self,proxyURLs,appURL):
         websocket.enableTrace(True)
-        logging.config.fileConfig("connector_logging.conf")
-        self.proxyWS = websocket.WebSocketApp(proxyURL,
-                                    on_open = self.Proxy_on_open,
-                                    on_message = self.Proxy_on_message,
-                                    on_error = self.Proxy_on_error,
-                                    on_close = self.Proxy_on_close)
+        """
+        TODO: Support more than one proxy! Right now only the last proxy in the list is used.
+        """
+        for proxy in proxyURLs:
+            self.proxyWS = websocket.WebSocketApp(proxy,
+                                        on_open = self.Proxy_on_open,
+                                        on_message = self.Proxy_on_message,
+                                        on_error = self.Proxy_on_error,
+                                        on_close = self.Proxy_on_close)
+            logger.debug("[ProxyConnector]: Connecting to Proxy in " + proxy)
+            Thread(target=self.proxyWS.run_forever).start()
+            logger.debug("[ProxyConnector]: Proxy Connected!")
+            
         self.appWS = websocket.WebSocketApp(appURL,
                                     on_open = self.App_on_open,
                                     on_message = self.App_on_message,
                                     on_error = self.App_on_error,
                                     on_close = self.App_on_close)
-        time.sleep(2)
-        logging.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
-        t1 = Thread(target=self.appWS.run_forever).start()
-        logging.debug("[ProxyConnector]: App Server Connected!")
-        logging.debug("[ProxyConnector]: Connecting to Proxy in " + proxyURL)
-        t2 = Thread(target=self.proxyWS.run_forever).start()
-        logging.debug("[ProxyConnector]: Proxy Connected!")
+        time.sleep(1)
+        logger.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
+        Thread(target=self.appWS.run_forever).start()
+        logger.debug("[ProxyConnector]: App Server Connected!")
+        
         self.manager = RMUVE_Manager()
         self.events = Event()
     
@@ -87,8 +95,11 @@ class Event():
     DISCONNECT=0
     
 if __name__ == "__main__":
-    """
-    TODO: Add ability for developers to start the connector "standalone". 
-    Needs to read a conf file to know where AppServer and Proxy are
-    """
-    raise
+    if (len(sys.argv) != 2):
+        print "Usage: python ProxyConnector.py <proxyurl1,proxyurl2,proxyurl3> <appurl>"
+    purls = sys.argv[1]
+    appurl = sys.argv[2]
+    proxylist = purls.split(',')
+    if len(proxylist) > 1:
+        print "WARNING! Only one proxy is supported in the current version. Using last proxy in the list."
+    pc = ProxyConnector(proxylist,appurl)

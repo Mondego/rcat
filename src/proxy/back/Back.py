@@ -25,7 +25,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             self.logger.debug(message)
             if "U" in msg:
                 users = msg["U"]
-                proxyref.send_message_to_client(msg["M"],users)
+                proxyref.send_message_to_client(msg["M"],[users])
             else:
                 proxyref.send_message_to_client(msg["M"])
         except Exception,err:

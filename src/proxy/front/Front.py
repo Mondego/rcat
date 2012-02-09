@@ -25,15 +25,23 @@ class HTTPHandler(tornado.web.RequestHandler):
 
 class ClientHandler(tornado.websocket.WebSocketHandler):
     logger = logging.getLogger("proxy")
+    myid = None
     def open(self):
         self.logger.debug("WebSocket opened")
-        clients[uuid.uuid4()] = self
+        self.myid = str(uuid.uuid4())
+        clients[self.myid] = self
         
     def on_message(self, message):
         global proxyref
-        self.logger.debug(message)
         try:
-            proxyref.send_message_to_server(message)
+            newmsg = {}
+            # Append client metadata here. For now, just putting in the client's message and its uuid.
+            newmsg["M"] = message
+            newmsg["U"] = self.myid
+            
+            json_msg = json.dumps(newmsg)
+            self.logger.debug(json_msg)
+            proxyref.send_message_to_server(json_msg)
             
         except Exception, err:
             self.logger.exception('[Front]: Error processing message on Front module:')
