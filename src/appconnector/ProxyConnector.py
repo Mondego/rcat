@@ -95,11 +95,14 @@ class Event():
     DISCONNECT=0
     
 if __name__ == "__main__":
-    if (len(sys.argv) != 3):
+    if (len(sys.argv) != 2):
         print "Usage: python ProxyConnector.py <proxyurl1,proxyurl2,proxyurl3> <appurl>"
-    purls = sys.argv[1]
-    appurl = sys.argv[2]
-    proxylist = purls.split(',')
-    if len(proxylist) > 1:
-        print "WARNING! Only one proxy is supported in the current version. Using last proxy in the list."
+    if (len(sys.argv) == 2):
+        proxylist = []
+    else:
+        purls = sys.argv[1]
+        proxylist = purls.split(',')
+        if len(proxylist) > 1:
+            print "WARNING! Only one proxy is supported in the current version. Using last proxy in the list."
+    appurl = sys.argv[len(sys.argv) - 1]
     pc = ProxyConnector(proxylist,appurl)
