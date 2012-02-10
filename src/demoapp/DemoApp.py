@@ -10,12 +10,12 @@ pc = None
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
-        print "App Websocket Open"
+        logging.debug("App Websocket Open")
 
     def on_message(self, message):
         msg = json.loads(message)
         newmsg = {}
-        print msg["M"]
+        logging.debug(msg["M"])
         # Append metadata here. For now just sending the user and the message.
         newmsg["M"] = msg["M"].swapcase()
         newmsg["U"] = msg["U"]
@@ -23,7 +23,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
         self.write_message(json_msg)
 
     def on_close(self):
-        print "App WebSocket closed"
+        logging.debug("App WebSocket closed")
         
 application = tornado.web.Application([
     (r"/", EchoWebSocket),
