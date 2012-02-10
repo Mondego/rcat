@@ -1,3 +1,9 @@
+"""
+Back.py
+Summary: Opens a websocket listener for clients. Messages sent to Back are forwarded 
+to Front through Proxy, in order to reach the server. 
+Messages from server are received in Front, and passed to Back so they can be delivered to client.
+"""
 import json
 import tornado.websocket
 import itertools

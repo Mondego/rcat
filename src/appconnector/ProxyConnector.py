@@ -1,3 +1,10 @@
+"""
+ProxyConnector.py
+Summary: Hooks the proxies with the developer's application. Abstracts locating 
+clients in the proxies from the application level. Also provides an event interface
+for application control, e.g. "disconnect user from the proxy."  
+"""
+
 import logging
 import websocket
 import time
@@ -19,7 +26,11 @@ class ProxyConnector():
         websocket.enableTrace(True)
         self.admin_proxy = {}
         self.proxies = []
+        if not appURL.endswith("/"):
+                appURL += "/"
         for proxy in proxyURLs:
+            if not proxy.endswith("/"):
+                proxy += "/"
             adminWS = websocket.WebSocketApp(proxy+"admin",
                                         on_open = self.Admin_on_open,
                                         on_message = self.Admin_on_message,
@@ -44,6 +55,7 @@ class ProxyConnector():
                                     on_message = self.App_on_message,
                                     on_error = self.App_on_error,
                                     on_close = self.App_on_close)
+        # TODO: Fix this sleep, looks so bad :(
         time.sleep(1)
         logger.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
         Thread(target=self.appWS.run_forever).start()

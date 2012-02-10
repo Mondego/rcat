@@ -1,3 +1,9 @@
+"""
+Front.py
+Summary: Opens a websocket listener for servers. Messages from server are received in Front
+and passed to Back so they can be delivered to client. Messages sent to Back are forwarded 
+to Front through Proxy, in order to reach the server. 
+"""
 import Queue
 import json
 import logging
