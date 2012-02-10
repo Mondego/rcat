@@ -106,8 +106,9 @@ class Event():
     DISCONNECT=0
     
 if __name__ == "__main__":
-    if (len(sys.argv) != 2):
-        print "Usage: python ProxyConnector.py <proxyurl1,proxyurl2,proxyurl3> <appurl>"
+    if (len(sys.argv) < 2):
+        print "Usage: python ProxyIOSocketConnector.py <proxyurl1,proxyurl2,proxyurl3> <appurl>"
+        exit()
     if (len(sys.argv) == 2):
         proxylist = []
     else:
