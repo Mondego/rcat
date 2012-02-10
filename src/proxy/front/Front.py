@@ -52,6 +52,11 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
             self.logger.exception('[Front]: Error processing message on Front module:')
 
     def on_close(self):
+        newmsg = {}
+        # User disconnected
+        newmsg["UD"] = self.myid
+
+        proxyref.broadcast_admins(json.dumps(newmsg))
         self.logger.debug("WebSocket closed")
         
         

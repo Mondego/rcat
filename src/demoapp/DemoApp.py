@@ -31,7 +31,6 @@ application = tornado.web.Application([
 
 if __name__ == "__main__":
     application.listen(9999)
-    #tornado.ioloop.IOLoop.instance().start()
     logging.config.fileConfig("connector_logging.conf")
     t = Thread(target=tornado.ioloop.IOLoop.instance().start).start()
     pc = ProxyConnector(["ws://localhost:8888/"],"ws://localhost:9999/")

@@ -17,9 +17,6 @@ class ProxyConnector():
 
     def __init__(self,proxyURLs,appURL):
         websocket.enableTrace(True)
-        """
-        TODO: Support more than one proxy! Right now only the last proxy in the list is used.
-        """
         self.admin_proxy = {}
         self.proxies = []
         for proxy in proxyURLs:
@@ -63,25 +60,28 @@ class ProxyConnector():
     def Admin_on_message(self,ws, message):
         logger.debug("Admin received message " + message)
         msg = json.loads(message)
+        # New user
         if "NU" in msg:
             if msg["NU"] not in self.client_location:
                 self.client_location[msg["NU"]] = self.admin_proxy[ws]
+        # List of Users
         elif "LU" in msg:
             for user in msg["LU"]:
                 self.client_location[user] = self.admin_proxy[ws]
+        # User disconnected
         elif "UD" in msg:
             if msg["UD"] in self.client_location:
                 del self.client_location[msg["UD"]]
         logger.debug("List of users: " + str(self.client_location))
     
     def Admin_on_error(self,ws, error):
-        print error
+        logger.debug(error)
     
     def Admin_on_close(self,ws):
-        print "### Admin closed ###"
+        logger.debug("### Admin closed ###")
     
     def Admin_on_open(self,ws):
-        print "### Admin open ###"
+        logger.debug("### Admin open ###")
     
     """
     App websocket events
@@ -99,13 +99,13 @@ class ProxyConnector():
                 server.send(message)
    
     def App_on_error(self,ws, error):
-        print error
+        logger.debug(error)
     
     def App_on_close(self,ws):
-        print "### closed ###"
+        logger.debug("### closed ###")
     
     def App_on_open(self,ws):
-        print "### App open ###"
+        logger.debug("### App open ###")
     
     """
     Proxy websocket events
@@ -118,13 +118,13 @@ class ProxyConnector():
         self.appWS.send(message)
     
     def Proxy_on_error(self,ws, error):
-        print error
+        logger.debug(error)
     
     def Proxy_on_close(self,ws):
-        print "### closed ###"
+        logger.debug("### closed ###")
     
     def Proxy_on_open(self,ws):
-        print "### Proxy open ###"
+        logger.debug("### Proxy open ###")
 
 """
 RMUVE_Manager: The app developer should substitute the event method to receive and send event notifications to RMUVE.
@@ -154,8 +154,6 @@ if __name__ == "__main__":
     else:
         purls = sys.argv[1]
         proxylist = purls.split(',')
-        if len(proxylist) > 1:
-            print "WARNING! Only one proxy is supported in the current version. Using last proxy in the list."
         
     appurl = sys.argv[len(sys.argv) - 1]
     pc = ProxyConnector(proxylist,appurl)

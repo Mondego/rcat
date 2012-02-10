@@ -54,6 +54,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         try:
             msg = json.loads(message)
             self.logger.debug(message)
+            # List of Users - Request
             if "LUR" in msg:
                 newmsg = {}
                 newmsg["LU"] = proxyref.list_users()
