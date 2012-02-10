@@ -31,13 +31,18 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
         
+        newmsg = {}
+        newmsg["NU"] = self.myid 
+        
+        proxyref.broadcast_admins(json.dumps(newmsg))
+        
     def on_message(self, message):
         global proxyref
         try:
             newmsg = {}
             # Append client metadata here. For now, just putting in the client's message and its uuid.
             newmsg["M"] = message
-            newmsg["U"] = self.myid
+            newmsg["U"] = [self.myid]
             
             json_msg = json.dumps(newmsg)
             self.logger.debug(json_msg)
@@ -59,6 +64,7 @@ class ClientLayer():
         proxyref = proxy
         proxyref.send_message_to_client = self.send_message
         proxyref.authorize_client = self.authorize_client
+        proxyref.list_users = self.list_users
         proxyref.test()
         
     def ClientConnect(self, userid):
@@ -76,4 +82,7 @@ class ClientLayer():
     
     def authorize_client(self, authclient, cuuid):
         clients[authclient] = temp_users[cuuid]
+        
+    def list_users(self):
+        return clients
     

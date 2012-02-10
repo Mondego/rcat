@@ -6,6 +6,8 @@ from appconnector.ProxyConnector import ProxyConnector
 import logging.config
 import json
 
+pc = None
+
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         print "App Websocket Open"
@@ -32,6 +34,6 @@ if __name__ == "__main__":
     #tornado.ioloop.IOLoop.instance().start()
     logging.config.fileConfig("connector_logging.conf")
     t = Thread(target=tornado.ioloop.IOLoop.instance().start).start()
-    pc = ProxyConnector("ws://localhost:8888/server","ws://localhost:9999/")
+    pc = ProxyConnector(["ws://localhost:8888/"],"ws://localhost:9999/")
     
     
