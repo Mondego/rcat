@@ -9,7 +9,7 @@ logger = logging.getLogger()
 
 class ProxyConnector():
     appWS = None
-    #proxyWS = None
+    proxies = None
     events = None
     manager = None
     client_location = None
@@ -21,6 +21,7 @@ class ProxyConnector():
         TODO: Support more than one proxy! Right now only the last proxy in the list is used.
         """
         self.admin_proxy = {}
+        self.proxies = []
         for proxy in proxyURLs:
             adminWS = websocket.WebSocketApp(proxy+"admin",
                                         on_open = self.Admin_on_open,
@@ -33,6 +34,7 @@ class ProxyConnector():
                                         on_error = self.Proxy_on_error,
                                         on_close = self.Proxy_on_close)
             self.admin_proxy[adminWS] = proxyWS
+            self.proxies.append(proxyWS)
             logger.debug("[ProxyConnector]: Connecting to Proxy in " + proxy)
             Thread(target=proxyWS.run_forever).start()
             logger.debug("[ProxyConnector]: Proxy Connected!")
@@ -92,6 +94,9 @@ class ProxyConnector():
             for client in msg["U"]:
                 logger.debug("Sending message " + message + " to client " + client)
                 self.client_location[client].send(message)
+        else:
+            for server in self.proxies:
+                server.send(message)
    
     def App_on_error(self,ws, error):
         print error
