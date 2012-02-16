@@ -1,3 +1,9 @@
+"""
+Front.py
+Summary: Opens a websocket listener for servers. Messages from server are received in Front
+and passed to Back so they can be delivered to client. Messages sent to Back are forwarded 
+to Front through Proxy, in order to reach the server. 
+"""
 import Queue
 import json
 import logging
@@ -25,20 +31,38 @@ class HTTPHandler(tornado.web.RequestHandler):
 
 class ClientHandler(tornado.websocket.WebSocketHandler):
     logger = logging.getLogger("proxy")
+    myid = None
     def open(self):
         self.logger.debug("WebSocket opened")
-        clients[uuid.uuid4()] = self
+        self.myid = str(uuid.uuid4())
+        clients[self.myid] = self
+        
+        newmsg = {}
+        newmsg["NU"] = self.myid 
+        
+        proxyref.broadcast_admins(json.dumps(newmsg))
         
     def on_message(self, message):
         global proxyref
-        self.logger.debug(message)
         try:
-            proxyref.send_message_to_server(message)
+            newmsg = {}
+            # Append client metadata here. For now, just putting in the client's message and its uuid.
+            newmsg["M"] = message
+            newmsg["U"] = [self.myid]
+            
+            json_msg = json.dumps(newmsg)
+            self.logger.debug(json_msg)
+            proxyref.send_message_to_server(json_msg)
             
         except Exception, err:
             self.logger.exception('[Front]: Error processing message on Front module:')
 
     def on_close(self):
+        newmsg = {}
+        # User disconnected
+        newmsg["UD"] = self.myid
+
+        proxyref.broadcast_admins(json.dumps(newmsg))
         self.logger.debug("WebSocket closed")
         
         
@@ -51,6 +75,7 @@ class ClientLayer():
         proxyref = proxy
         proxyref.send_message_to_client = self.send_message
         proxyref.authorize_client = self.authorize_client
+        proxyref.list_users = self.list_users
         proxyref.test()
         
     def ClientConnect(self, userid):
@@ -68,4 +93,7 @@ class ClientLayer():
     
     def authorize_client(self, authclient, cuuid):
         clients[authclient] = temp_users[cuuid]
+        
+    def list_users(self):
+        return clients
     

@@ -3,7 +3,9 @@ Created on Oct 31, 2011
 
 @author: Arthur Valadares
 
-Proxy starts ProxyFront and ProxyBack
+Proxy starts Front and Back modules, which talk to clients and servers respectively. 
+The proxy acts as an intermediary of messages from front to back and vice-versa through
+the redefining of functions. 
 '''
 import tornado.ioloop
 import tornado.web
@@ -20,10 +22,16 @@ class Proxy():
     def send_message_to_server(self,message):
         raise Exception('[Proxy]: Not implemented!')
     
+    def broadcast_admins(self,message):
+        raise Exception('[Proxy]: Not implemented!')
+    
     def send_message_to_client(self,message, clients):
         raise Exception('[Proxy]: Not implemented!')
     
     def authorize_client(self, authclient, cuuid):
+        raise Exception('[Proxy]: Not implemented!')
+    
+    def list_users(self):
         raise Exception('[Proxy]: Not implemented!')
     
     def test(self):
@@ -45,6 +53,7 @@ if __name__ == "__main__":
     (r"/", Front.HTTPHandler),
     (r"/client", Front.ClientHandler),
     (r"/server", Back.ServerHandler),
+    (r"/admin", Back.AdminHandler),
     ])
     tornado.options.parse_command_line()
     application.listen(options.port)

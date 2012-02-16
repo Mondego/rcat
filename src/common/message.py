@@ -11,3 +11,7 @@ class MESSAGE_TYPE:
     ACCEPTED=2
     WEBSOCKET=3
     HTTP=4
+
+class DEBUG:
+    OFF=0
+    ON=1

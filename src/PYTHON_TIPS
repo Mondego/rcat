@@ -1,0 +1,68 @@
+======
+Swap Values:
+======
+In other languages:
+
+temp = a
+a = b
+b = temp
+In Python:
+
+b, a = a, b
+
+======
+Building Strings:
+======
+colors = ['red', 'blue', 'green', 'yellow']
+print 'Choose', ', '.join(colors[:-1]), \
+      'or', colors[-1]
+      
+items = []
+...
+items.append(item)  # many times
+...
+# items is now complete
+result = ''.join(fn(i) for i in items)
+      
+      
+      
+======
+DefaultDict
+======
+from collections import defaultdict
+
+equities = defaultdict(list)
+for (portfolio, equity) in data:
+    equities[portfolio].append(equity)
+    
+
+=======
+Enumerate
+======
+>>> print list(enumerate(items))
+[(0, 'zero'), (1, 'one'), (2, 'two'), (3, 'three')]
+
+
+=======
+String Formatting
+=======
+name = 'David'
+messages = 3
+text = ('Hello %s, you have %i messages'
+        % (name, messages))
+print text
+
+values = {'name': name, 'messages': messages}
+print ('Hello %(name)s, you have %(messages)i '
+       'messages' % values)
+       
+=======
+List Comprehensions
+=======
+
+new_list = [fn(item) for item in a_list
+            if condition(item)]
+            
+>>> [n ** 2 for n in range(10)]
+[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+

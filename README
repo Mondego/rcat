@@ -1,4 +1,9 @@
 A web server for massively multi-user online applications.
 
+Requirements:
+Tornado Web Server (http://www.tornadoweb.org/)
+Websocket client (http://pypi.python.org/pypi/websocket-client/0.5.1)
+Python 2.7
+
 NetGames paper:
   http://www.ics.uci.edu/~tdebeauv/files/debeauvais_Netgames_RCAT.pdf
