@@ -1,26 +1,25 @@
-'''
-Created on Oct 29, 2011
-
-@author: tdebeauv
-'''
+from ws4py.client.threadedclient import WebSocketClient
 
 
-import httplib
-import urllib
 
-myURL = 'localhost:8888'
-conn = httplib.HTTPConnection(myURL)
-params = urllib.urlencode({'body':'hello'})
-print params
-conn.request('POST', '/a/message/new', params)
-res = conn.getresponse()
+class EchoClient(WebSocketClient):
+    # from https://github.com/Lawouach/WebSocket-for-Python
+    def opened(self):
+        print 'send hello from bot'
+        self.send('Hello from bot')
 
-#I am only interested in 200 OK response, anything else can be ignored
-if res.status == 200:
-    data = res.read()
-    allheaders = res.getheaders()
-    print 'data: ', data 
-    for header in allheaders:
-        print '  ', header[0], ':', header[1]
-else:
-    print 'POST failed on ', myURL, ', reason: ', res.reason, ', status: ', res.status
+    def closed(self, code, reason):
+        print "Closed ", code, reason
+
+    def received_message(self, m):
+        print "Received ", str(m)
+        self.close()
+
+if __name__ == '__main__':
+    try:
+        ws = EchoClient('http://localhost:9000/ws', protocols=['http-only', 'chat'])
+        ws.connect()
+    except KeyboardInterrupt:
+        ws.close()
+
+
