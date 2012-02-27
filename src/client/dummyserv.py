@@ -1,35 +1,40 @@
+from time import sleep
+import logging.config
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
 
+
+log = logging.getLogger('dummysrv')
+
+
 class WSHandler(tornado.websocket.WebSocketHandler):
     
     def open(self):
-        print 'new connection '
+        """ send a message, wait a sec, then resend a msg """
+        log.info(str(self.request.connection.address) + ' joined')
+        
         self.write_message("Hello from serv")
+        #sleep(1)
+        #self.write_message("Hello from serv again")
+      
       
     def on_message(self, message):
-        print 'message received %s' % message
+        log.debug(str(self.request.connection.address) + ' says: ' + message)
 
     def on_close(self):
-        print 'connection closed'
+        log.info(str(self.request.connection.address) + ' left')
       
 
 
-
-class MainHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.write("Hello http")
-
 app = tornado.web.Application([
-    (r"/", MainHandler),
-    (r'/ws', WSHandler)
+    (r'/ws', WSHandler),
 ])
 
 
 if __name__ == "__main__":
-    app.listen(9000)
-    print 'server listens on 9000'
-    #http_server = tornado.httpserver.HTTPServer(app_http)
-    #http_server.listen(8888)
+    logging.config.fileConfig("logging.conf")
+    
+    app.listen(9000) # TODO: from config file instead 
+    log.info('server listens on 9000')
     tornado.ioloop.IOLoop.instance().start()
