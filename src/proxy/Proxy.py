@@ -13,13 +13,14 @@ import logging.config
 import front.Front as Front
 import back.Back as Back
 from tornado.options import define, options
+from common.message import PROXY_DISTRIBUTION
 
 define("port", default=8888, help="run on the given port", type=int)
 client={}
 
 # Intermediates messages between Front and Back
 class Proxy():
-    def send_message_to_server(self,message):
+    def send_message_to_server(self,message,server=None):
         raise Exception('[Proxy]: Not implemented!')
     
     def broadcast_admins(self,message):
@@ -34,18 +35,31 @@ class Proxy():
     def list_users(self):
         raise Exception('[Proxy]: Not implemented!')
     
+    def sticky_server(self):
+        raise Exception('[Proxy]: Not implemented!')
+    
     def test(self):
         logging.debug("Testing")
         
 if __name__ == "__main__":
     # Clients and servers connect to the Proxy through different URLs
-    logging.config.fileConfig("logging.conf")
+    logging.config.fileConfig("logging.conf")    
+    """ 
+    TODO: As new options are available, parse them and standardize the options dictionary.
+    Current options are:
     
+    DISTRIBUTION: 
+    Description: Defines how messages are distributed from proxy to app servers.
+    Options: Round-robin or sticky (messages from a client always hit the same app server)
+    """
     proxy = Proxy()
+    proxy_options = {}
+    proxy_options["DISTRIBUTION"] = PROXY_DISTRIBUTION.STICKY
+    
     logging.debug("Starting ClientLayer")
-    x = Front.ClientLayer(proxy)
+    x = Front.ClientLayer(proxy, proxy_options)
     logging.debug("Starting ServerLayer")
-    y = Back.ServerLayer(proxy)
+    y = Back.ServerLayer(proxy, proxy_options)
     logging.debug("Proxy Started")
 
     

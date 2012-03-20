@@ -4,17 +4,19 @@ Summary: Opens a websocket listener for servers. Messages from server are receiv
 and passed to Back so they can be delivered to client. Messages sent to Back are forwarded 
 to Front through Proxy, in order to reach the server. 
 """
-import Queue
 import json
 import logging
 import time
 import tornado.web
 import tornado.websocket
 import uuid
+from common.message import PROXY_DISTRIBUTION
 
 temp_users = {}
 clients = {}
+client_proxy = {}
 proxyref = None
+proxy_options = None 
 
 def SendToClient(handler,msg):
     handler.write(msg)
@@ -32,7 +34,11 @@ class HTTPHandler(tornado.web.RequestHandler):
 class ClientHandler(tornado.websocket.WebSocketHandler):
     logger = logging.getLogger("proxy")
     myid = None
+    sticky_server=None
+    
     def open(self):
+        global proxy_options
+        
         self.logger.debug("WebSocket opened")
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
@@ -40,10 +46,13 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         newmsg = {}
         newmsg["NU"] = self.myid 
         
+        if proxy_options["DISTRIBUTION"] == PROXY_DISTRIBUTION.STICKY:
+            self.sticky_server = proxyref.sticky_server()
         proxyref.broadcast_admins(json.dumps(newmsg))
         
     def on_message(self, message):
         global proxyref
+        global proxy_options
         try:
             newmsg = {}
             # Append client metadata here. For now, just putting in the client's message and its uuid.
@@ -52,7 +61,7 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
             
             json_msg = json.dumps(newmsg)
             self.logger.debug(json_msg)
-            proxyref.send_message_to_server(json_msg)
+            proxyref.send_message_to_server(json_msg,self.sticky_server)
             
         except Exception, err:
             self.logger.exception('[Front]: Error processing message on Front module:')
@@ -70,16 +79,16 @@ class ClientLayer():
     dq = {}
     logger = logging.getLogger("proxy")
     
-    def __init__(self, proxy):
+    def __init__(self, proxy,options):
         global proxyref
+        global proxy_options
+       
         proxyref = proxy
+        proxy_options = options
         proxyref.send_message_to_client = self.send_message
         proxyref.authorize_client = self.authorize_client
         proxyref.list_users = self.list_users
         proxyref.test()
-        
-    def ClientConnect(self, userid):
-        self.dq[userid] = Queue()
         
     def send_message(self, message, clientList=None):
         if clientList==None:

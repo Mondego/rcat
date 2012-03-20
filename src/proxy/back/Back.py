@@ -12,6 +12,7 @@ import traceback
 
 servers = []
 admins = []
+sticky_client = {}
 server_cycle = None
 admins_cycle = None
 proxyref = None
@@ -73,20 +74,29 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         admins.remove(self)
 
 class ServerLayer():
-    def __init__(self,proxy):
+    def __init__(self,proxy,options):
         global proxyref
         logging.debug("Starting ServerLayer")
         proxyref = proxy
         proxyref.send_message_to_server = self.send_message
         proxyref.broadcast_admins = self.broadcast_admins
+        proxyref.sticky_server = self.pick_sticky_server
         
-    def send_message(self,message):
+    def send_message(self,message,server=None):
         global server_cycle
         global servers
         
-        if len(servers) > 0:
+        if (server):
+            server.write_message(message)  
+        elif len(servers) > 0:
             server_cycle.next().write_message(message)
+            
+    def pick_sticky_server(self):
+        global server_cycle
+        global servers
         
+        return server_cycle.next()
+    
     def broadcast_admins(self,message):
         for adm in admins:
             adm.write_message(message)

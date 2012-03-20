@@ -15,3 +15,7 @@ class MESSAGE_TYPE:
 class DEBUG:
     OFF=0
     ON=1
+    
+class PROXY_DISTRIBUTION:
+    ROUNDROBIN=0
+    STICKY=1
