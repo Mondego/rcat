@@ -18,6 +18,7 @@ clients = {}
 client_proxy = {}
 proxyref = None
 proxy_options = None 
+logger = logging.getLogger("proxy")
 
 def SendToClient(handler,msg):
     handler.write(msg)
@@ -34,14 +35,13 @@ class HTTPHandler(tornado.web.RequestHandler):
             print msg
 
 class ClientHandler(tornado.websocket.WebSocketHandler):
-    logger = logging.getLogger("proxy")
     myid = None
     sticky_server=None
     
     def open(self):
         global proxy_options
         
-        self.logger.debug("WebSocket opened")
+        logger.debug("WebSocket opened")
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
         
@@ -62,11 +62,11 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
             newmsg["U"] = [self.myid]
             
             json_msg = json.dumps(newmsg)
-            self.logger.debug(json_msg)
+            logger.debug(json_msg)
             proxyref.back.send_message_to_server(json_msg,self.sticky_server)
             
         except Exception:
-            self.logger.exception('[Front]: Error processing message on Front module:')
+            logger.exception('[Front]: Error processing message on Front module:')
 
     def on_close(self):
         newmsg = {}
@@ -74,32 +74,28 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         newmsg["UD"] = self.myid
 
         proxyref.back.broadcast_admins(json.dumps(newmsg))
-        self.logger.debug("WebSocket closed")
+        logger.debug("WebSocket closed")
         
         
 class ClientLayer(proxy.AbstractFront):
-    dq = {}
-    logger = logging.getLogger("proxy")
-    
+    dq = {}    
     def __init__(self, proxy,options):
         global proxyref
         global proxy_options
        
+        logging.debug("Starting ClientLayer")
         proxyref = proxy
         proxy_options = options
-        #proxyref.send_message_to_client = self.send_message
-        #proxyref.authorize_client = self.authorize_client
-        #proxyref.list_users = self.list_users
         
     def send_message_to_client(self, message, clientList=None):
         if clientList==None:
             clientList = clients
-        self.logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
+        logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
         for client in clientList:
             if (client in clients):
                 clients[client].write_message(message)
             else:
-                self.logger.warn("[Front]: Client " + client + " is not registered in this proxy.")
+                logger.warn("[Front]: Client " + client + " is not registered in this proxy.")
     
     def authorize_client(self, authclient, cuuid):
         clients[authclient] = temp_users[cuuid]

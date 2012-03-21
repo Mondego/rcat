@@ -16,9 +16,9 @@ sticky_client = {}
 server_cycle = None
 admins_cycle = None
 proxyref = None
+logger = logging.getLogger("proxy")
 
-class ServerHandler(tornado.websocket.WebSocketHandler):
-    logger = logging.getLogger("proxy")
+class ServerHandler(tornado.websocket.WebSocketHandler):    
     def open(self):
         global servers
         global server_cycle
@@ -30,15 +30,15 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         global proxyref
         try:
             msg = json.loads(message)
-            self.logger.debug(message)
+            logger.debug(message)
             if "U" in msg:
                 users = msg["U"]
-                self.logger.debug("Sending message " + msg["M"] + "to users " + str(users))
+                logger.debug("Sending message " + msg["M"] + "to users " + str(users))
                 proxyref.front.send_message_to_client(msg["M"],users)
             else:
                 proxyref.front.send_message_to_client(msg["M"])
         except Exception:
-            self.logger.exception('[Back]: Error processing message on Back module:')
+            logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
         global servers
@@ -48,9 +48,8 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         server_cycle = itertools.cycle(servers)
         
 class AdminHandler(tornado.websocket.WebSocketHandler):
-    logger = logging.getLogger("proxy")
     def open(self):
-        self.logger.debug("Admin Opened Connection")
+        logger.debug("Admin Opened Connection")
         admins.append(self)
         newmsg = {}
         newmsg["LU"] = proxyref.front.list_users()
@@ -60,17 +59,17 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         global proxyref
         try:
             msg = json.loads(message)
-            self.logger.debug(message)
+            logger.debug(message)
             # List of Users - Request
             if "LUR" in msg:
                 newmsg = {}
                 newmsg["LU"] = proxyref.front.list_users()
                 self.write_message(json.dumps(newmsg))
         except Exception:
-            self.logger.exception('[Back]: Error processing message on Back module:')
+            logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
-        self.logger.debug("Admin Closed Connection")        
+        logger.debug("Admin Closed Connection")        
         admins.remove(self)
 
 class ServerLayer(proxy.AbstractBack):
@@ -78,9 +77,6 @@ class ServerLayer(proxy.AbstractBack):
         global proxyref
         logging.debug("Starting ServerLayer")
         proxyref = proxy
-        #proxyref.send_message_to_server = self.send_message
-        #proxyref.broadcast_admins = self.broadcast_admins
-        #proxyref.sticky_server = self.pick_sticky_server
         
     def send_message_to_server(self,message,server=None):
         global server_cycle
