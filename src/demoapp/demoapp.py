@@ -2,7 +2,7 @@ from tornado import websocket
 import tornado.ioloop
 import tornado.web
 from threading import Thread
-from appconnector.ProxyConnector import ProxyConnector
+from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
 

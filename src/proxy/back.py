@@ -8,7 +8,7 @@ import json
 import tornado.websocket
 import itertools
 import logging
-import traceback
+import proxy
 
 servers = []
 admins = []
@@ -34,10 +34,10 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             if "U" in msg:
                 users = msg["U"]
                 self.logger.debug("Sending message " + msg["M"] + "to users " + str(users))
-                proxyref.send_message_to_client(msg["M"],users)
+                proxyref.front.send_message_to_client(msg["M"],users)
             else:
-                proxyref.send_message_to_client(msg["M"])
-        except Exception,err:
+                proxyref.front.send_message_to_client(msg["M"])
+        except Exception:
             self.logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
@@ -53,7 +53,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         self.logger.debug("Admin Opened Connection")
         admins.append(self)
         newmsg = {}
-        newmsg["LU"] = proxyref.list_users()
+        newmsg["LU"] = proxyref.front.list_users()
         self.write_message(json.dumps(newmsg))
         
     def on_message(self, message):
@@ -64,25 +64,25 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
             # List of Users - Request
             if "LUR" in msg:
                 newmsg = {}
-                newmsg["LU"] = proxyref.list_users()
+                newmsg["LU"] = proxyref.front.list_users()
                 self.write_message(json.dumps(newmsg))
-        except Exception,err:
+        except Exception:
             self.logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
         self.logger.debug("Admin Closed Connection")        
         admins.remove(self)
 
-class ServerLayer():
+class ServerLayer(proxy.AbstractBack):
     def __init__(self,proxy,options):
         global proxyref
         logging.debug("Starting ServerLayer")
         proxyref = proxy
-        proxyref.send_message_to_server = self.send_message
-        proxyref.broadcast_admins = self.broadcast_admins
-        proxyref.sticky_server = self.pick_sticky_server
+        #proxyref.send_message_to_server = self.send_message
+        #proxyref.broadcast_admins = self.broadcast_admins
+        #proxyref.sticky_server = self.pick_sticky_server
         
-    def send_message(self,message,server=None):
+    def send_message_to_server(self,message,server=None):
         global server_cycle
         global servers
         
@@ -91,7 +91,7 @@ class ServerLayer():
         elif len(servers) > 0:
             server_cycle.next().write_message(message)
             
-    def pick_sticky_server(self):
+    def sticky_server(self):
         global server_cycle
         global servers
         

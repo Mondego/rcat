@@ -10,6 +10,7 @@ import time
 import tornado.web
 import tornado.websocket
 import uuid
+import proxy
 from common.message import PROXY_DISTRIBUTION
 
 temp_users = {}
@@ -30,6 +31,7 @@ class HTTPHandler(tornado.web.RequestHandler):
         argument = self.get_argument("message", False)
         if (argument):
             msg = argument + ";timestamp: " + str(timestamp)
+            print msg
 
 class ClientHandler(tornado.websocket.WebSocketHandler):
     logger = logging.getLogger("proxy")
@@ -47,8 +49,8 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         newmsg["NU"] = self.myid 
         
         if proxy_options["DISTRIBUTION"] == PROXY_DISTRIBUTION.STICKY:
-            self.sticky_server = proxyref.sticky_server()
-        proxyref.broadcast_admins(json.dumps(newmsg))
+            self.sticky_server = proxyref.back.sticky_server()
+        proxyref.back.broadcast_admins(json.dumps(newmsg))
         
     def on_message(self, message):
         global proxyref
@@ -61,9 +63,9 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
             
             json_msg = json.dumps(newmsg)
             self.logger.debug(json_msg)
-            proxyref.send_message_to_server(json_msg,self.sticky_server)
+            proxyref.back.send_message_to_server(json_msg,self.sticky_server)
             
-        except Exception, err:
+        except Exception:
             self.logger.exception('[Front]: Error processing message on Front module:')
 
     def on_close(self):
@@ -71,11 +73,11 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         # User disconnected
         newmsg["UD"] = self.myid
 
-        proxyref.broadcast_admins(json.dumps(newmsg))
+        proxyref.back.broadcast_admins(json.dumps(newmsg))
         self.logger.debug("WebSocket closed")
         
         
-class ClientLayer():
+class ClientLayer(proxy.AbstractFront):
     dq = {}
     logger = logging.getLogger("proxy")
     
@@ -85,12 +87,11 @@ class ClientLayer():
        
         proxyref = proxy
         proxy_options = options
-        proxyref.send_message_to_client = self.send_message
-        proxyref.authorize_client = self.authorize_client
-        proxyref.list_users = self.list_users
-        proxyref.test()
+        #proxyref.send_message_to_client = self.send_message
+        #proxyref.authorize_client = self.authorize_client
+        #proxyref.list_users = self.list_users
         
-    def send_message(self, message, clientList=None):
+    def send_message_to_client(self, message, clientList=None):
         if clientList==None:
             clientList = clients
         self.logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
