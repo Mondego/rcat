@@ -39,8 +39,6 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
     sticky_server=None
     
     def open(self):
-        global proxy_options
-        
         logger.debug("WebSocket opened")
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
@@ -53,8 +51,6 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         proxyref.back.broadcast_admins(json.dumps(newmsg))
         
     def on_message(self, message):
-        global proxyref
-        global proxy_options
         try:
             newmsg = {}
             # Append client metadata here. For now, just putting in the client's message and its uuid.

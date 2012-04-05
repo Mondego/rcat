@@ -27,7 +27,6 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         server_cycle = itertools.cycle(servers)
                 
     def on_message(self, message):
-        global proxyref
         try:
             msg = json.loads(message)
             logger.debug(message)
@@ -56,7 +55,6 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         self.write_message(json.dumps(newmsg))
         
     def on_message(self, message):
-        global proxyref
         try:
             msg = json.loads(message)
             logger.debug(message)
@@ -79,18 +77,12 @@ class ServerLayer(proxy.AbstractBack):
         proxyref = proxy
         
     def send_message_to_server(self,message,server=None):
-        global server_cycle
-        global servers
-        
         if (server):
             server.write_message(message)  
         elif len(servers) > 0:
             server_cycle.next().write_message(message)
             
     def sticky_server(self):
-        global server_cycle
-        global servers
-        
         return server_cycle.next()
     
     def broadcast_admins(self,message):

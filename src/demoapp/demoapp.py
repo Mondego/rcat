@@ -5,12 +5,21 @@ from threading import Thread
 from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
+import data.mysqlconn as MySQLConn
 
 pc = None
+datacon = None
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
+        global datacon
         logging.debug("App Websocket Open")
+        datacon = MySQLConn.MySQLConnector()
+        datacon.open_connections('localhost', 'rcat', 'isnotamused', 'rcat')
+        result = datacon.execute('SHOW TABLES')
+        datacon.create_table("users","name")
+        datacon.execute("delete from users")
+        print result
 
     def on_message(self, message):
         msg = json.loads(message)
@@ -20,6 +29,8 @@ class EchoWebSocket(websocket.WebSocketHandler):
         newmsg["M"] = msg["M"].swapcase()
         newmsg["U"] = msg["U"]
         json_msg = json.dumps(newmsg)
+        datacon.insert("users", [int(newmsg["M"]),0,1,2,3], newmsg["M"])
+        datacon.update("users", [("top",3)], newmsg["M"])
         self.write_message(json_msg)
 
     def on_close(self):
