@@ -6,12 +6,13 @@ Created on March 21, 2012
 mysqlconn.py: Used as an API between application layer and a MYSQL database. Uses python-mysqldb
 '''
 
+from threading import Timer
 import MySQLdb as mdb
-import sys
-import itertools
 import common.helper as helper
+import itertools
 import logging
-import threading
+import sys
+import time
 
 conns = []
 cursors = []
@@ -46,6 +47,7 @@ class MySQLConnector():
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
+        Timer(5.0,self.__dump_to_database__).start()
                 
     def execute(self,cmd):
         cur = self.cur
@@ -58,12 +60,21 @@ class MySQLConnector():
     TODO: Make this work! 
     """
     def __dump_to_database__(self):
-        cur = self.cur
-        for tbl in tables:
-            for key,value in tbl.items():
-                if not key.startswith('__'):
-                    cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s", (tbl,myip,tbl["__ridname__"],key))
-                    
+        while(1):
+            cur = self.cur 
+            logger.debug("[mysqlconn]: Dumping to database.")
+            for tblnames,tblvalues in tables.items():
+                for itemname,itemvalues in tblvalues.items():
+                    if not itemname.startswith("__"):
+                        if itemvalues["__location__"] == myip:
+                            try:
+                                mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`val`]) for key,val in itemvalues.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
+                                print mystr
+                                cur.execute(mystr)
+                                cur.connection.commit()
+                            except mdb.cursors.Error,e:
+                                print e
+            time.sleep(5)
                 
     
     """
