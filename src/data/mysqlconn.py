@@ -13,6 +13,9 @@ import itertools
 import logging
 import sys
 import time
+import tornado.web
+import json
+import httplib
 
 conns = []
 cursors = []
@@ -20,12 +23,31 @@ tables = {}
 object_list = {}
 logger = logging.getLogger()
 myip = ''
+mysqlconn = None
+
+class ObjectManager(tornado.web.RequestHandler):
+    def get(self):
+        rid = self.get_argument("rid",None)
+        tbl = self.get_argument("tbl",None)
+        op = self.get_argument("op",None)
+        if op == "update":
+            tuples = json.loads(self.get_argument("tuples"),None)
+            mysqlconn.update(tbl,tuples,rid)
+            self.write("OK")
+        else:
+            names = self.get_argument("names",None)
+            obj = mysqlconn.select(tbl,rid,names)
+            self.write(obj)
 
 class MySQLConnector():
-    def __init__(self,ip=helper.get_ip_address('eth0')):
+    def __init__(self,ip=None):
         global myip
+        global mysqlconn
+        if not ip:
+            ip = helper.get_ip_address('eth0')
         myip = ip
         logger.debug("[mysqlconn]: Starting MySQL Connector.")
+        mysqlconn = self
 
     @ property
     def cur(self):
@@ -62,14 +84,13 @@ class MySQLConnector():
     def __dump_to_database__(self):
         while(1):
             cur = self.cur 
-            logger.debug("[mysqlconn]: Dumping to database.")
+            #logger.debug("[mysqlconn]: Dumping to database.")
             for tblnames,tblvalues in tables.items():
                 for itemname,itemvalues in tblvalues.items():
                     if not itemname.startswith("__"):
                         if itemvalues["__location__"] == myip:
                             try:
                                 mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`val`]) for key,val in itemvalues.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
-                                print mystr
                                 cur.execute(mystr)
                                 cur.connection.commit()
                             except mdb.cursors.Error,e:
@@ -198,9 +219,9 @@ class MySQLConnector():
                 return row
             if (row["__location__"] != myip):
                 if update_values:
-                    self.__send_update_owner(row["__location__"],table,update_values,RID)
+                    self.__send_request_owner(row["__location__"],table,RID,None,update_values)
                 else:
-                    self.__send_select_owner(row["__location__"],table,RID,name)
+                    self.__send_request_owner(row["__location__"],table,RID,name)
                 tables[table][RID] = {}
                 tables[table][RID]["__location__"] = row["__location__"]
             else:
@@ -210,17 +231,28 @@ class MySQLConnector():
             return False
         
     """
-    __send_update_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
+    __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def __send_update_owner(self,host,table,update_tuples,RID):
-        pass
-
-    """
-    __send_select_owner(self,host,table,name=None,RID): Sends message to authoritative owner of object to retrieve all or just a property of an object with id=RID
-    """
-    def __send_select_owner(self,host,table,RID,name=None):
-        pass
-
+    def __send_request_owner(self,host,table,RID,names=None,update_tuples=None):
+        if update_tuples:
+            cmd = "?op=update&tuples=" + json.dumps(update_tuples)
+        else:
+            cmd = "?op=select"
+            if names:
+                cmd += "&names=" + json.dumps(names)
+        conn = httplib.HTTPConnection(host)
+        conn.request("GET", "/obm?rid="+RID+"&tbl="+table+cmd)
+        resp = conn.getresponse()
+        if update_tuples:
+            if resp.status.startswith("200"):
+                if resp.read() == "OK":
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return resp.read()
     
 if __name__=="__main__":
     con = None

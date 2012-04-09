@@ -14,8 +14,8 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("App Websocket Open")
-        datacon = MySQLConn.MySQLConnector()
-        datacon.open_connections('localhost', 'rcat', 'isnotamused', 'rcat')
+        datacon = MySQLConn.MySQLConnector("169.234.140.118")
+        datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         result = datacon.execute('SHOW TABLES')
         datacon.create_table("users","name")
         datacon.execute("delete from users")
@@ -38,6 +38,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
         
 application = tornado.web.Application([
     (r"/", EchoWebSocket),
+    (r"/obm", MySQLConn.ObjectManager)
 ])
 
 if __name__ == "__main__":

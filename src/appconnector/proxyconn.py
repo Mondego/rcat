@@ -5,12 +5,12 @@ clients in the proxies from the application level. Also provides an event interf
 for application control, e.g. "disconnect user from the proxy."  
 """
 
-import logging
-import websocket
-import time
 from threading import Thread
 import json
+import logging
 import sys
+import time
+import websocket
 
 logger = logging.getLogger()
 
