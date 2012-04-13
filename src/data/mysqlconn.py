@@ -16,6 +16,7 @@ import time
 import tornado.web
 import json
 import httplib
+import urllib
 
 conns = []
 cursors = []
@@ -35,7 +36,7 @@ class ObjectManager(tornado.web.RequestHandler):
             mysqlconn.update(tbl,tuples,rid)
             self.write("OK")
         else:
-            names = self.get_argument("names",None)
+            names = json.loads(self.get_argument("names",None))
             obj = mysqlconn.select(tbl,rid,names)
             self.write(str(obj))
 
@@ -115,14 +116,17 @@ class MySQLConnector():
     """
     select(self,table,name=None,RID): Return object (or one property of object). Requires finding authoritative owner and requesting most recent status 
     """
-    def select(self,table,RID, name=None):
+    def select(self,table,RID, names=None):
         if table in tables:
             if RID in tables[table]:
                 if tables[table][RID]["__location__"] != myip:
-                    self.__send_select_owner(tables[table][RID]["__location__"],table,name,RID) 
+                    self.__send_select_owner(tables[table][RID]["__location__"],table,names,RID) 
                 else:
-                    if name:
-                        return tables[table][RID][name]
+                    if names:
+                        newdic = {}
+                        for name in names:
+                            newdic[name] = tables[table][RID][name]
+                        return newdic
                     else:
                         row = tables[table][RID]
                         return row
@@ -236,11 +240,11 @@ class MySQLConnector():
     """    
     def __send_request_owner(self,host,table,RID,names=None,update_tuples=None):
         if update_tuples:
-            cmd = "?op=update&tuples=" + json.dumps(update_tuples)
+            cmd = "?op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
         else:
             cmd = "?op=select"
             if names:
-                cmd += "&names=" + json.dumps(names)
+                cmd += "&names=" + urllib.quote(json.dumps(names))
         conn = httplib.HTTPConnection(host)
         conn.request("GET", "/obm?rid="+RID+"&tbl="+table+cmd)
         resp = conn.getresponse()
