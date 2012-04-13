@@ -31,13 +31,13 @@ class ObjectManager(tornado.web.RequestHandler):
         tbl = self.get_argument("tbl",None)
         op = self.get_argument("op",None)
         if op == "update":
-            tuples = json.loads(self.get_argument("tuples"),None)
+            tuples = json.loads(self.get_argument("tuples"),None)   
             mysqlconn.update(tbl,tuples,rid)
             self.write("OK")
         else:
             names = self.get_argument("names",None)
             obj = mysqlconn.select(tbl,rid,names)
-            self.write(obj)
+            self.write(str(obj))
 
 class MySQLConnector():
     def __init__(self,ip=None):
@@ -89,8 +89,9 @@ class MySQLConnector():
                 for itemname,itemvalues in tblvalues.items():
                     if not itemname.startswith("__"):
                         if itemvalues["__location__"] == myip:
-                            try:
+                            try:                                
                                 mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`val`]) for key,val in itemvalues.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
+                                print mystr
                                 cur.execute(mystr)
                                 cur.connection.commit()
                             except mdb.cursors.Error,e:
@@ -132,7 +133,7 @@ class MySQLConnector():
     
     """
     update(self,table,update_tuples,RID): Updates property(ies) of an object. Requires finding authoritative owner and requesting update of object.
-    update_tuples: List or tuple of tuples (old value, new value)
+    update_tuples: List or tuple of tuples (column name, new value)
     """
     def update(self,table,update_tuples,RID):
         if table in tables:

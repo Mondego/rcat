@@ -14,7 +14,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("App Websocket Open")
-        datacon = MySQLConn.MySQLConnector("169.234.140.118")
+        datacon = MySQLConn.MySQLConnector("169.234.140.84")
         datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         result = datacon.execute('SHOW TABLES')
         datacon.create_table("users","name")
