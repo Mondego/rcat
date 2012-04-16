@@ -17,6 +17,8 @@ import tornado.web
 import json
 import httplib
 import urllib
+import SocketServer
+import socket
 
 conns = []
 cursors = []
@@ -25,20 +27,89 @@ object_list = {}
 logger = logging.getLogger()
 myip = ''
 mysqlconn = None
+ps_socket = None
+pubsubs = None
+
+class PubSubUpdateHandler(SocketServer.BaseRequestHandler):
+    """
+    This class works similar to the TCP handler class, except that
+    self.request consists of a pair of data and client socket, and since
+    there is no connection the client address must be given explicitly
+    when sending data back via sendto().
+    """
+    def handle(self):
+        print self.request
+        data = json.loads(self.request[0].strip())
+        tbl = data["tbl"]
+        rid = data["rid"]
+        for name in data["data"]:
+            tables[tbl][rid][name] = data["data"][name]
+        
+        socket = self.request[1]
+        socket.sendto("OK", self.client_address)
+        
+        """
+        print "{} wrote:".format(self.client_address[0])
+        print data
+        socket.sendto(data.upper(), self.client_address)
+        """
+
+class PubSubUpdateSender():
+    subscribers = []
+    table = ""
+    sock = None
+    
+    def __init__(self,name):
+        self.name = name
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+    def add_subscriber(self,location,interests):
+        subscriber = {}
+        subscriber["location"] = location
+        subscriber["interests"] = interests
+        self.subscribers.append(subscriber)
+
+    # TODO: Increase performance, improve algorithm    
+    def send(self, rid, updated_dict):
+        msg = {}
+        msg["rid"] = rid
+        msg["tbl"] = self.table
+        msg["data"] = updated_dict # Dictionary with updated values only
+        message = json.dumps(msg)
+         
+        for subscriber in self.subscribers:
+            if subscriber["interests"]:
+                for interest in subscriber["interests"]:
+                    if interest in updated_dict:
+                        self.sock.sendto(json.dumps(message) + "\n", subscriber["location"])
+                        break
+            else:
+                self.sock.sendto(json.dumps(message) + "\n", subscriber["location"])
+            
 
 class ObjectManager(tornado.web.RequestHandler):
     def get(self):
-        rid = self.get_argument("rid",None)
-        tbl = self.get_argument("tbl",None)
-        op = self.get_argument("op",None)
-        if op == "update":
-            tuples = json.loads(self.get_argument("tuples"),None)   
-            mysqlconn.update(tbl,tuples,rid)
-            self.write("OK")
-        else:
-            names = json.loads(self.get_argument("names",None))
-            obj = mysqlconn.select(tbl,rid,names)
-            self.write(str(obj))
+        if self.get_argument("subscribe",None):
+            tbl = self.get_argument("tbl",None)
+            interests = json.loads(self.get_argument("interests",None))
+            ip =  self.get_argument("ip",None)
+            port = self.get_argument("port",None)
+            location = (ip,port)
+            
+            pubsubs[tbl].add_subscriber(location,interests) 
+            
+        else:            
+            rid = self.get_argument("rid",None)
+            tbl = self.get_argument("tbl",None)
+            op = self.get_argument("op",None)
+            if op == "update":
+                tuples = json.loads(self.get_argument("tuples"),None)   
+                mysqlconn.update(tbl,tuples,rid)
+                self.write("OK")
+            else:
+                names = json.loads(self.get_argument("names",None))
+                obj = mysqlconn.select(tbl,rid,names)
+                self.write(str(obj))
 
 class MySQLConnector():
     def __init__(self,ip=None):
@@ -58,6 +129,8 @@ class MySQLConnector():
     def open_connections(self,host,user,password,db,poolsize=None):
         global conns
         global cursors
+        global ps_socket
+        global pubsub_manager
         
         curs = []
 
@@ -70,6 +143,19 @@ class MySQLConnector():
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
+        
+        """
+        Start Publish-Subscribe UDP socket to receive data subscribed to 
+        """
+        HOST, PORT = myip, 9999
+        server = SocketServer.UDPServer((HOST, PORT), PubSubUpdateHandler)
+        server.serve_forever()
+        
+        ps_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+        """
+        Start the thread that dumps to database
+        """
         Timer(5.0,self.__dump_to_database__).start()
                 
     def execute(self,cmd):
@@ -108,6 +194,7 @@ class MySQLConnector():
         # cmd= "CREATE TABLE " + name + " (" + ','.join([colname+colnull+coldef for colname,colnull,coldef in cols,null,defaults]) 
         tables[name] = {}
         tables[name]["__ridname__"] = rid_name
+        pubsubs[name] = PubSubUpdateSender(name)
         if (cols):
             tables[name]["__columns__"] = cols
         else:
@@ -146,10 +233,12 @@ class MySQLConnector():
                     self.__send_update_owner(tables[table][RID]["__location__"],table,update_tuples,RID)
                 else:
                     # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
-                    #vec_index = tables[table]["__columns__"][name]
-                    #(tables[table][RID]["values"])[vec_index] = newvalue
+                    tuples_dic = {}
                     for item in update_tuples:
                         tables[table][RID][item[0]] = item[1]
+                        tuples_dic[item[0]] = item[1]
+                    pubsubs[table].send(RID,tuples_dic)
+                        
                 return True
             else:
                 return self.__retrieve_object_from_db(table,RID,None,update_tuples)
@@ -260,6 +349,10 @@ class MySQLConnector():
             return resp.read()
     
 if __name__=="__main__":
+    HOST, PORT = "localhost", 7777
+    server = SocketServer.UDPServer((HOST, PORT), PubSubUpdateHandler)
+    server.serve_forever()
+    """
     con = None
     try:
     
@@ -288,3 +381,4 @@ if __name__=="__main__":
             
         if con:    
             con.close()
+    """
