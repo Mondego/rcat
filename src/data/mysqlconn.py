@@ -8,18 +8,16 @@ mysqlconn.py: Used as an API between application layer and a MYSQL database. Use
 
 from threading import Timer
 import MySQLdb as mdb
+import SocketServer
 import common.helper as helper
+import httplib
 import itertools
+import json
 import logging
-import sys
+import pubsub
 import time
 import tornado.web
-import json
-import httplib
 import urllib
-import SocketServer
-import socket
-import pubsub
 
 conns = []
 cursors = []
@@ -28,7 +26,6 @@ object_list = {}
 logger = logging.getLogger()
 myip = ''
 mysqlconn = None
-ps_socket = None
 pubsubs = None
 
 class ObjectManager(tornado.web.RequestHandler):
@@ -62,6 +59,7 @@ class MySQLConnector():
         if not ip:
             ip = helper.get_ip_address('eth0')
         myip = ip
+        print myip
         logger.debug("[mysqlconn]: Starting MySQL Connector.")
         mysqlconn = self
 
@@ -74,9 +72,9 @@ class MySQLConnector():
         global conns
         global cursors
         global ps_socket
-        global pubsub_manager
-        
+        global pubsubs        
         curs = []
+        pubsubs = {}
 
         # Default connection pool = 10
         if not poolsize:
@@ -88,19 +86,18 @@ class MySQLConnector():
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
         
-        """
-        Start Publish-Subscribe UDP socket to receive data subscribed to 
-        """
-        HOST, PORT = myip, 9999
-        server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
-        server.serve_forever()
-        
-        ps_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         
         """
         Start the thread that dumps to database
         """
         Timer(5.0,self.__dump_to_database__).start()
+        
+        """
+        Start Publish-Subscribe UDP socket to receive data subscribed to 
+        """
+        HOST, PORT = myip, 7777
+        server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
+        Timer(5.0,server.serve_forever).start()
                 
     def execute(self,cmd):
         cur = self.cur
