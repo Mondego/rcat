@@ -1,64 +1,83 @@
-from time import sleep
-from ws4py.client.threadedclient import WebSocketClient
+from threading import Thread
 import logging.config
+import time
+import websocket
+import argparse
+
+# TODO: argparse those constants
+DELAY = 1 # delay between sending 2 msgs, in seconds
+NUMMSG = 3 #  how many msg to send
+URL = "ws://localhost:9000/ws"
 
 log = logging.getLogger('client')
+keep_running = True
 
-class Spawner():
-    
-    def __init__(self):
-        
-        # TODO: read from config file
-        NUMBOTS = 1
-        DELAY = 1 #DELAY between bot connections, in seconds
-        ADDR = 'http://localhost:9000/ws'
-        FREQ = 1 # number of msg to send per sec
-        DURATION = 5 # how long the bots should be running for, in seconds
-        
-        # create all the bots
-        self.bots = []
 
-        for botnum in range(NUMBOTS):
-            bot = Bot(botnum, FREQ, DURATION, ADDR)
-            self.bots.append(bot)
-            bot.connect()
-            sleep(DELAY)
-            
-        
-    
-class Bot(WebSocketClient):
-    # WebSocketClient from https://github.com/Lawouach/WebSocket-for-Python
-    def __init__(self, myid, f, dur, addr):
-        WebSocketClient.__init__(self, addr)
-        # TODO: send msg at frequency f, and during dur seconds
-        self.f = f
-        self.dur = dur
-        self.myid = myid
- 
-        
-    
-    def opened(self):
-        log.info('opened')
-        
-        sleep(2) # TODO: this sleep seems to prevent received_message to be triggered - how is the threading happening?
-        num_msg_to_send = self.f * self.dur
-        for i in range(num_msg_to_send):
-            self.send('my name is ' + str(self.myid) + ' and this is msg# ' + str(i))
-            sleep(1. / self.f)
-        
+def connect_task(**kwargs):
+    """ connect to server,
+    send 3 msgs,
+    then close ws
+    """
+    ws = kwargs['ws']
+    botnum = kwargs['botnum']
+
+    ws.connect(URL) # this blocks until the server replies
+    log.debug('connected')
+    # start listening
+    Thread(target=rcv_task).start()
+    # start sending
+    try: 
+        for i in range(NUMMSG):
+            msg = 'hello#%d from bot#%d' % (i, botnum)
+            ws.send(msg)
+            log.debug('sent: ' + msg)
+            time.sleep(DELAY)
+    except IOError, e:
+        log.error('socket closed unexpectedly while writing: %s', e)
+    # done sending: close ws
+    global keep_running
+    keep_running = False
+    ws.close()
+    log.debug('closed')
+
+
+def rcv_task():
+    try:
+        while keep_running:
+            data = ws.recv()
+            if data: # sometimes, recv returns None
+                log.debug("rcvd: %s" % data)
+    except IOError, e:
+        if keep_running: # socket was closed under our feet
+            log.error('socket closed unexpectedly while reading: %s', e)
 
 
 
-    def closed(self, code, reason):
-        log.info("Closed")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run some bots.')
+    parser.add_argument('-n', type=int, help='number of bots', default=1)
 
+    args = parser.parse_args() # returns a namespace
+    args = vars(args) # convert to dict
 
-    def received_message(self, m):
-        log.debug("Received " + str(m))
-        self.close()
-
-if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
-    Spawner()
+    websocket.enableTrace(False)
 
+    numbots = args['n']
+    websocks = [] # keep track of the websockets used
+
+    try:
+        for botnum in range(numbots):
+            ws = websocket.WebSocket()
+            websocks.append(ws)
+            args = {'ws':ws, 'botnum':botnum}
+            Thread(target=connect_task, kwargs=args).start()
+            time.sleep(DELAY) # wait a bit before starting the next bot
+            # main thread dies after all bots have sent their msgs
+        #time.sleep(numbots + NUMMSG * DELAY + 1)
+        time.sleep(10) 
+    except KeyboardInterrupt:
+        # close all websockets
+        for ws in websocks:
+            ws.close()
 

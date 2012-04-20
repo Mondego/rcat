@@ -4,15 +4,13 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 
-
 log = logging.getLogger('dummysrv')
-
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     
     def open(self):
         """ send a message, wait a sec, then resend a msg """
-        log.info(str(self.request.connection.address) + ' joined')
+        #log.info(str(self.request.connection.address) + ' joined')
         
         self.write_message("Hello from serv")
         #sleep(1)
@@ -20,16 +18,17 @@ class WSHandler(tornado.websocket.WebSocketHandler):
       
       
     def on_message(self, message):
-        log.debug(str(self.request.connection.address) + ' says: ' + message)
+        #log.debug(str(self.request.connection.address) + ' says: ' + message)
+        self.write_message("Thanks for your msg: \'" + message + '\'')
+
 
     def on_close(self):
-        log.info(str(self.request.connection.address) + ' left')
+        #log.info(str(self.request.connection.address) + ' left')
+        pass
       
 
-
-app = tornado.web.Application([
-    (r'/ws', WSHandler),
-])
+handlers = (r'/ws', WSHandler),
+app = tornado.web.Application(handlers)
 
 
 if __name__ == "__main__":
