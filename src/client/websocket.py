@@ -123,7 +123,7 @@ def _parse_url(URL):
     elif scheme == "wss":
         is_secure = True
         if not port:
-            port  = 443
+            port = 443
     else:
         raise ValueError("scheme %s is invalid" % scheme)
 
@@ -163,9 +163,9 @@ def create_connection(URL, timeout=None, **options):
     websock.connect(URL, **options)
     return websock
 
-_MAX_INTEGER = (1 << 32) -1
-_AVAILABLE_KEY_CHARS = range(0x21, 0x2f + 1) + range(0x3a, 0x7e + 1)
-_MAX_CHAR_BYTE = (1<<8) -1
+_MAX_INTEGER = (1 << 32) - 1
+_AVAILABLE_KEY_CHARS = range(0x21, 0x2f + 1) + range(0x3a, 0x7e+1)
+_MAX_CHAR_BYTE = (1 << 8) - 1
 
 # ref. Websocket gets an update, and it breaks stuff.
 # http://axod.blogspot.com/2010/06/websocket-gets-update-and-it-breaks.html
@@ -205,11 +205,11 @@ class ABNF(object):
     """
     
     # operation code values.
-    OPCODE_TEXT   = 0x1
+    OPCODE_TEXT = 0x1
     OPCODE_BINARY = 0x2
-    OPCODE_CLOSE  = 0x8
-    OPCODE_PING   = 0x9
-    OPCODE_PONG   = 0xa
+    OPCODE_CLOSE = 0x8
+    OPCODE_PING = 0x9
+    OPCODE_PONG = 0xa
     
     # available operation code value tuple
     OPCODES = (OPCODE_TEXT, OPCODE_BINARY, OPCODE_CLOSE,
@@ -225,12 +225,12 @@ class ABNF(object):
         }
 
     # data length threashold.
-    LENGTH_7  = 0x7d
+    LENGTH_7 = 0x7d
     LENGTH_16 = 1 << 16
     LENGTH_63 = 1 << 63
 
-    def __init__(self, fin = 0, rsv1 = 0, rsv2 = 0, rsv3 = 0,
-                 opcode = OPCODE_TEXT, mask = 1, data = ""):
+    def __init__(self, fin=0, rsv1=0, rsv2=0, rsv3=0,
+                 opcode=OPCODE_TEXT, mask=1, data=""):
         """
         Constructor for ABNF.
         please check RFC for arguments.
@@ -331,14 +331,18 @@ class WebSocket(object):
     get_mask_key: a callable to produce new mask keys, see the set_mask_key 
       function's docstring for more details
     """
-    def __init__(self, get_mask_key = None):
+    def __init__(self, get_mask_key=None):
         """
         Initalize WebSocket object.
         """
         self.connected = False
         self.io_sock = self.sock = socket.socket()
         self.get_mask_key = get_mask_key
-        
+        self.url = '' # [tho]
+    
+    def __repr__(self):
+        return '<ws> %d to %s' % id(self), self.url
+    
     def set_mask_key(self, func):
         """
         set function to create musk key. You can custumize mask key generator.
@@ -385,6 +389,7 @@ class WebSocket(object):
                  the custom HTTP headers are added.
 
         """
+        self.url = URL # [tho]
         hostname, port, resource, is_secure = _parse_url(URL)
         # TODO: we need to support proxy
         self.sock.connect((hostname, port))
@@ -418,8 +423,8 @@ class WebSocket(object):
         header_str = "\r\n".join(headers)
         sock.send(header_str)
         if traceEnabled:
-            logger.debug( "--- request header ---")
-            logger.debug( header_str)
+            logger.debug("--- request header ---")
+            logger.debug(header_str)
             logger.debug("-----------------------")
 
         status, resp_headers = self._read_headers()
@@ -481,7 +486,7 @@ class WebSocket(object):
         
         return status, headers    
     
-    def send(self, payload, opcode = ABNF.OPCODE_TEXT):
+    def send(self, payload, opcode=ABNF.OPCODE_TEXT):
         """
         Send the data as string. 
 
@@ -499,7 +504,7 @@ class WebSocket(object):
         if traceEnabled:
             logger.debug("send: " + repr(data))
 
-    def ping(self, payload = ""):
+    def ping(self, payload=""):
         """
         send ping data.
         
@@ -586,7 +591,7 @@ class WebSocket(object):
         frame = ABNF(fin, rsv1, rsv2, rsv3, opcode, mask, data)
         return frame
 
-    def send_close(self, status = STATUS_NORMAL, reason = ""):
+    def send_close(self, status=STATUS_NORMAL, reason=""):
         """
         send close data to the server.
         
@@ -600,7 +605,7 @@ class WebSocket(object):
         
 
 
-    def close(self, status = STATUS_NORMAL, reason = ""):
+    def close(self, status=STATUS_NORMAL, reason=""):
         """
         Close Websocket object
 
@@ -661,8 +666,8 @@ class WebSocketApp(object):
     The interface is like JavaScript WebSocket object.
     """
     def __init__(self, URL,
-                 on_open = None, on_message = None, on_error = None, 
-                 on_close = None, keep_running = True, get_mask_key = None):
+                 on_open=None, on_message=None, on_error=None,
+                 on_close=None, keep_running=True, get_mask_key=None):
         """
         URL: websocket URL.
         on_open: callable object which is called at opening websocket.
@@ -745,6 +750,6 @@ if __name__ == "__main__":
     ws.send("Hello, World")
     print "Sent"
     print "Receiving..."
-    result =  ws.recv()
+    result = ws.recv()
     print "Received '%s'" % result
     ws.close()
