@@ -1,96 +1,87 @@
-from threading import Thread
+from threading import Thread, current_thread
+import argparse
 import logging.config
 import time
 import websocket
-import argparse
 
-# TODO: argparse those constants
-DELAY = 1 # delay between sending 2 msgs, in seconds
-NUMMSG = 3 # how many msg to send
 URL = "ws://localhost:9000/ws"
-NUMBOTS = 2
-WITHTRACE = True
+MSGDELAY = 0.1 # delay between two messages
+NUMMSG = 10 # how many msgs to send
+BOTDELAY = 0.5 # delay between 2 bot creations
+NUMBOTS = 2 # how many bots to create
 
 log = logging.getLogger('client')
 
 
-def connect_task(**kwargs):
-    """ connect to server,
-    send 3 msgs,
-    then close ws
-    """
-    ws = kwargs['ws']
-    botnum = kwargs['botnum']
+def on_message(ws, msg):
+    #print '%s \t %s MSG: %s' % (time.time(), current_thread().name, msg)
+    pass
 
-    ws.connect(URL) # this blocks until the server replies
-    log.debug('%2d connected' % botnum)
-    # start listening
-    th = Thread(target=rcv_task, kwargs={'botnum':botnum})
-    th.name = 'th_rcv%d' % botnum
-    th.start()
-    # start sending
-    try: 
+def on_error(ws, error):
+    tname = current_thread().name
+    log.error('%s ERROR: %s' % (tname, error))
+
+def on_close(ws):
+    tname = current_thread().name
+    log.info('%s CLOSED' % (tname))
+
+def on_open(ws):
+    rcvthname = current_thread().name
+    botnum = int(rcvthname[4:]) # remove 'recv' from the beginning of the thread name 
+    def startsend(*args):
+        thname = current_thread().name
         for i in range(NUMMSG):
-            msg = 'hello#%d from bot#%d' % (i, botnum)
-            log.debug('%2d send: %s' % (botnum, msg))
-            ws.send(msg)
-            time.sleep(DELAY)
-    except IOError, e:
-        log.error('%2d socket closed unexpectedly while writing: %s',
-                  (botnum, e))
-    # done sending: close ws
-    global keep_running
-    keep_running[botnum] = False # will cause the rcving thread to close the ws
-    
-    ws.close()
-    log.debug('%2d closed' % botnum)
-
-def rcv_task(botnum= -1):
-    try:
-        while keep_running[botnum]:
-            data = ws.recv()
-            if data: # sometimes, recv returns None
-                #log.debug("%2d rcvd: %s" % (botnum, data))
-                pass        
-#        ws.close() # closing multiple times is OK
-#        log.debug('%2d closed in rcver' % botnum)
-    except IOError, e:
-        if keep_running[botnum]: # socket was closed under our feet
-            log.error('%2d socket closed unexpectedly while reading: %s',
-                      (botnum, e))
-
+            txt = "I'm bot%d and this is msg %d" % (botnum, i)
+            ws.send(txt)
+            #print '%s \t %s SENT: %s' % (time.time(), thname, txt)
+            time.sleep(MSGDELAY)
+        ws.close()
+    th = Thread(target=startsend)
+    th.name = 'send%s' % botnum
+    th.start()
 
 
 if __name__ == "__main__":
+    # example usage: for 2 bots sending 50 msgs
+    # with one msg sent every 0.05 sec, and 0.5 sec between 2 bot creations
+    # python client.py -n 2 -m 50 -bd 0.5 -md 0.05
+
+    websocket.enableTrace(False)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', type=int, help='number of bots', default=NUMBOTS)
+    parser.add_argument('-bd', type=float, help='delay between 2 bots', default=BOTDELAY)
+    parser.add_argument('-m', type=int, help='number of msgs', default=NUMMSG)
+    parser.add_argument('-md', type=float, help='delay between 2 msgs', default=MSGDELAY)
 
-    args = parser.parse_args() # returns a namespace
-    args = vars(args) # convert to dict
+    args = vars(parser.parse_args()) # returns a namespace converted to a dict)
+
+    numbots = args['n']
+    botdelay = args['bd']
+    NUMMSG = args['m']
+    MSGDELAY = args['md']
 
     logging.config.fileConfig("logging.conf")
-    websocket.enableTrace(WITHTRACE)
-    
-    numbots = args['n']
-    websocks = [] # keep track of the websockets used
-    
-    keep_running = [True] * numbots
-    
+
+    websocks = []
     try:
         for botnum in range(numbots):
-            ws = websocket.WebSocket()
+            ws = websocket.WebSocketApp(URL,
+                                        on_open=on_open,
+                                        on_message=on_message,
+                                        on_error=on_error,
+                                        on_close=on_close)
             websocks.append(ws)
-            args = {'ws':ws, 'botnum':botnum}
-            th = Thread(target=connect_task, kwargs=args)
-            th.name = 'th_co%d' % botnum
+            th = Thread(target=ws.run_forever) # rcv thread
+            th.name = 'recv%d' % botnum
             th.start()
-            time.sleep(DELAY * 1.5) # wait a bit before starting the next bot
-            # main thread dies after all bots have sent their msgs
-        #time.sleep(numbots + NUMMSG * DELAY + 1)
-        time.sleep(5)
-    except KeyboardInterrupt:
-        # close all websockets
+            log.info('bot%d created' % botnum)
+            time.sleep(botdelay)
+
+    except KeyboardInterrupt: # close all websockets
         for ws in websocks:
             ws.close()
-            print '%2d closed' % ws
+            log.info('%s closed' % ws)
 
+# TODO: ctrl-C triggers "AttributeError: 'NoneType' object has no attribute 'send'"
+ 
