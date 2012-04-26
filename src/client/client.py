@@ -1,64 +1,96 @@
-from time import sleep
-from ws4py.client.threadedclient import WebSocketClient
+from threading import Thread
 import logging.config
+import time
+import websocket
+import argparse
+
+# TODO: argparse those constants
+DELAY = 1 # delay between sending 2 msgs, in seconds
+NUMMSG = 3 # how many msg to send
+URL = "ws://localhost:9000/ws"
+NUMBOTS = 2
+WITHTRACE = True
 
 log = logging.getLogger('client')
 
-class Spawner():
+
+def connect_task(**kwargs):
+    """ connect to server,
+    send 3 msgs,
+    then close ws
+    """
+    ws = kwargs['ws']
+    botnum = kwargs['botnum']
+
+    ws.connect(URL) # this blocks until the server replies
+    log.debug('%2d connected' % botnum)
+    # start listening
+    th = Thread(target=rcv_task, kwargs={'botnum':botnum})
+    th.name = 'th_rcv%d' % botnum
+    th.start()
+    # start sending
+    try: 
+        for i in range(NUMMSG):
+            msg = 'hello#%d from bot#%d' % (i, botnum)
+            log.debug('%2d send: %s' % (botnum, msg))
+            ws.send(msg)
+            time.sleep(DELAY)
+    except IOError, e:
+        log.error('%2d socket closed unexpectedly while writing: %s',
+                  (botnum, e))
+    # done sending: close ws
+    global keep_running
+    keep_running[botnum] = False # will cause the rcving thread to close the ws
     
-    def __init__(self):
-        
-        # TODO: read from config file
-        NUMBOTS = 1
-        DELAY = 1 #DELAY between bot connections, in seconds
-        ADDR = 'http://localhost:9000/ws'
-        FREQ = 1 # number of msg to send per sec
-        DURATION = 5 # how long the bots should be running for, in seconds
-        
-        # create all the bots
-        self.bots = []
+    ws.close()
+    log.debug('%2d closed' % botnum)
 
-        for botnum in range(NUMBOTS):
-            bot = Bot(botnum, FREQ, DURATION, ADDR)
-            self.bots.append(bot)
-            bot.connect()
-            sleep(DELAY)
-            
-        
-    
-class Bot(WebSocketClient):
-    # WebSocketClient from https://github.com/Lawouach/WebSocket-for-Python
-    def __init__(self, myid, f, dur, addr):
-        WebSocketClient.__init__(self, addr)
-        # TODO: send msg at frequency f, and during dur seconds
-        self.f = f
-        self.dur = dur
-        self.myid = myid
- 
-        
-    
-    def opened(self):
-        log.info('opened')
-        
-        sleep(2) # TODO: this sleep seems to prevent received_message to be triggered - how is the threading happening?
-        num_msg_to_send = self.f * self.dur
-        for i in range(num_msg_to_send):
-            self.send('my name is ' + str(self.myid) + ' and this is msg# ' + str(i))
-            sleep(1. / self.f)
-        
+def rcv_task(botnum= -1):
+    try:
+        while keep_running[botnum]:
+            data = ws.recv()
+            if data: # sometimes, recv returns None
+                #log.debug("%2d rcvd: %s" % (botnum, data))
+                pass        
+#        ws.close() # closing multiple times is OK
+#        log.debug('%2d closed in rcver' % botnum)
+    except IOError, e:
+        if keep_running[botnum]: # socket was closed under our feet
+            log.error('%2d socket closed unexpectedly while reading: %s',
+                      (botnum, e))
 
 
 
-    def closed(self, code, reason):
-        log.info("Closed")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', type=int, help='number of bots', default=NUMBOTS)
 
+    args = parser.parse_args() # returns a namespace
+    args = vars(args) # convert to dict
 
-    def received_message(self, m):
-        log.debug("Received " + str(m))
-        self.close()
-
-if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
-    Spawner()
-
+    websocket.enableTrace(WITHTRACE)
+    
+    numbots = args['n']
+    websocks = [] # keep track of the websockets used
+    
+    keep_running = [True] * numbots
+    
+    try:
+        for botnum in range(numbots):
+            ws = websocket.WebSocket()
+            websocks.append(ws)
+            args = {'ws':ws, 'botnum':botnum}
+            th = Thread(target=connect_task, kwargs=args)
+            th.name = 'th_co%d' % botnum
+            th.start()
+            time.sleep(DELAY * 1.5) # wait a bit before starting the next bot
+            # main thread dies after all bots have sent their msgs
+        #time.sleep(numbots + NUMMSG * DELAY + 1)
+        time.sleep(5)
+    except KeyboardInterrupt:
+        # close all websockets
+        for ws in websocks:
+            ws.close()
+            print '%2d closed' % ws
 
