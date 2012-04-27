@@ -39,7 +39,8 @@ class EchoWebSocket(websocket.WebSocketHandler):
                 logging.error("[demoapp]: No USERID passed.")
         elif "C" in msg: # Chat
             newmsg["M"] = msg["C"]["M"]
-            datacon.insert("chat",[msg["C"]["M"]],msg["C"]["ID"])
+            insert_values = [msg["C"]["ID"],msg["C"]["M"]]
+            datacon.insert("chat",insert_values,msg["C"]["ID"])
         json_msg = json.dumps(newmsg)
         self.write_message(json_msg)
         

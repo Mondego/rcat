@@ -7,6 +7,7 @@ mysqlconn.py: Used as an API between application layer and a MYSQL database. Use
 '''
 
 from threading import Timer
+import ConfigParser
 import MySQLdb as mdb
 import SocketServer
 import common.helper as helper
@@ -14,11 +15,13 @@ import httplib
 import itertools
 import json
 import logging
+import os
 import pubsub
 import time
 import tornado.web
 import urllib
-import ConfigParser,os
+from collections import defaultdict
+from copy import deepcopy
 
 conns = []
 cursors = []
@@ -131,15 +134,16 @@ class MySQLConnector():
             #logger.debug("[mysqlconn]: Dumping to database.")
             for tblnames,tblvalues in tables.items():
                 for itemname,itemvalues in tblvalues.items():
-                    if not itemname.startswith("__"):
-                        if itemvalues["__location__"] == myip:
-                            try:                                
-                                mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`val`]) for key,val in itemvalues.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
-                                print mystr
-                                cur.execute(mystr)
-                                cur.connection.commit()
-                            except mdb.cursors.Error,e:
-                                print e
+                    if not str(itemname).startswith("__"):
+                        for row in itemvalues:
+                            if row["__location__"] == myip:
+                                try:                                
+                                    mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`str(val)`]) for key,val in row.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
+                                    print mystr
+                                    cur.execute(mystr)
+                                    cur.connection.commit()
+                                except mdb.cursors.Error,e:
+                                    print e
             time.sleep(5)
                 
     
@@ -149,7 +153,7 @@ class MySQLConnector():
     def create_table(self,name,rid_name,cols=None,opts=None):
         # TODO: This is freaking hard! I will think about it later. For now, allow clients to inform table to be stored in memory
         # cmd= "CREATE TABLE " + name + " (" + ','.join([colname+colnull+coldef for colname,colnull,coldef in cols,null,defaults]) 
-        tables[name] = {}
+        tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = pubsub.PubSubUpdateSender(name)
         if (cols):
@@ -160,7 +164,7 @@ class MySQLConnector():
     """
     select(self,table,name=None,RID): Return object (or one property of object). Requires finding authoritative owner and requesting most recent status 
     """
-    def select(self,table,RID, names=None):
+    def select(self,table,RID,names=None):
         if table in tables:
             if RID in tables[table]:
                 firstrow = tables[table][RID][0]
@@ -168,7 +172,7 @@ class MySQLConnector():
                     self.__send_request_owner(firstrow["__location__"],table,RID,names,None) 
                 else:
                     if not names:
-                        return tables[table][RID].deepcopy()
+                        return deepcopy(tables[table][RID])
                     else:
                         result = []
                         for item in tables[table][RID]:
@@ -178,8 +182,8 @@ class MySQLConnector():
                             result.append(newobj)
                     return result
             else:
-                if self.__retrieve_object_from_db(table,RID,name,None):
-                    return tables[table][RID].deepcopy() 
+                if self.__retrieve_object_from_db(table,RID,names,None):
+                    return deepcopy(tables[table][RID]) 
         else:
             return False
     
@@ -216,11 +220,14 @@ class MySQLConnector():
         values.append(myip)
         if table in tables:
             newobj = {}
+            logger.debug("[mysqlconn]: New object: " + str(values))
+            logger.debug("[mysqlconn]: Columns in table: " + str(tables[table]["__columns__"].items()))
             for name,idx in tables[table]["__columns__"].items():
-                newobj[name] = values[idx] 
+                newobj[name] = values[idx]
             if RID not in tables[table]:
                 try:
-                    mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`val` for val in values]) + ")"
+                    mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
+                    logger.debug(mystr)
                     cur.execute(mystr)
                     cur.connection.commit()
                 except mdb.cursors.Error,e:
@@ -284,7 +291,7 @@ class MySQLConnector():
                 return self.__send_request_owner(row["__location__"],table,RID,names,update_values)
             else:
                 tables[table][RID] = allrows
-                return tables[table][RID].deepcopy()
+                return deepcopy(tables[table][RID])
         except:
             return False
         
