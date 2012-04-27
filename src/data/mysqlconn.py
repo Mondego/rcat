@@ -31,6 +31,7 @@ logger = logging.getLogger()
 myip = ''
 mysqlconn = None
 pubsubs = None
+location = {}
 
 class ObjectManager(tornado.web.RequestHandler):
     def get(self):
@@ -136,8 +137,8 @@ class MySQLConnector():
                 for itemname,itemvalues in tblvalues.items():
                     if not str(itemname).startswith("__"):
                         for row in itemvalues:
-                            if row["__location__"] == myip:
-                                try:                                
+                            if location[itemname] == myip:
+                                try:
                                     mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`str(val)`]) for key,val in row.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
                                     print mystr
                                     cur.execute(mystr)
@@ -167,20 +168,17 @@ class MySQLConnector():
     def select(self,table,RID,names=None):
         if table in tables:
             if RID in tables[table]:
-                firstrow = tables[table][RID][0]
-                if firstrow["__location__"] != myip:
-                    self.__send_request_owner(firstrow["__location__"],table,RID,names,None) 
+                self.__send_request_owner(location[RID],table,RID,names,None) 
+                if not names:
+                    return deepcopy(tables[table][RID])
                 else:
-                    if not names:
-                        return deepcopy(tables[table][RID])
-                    else:
-                        result = []
-                        for item in tables[table][RID]:
-                            newobj = {}
-                            for name in names:
-                                newobj[name] = item[name]
-                            result.append(newobj)
-                    return result
+                    result = []
+                    for item in tables[table][RID]:
+                        newobj = {}
+                        for name in names:
+                            newobj[name] = item[name]
+                        result.append(newobj)
+                return result
             else:
                 if self.__retrieve_object_from_db(table,RID,names,None):
                     return deepcopy(tables[table][RID]) 
@@ -194,16 +192,13 @@ class MySQLConnector():
     def update(self,table,update_tuples,RID,row=0):
         if table in tables:
             if RID in tables[table]:
-                firstrow = tables[table][RID][0]
-                if firstrow["__location__"] != myip:
-                    self.__send_request_owner(firstrow["__location__"],table,RID,None,update_tuples)
-                else:
-                    # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
-                    tuples_dic = {}
-                    for item in update_tuples:
-                        tables[table][RID][row][item[0]] = item[1]
-                        tuples_dic[item[0]] = item[1]
-                    pubsubs[table].send(RID,tuples_dic)
+                self.__send_request_owner(location[RID],table,RID,None,update_tuples)
+                # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
+                tuples_dic = {}
+                for item in update_tuples:
+                    tables[table][RID][row][item[0]] = item[1]
+                    tuples_dic[item[0]] = item[1]
+                pubsubs[table].send(RID,tuples_dic)
                 return True
             else:
                 return self.__retrieve_object_from_db(table,RID,None,update_tuples)
@@ -223,7 +218,8 @@ class MySQLConnector():
             logger.debug("[mysqlconn]: New object: " + str(values))
             logger.debug("[mysqlconn]: Columns in table: " + str(tables[table]["__columns__"].items()))
             for name,idx in tables[table]["__columns__"].items():
-                newobj[name] = values[idx]
+                if not str(name).startswith('__location'):
+                    newobj[name] = values[idx]
             if RID not in tables[table]:
                 try:
                     mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
@@ -233,6 +229,7 @@ class MySQLConnector():
                 except mdb.cursors.Error,e:
                     logger.error(e)
                     return False;
+            location[RID] = myip
             tables[table][RID].append(newobj)
         else:
             return False
@@ -282,12 +279,12 @@ class MySQLConnector():
             if not row["__location__"]:
                 cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s", (table,myip,rid_name,RID)) #TODO: Concurrency?
                 cur.commit()
+                location[RID] = myip
                 return allrows
             if (row["__location__"] != myip):
                 cur.commit()
-                newobj = {}
-                newobj["__location__"] = row["__location__"]
-                tables[table][RID].append(newobj)
+                tables[table][RID].append({})
+                location[RID] = row["__location__"]
                 return self.__send_request_owner(row["__location__"],table,RID,names,update_values)
             else:
                 tables[table][RID] = allrows
@@ -306,7 +303,7 @@ class MySQLConnector():
             if names:
                 cmd += "&names=" + urllib.quote(json.dumps(names))
         conn = httplib.HTTPConnection(host)
-        conn.request("GET", "/obm?rid="+RID+"&tbl="+table+cmd)
+        conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
         if update_tuples:
             if resp.status.startswith("200"):
