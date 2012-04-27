@@ -17,17 +17,18 @@ Copyright (C) 2010 Hiroki Ohtani(liris)
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-"""        
+"""
 
 
-import socket
 from urlparse import urlparse
+import base64
+import errno
+import hashlib
+import logging
 import os
+import socket
 import struct
 import uuid
-import hashlib
-import base64
-import logging
 
 """
 websocket python client.
@@ -185,7 +186,7 @@ class _SSLSocketWrapper(object):
 
     def recv(self, bufsize):
         return self.ssl.read(bufsize)
-    
+
     def send(self, payload):
         return self.ssl.write(payload)
 
@@ -194,7 +195,7 @@ def _is_bool(*values):
     for v in values:
         if v not in _BOOL_VALUES:
             return False
-    
+
     return True
 
 class ABNF(object):
@@ -203,14 +204,14 @@ class ABNF(object):
     see http://tools.ietf.org/html/rfc5234
     and http://tools.ietf.org/html/rfc6455#section-5.2
     """
-    
+
     # operation code values.
     OPCODE_TEXT = 0x1
     OPCODE_BINARY = 0x2
     OPCODE_CLOSE = 0x8
     OPCODE_PING = 0x9
     OPCODE_PONG = 0xa
-    
+
     # available operation code value tuple
     OPCODES = (OPCODE_TEXT, OPCODE_BINARY, OPCODE_CLOSE,
                 OPCODE_PING, OPCODE_PONG)
@@ -271,7 +272,7 @@ class ABNF(object):
         length = len(self.data)
         if length >= ABNF.LENGTH_63:
             raise ValueError("data is too long")
-        
+
         frame_header = chr(self.fin << 7
                            | self.rsv1 << 6 | self.rsv2 << 5 | self.rsv3 << 4
                            | self.opcode)
@@ -283,7 +284,7 @@ class ABNF(object):
         else:
             frame_header += chr(self.mask << 7 | 0x7f)
             frame_header += struct.pack("!Q", length)
-        
+
         if not self.mask:
             return frame_header + self.data
         else:
@@ -339,10 +340,10 @@ class WebSocket(object):
         self.io_sock = self.sock = socket.socket()
         self.get_mask_key = get_mask_key
         self.url = '' # [tho]
-    
+
     def __repr__(self):
         return '<ws> %d to %s' % id(self), self.url
-    
+
     def set_mask_key(self, func):
         """
         set function to create musk key. You can custumize mask key generator.
@@ -368,7 +369,7 @@ class WebSocket(object):
         Get the websocket timeout(second).
         """
         return self.sock.gettimeout()
-    
+
     def connect(self, URL, **options):
         """
         Connect to URL. URL is websocket URL scheme. ie. ws://host:port/resource
@@ -409,7 +410,7 @@ class WebSocket(object):
             hostport = "%s:%d" % (host, port)
         headers.append("Host: %s" % hostport)
         headers.append("Origin: %s" % hostport)
-   
+
         key = _create_sec_websocket_key()
         headers.append("Sec-WebSocket-Key: %s" % key)
         headers.append("Sec-WebSocket-Protocol: chat, superchat")
@@ -438,7 +439,7 @@ class WebSocket(object):
             raise WebSocketException("Invalid WebSocket Header")
 
         self.connected = True
-    
+
     def _validate_header(self, headers, key):
         for k, v in _HEADERS_TO_CHECK.iteritems():
             r = headers.get(k, None)
@@ -452,7 +453,7 @@ class WebSocket(object):
         if not result:
             return False
         result = result.lower()
-        
+
         value = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
         hashed = base64.encodestring(hashlib.sha1(value).digest()).strip().lower()
         return hashed == result
@@ -462,7 +463,7 @@ class WebSocket(object):
         headers = {}
         if traceEnabled:
             logger.debug("--- response header ---")
-            
+
         while True:
             line = self._recv_line()
             if line == "\r\n":
@@ -483,9 +484,9 @@ class WebSocket(object):
 
         if traceEnabled:
             logger.debug("-----------------------")
-        
-        return status, headers    
-    
+
+        return status, headers
+
     def send(self, payload, opcode=ABNF.OPCODE_TEXT):
         """
         Send the data as string. 
@@ -587,7 +588,7 @@ class WebSocket(object):
 
         if mask:
             data = ABNF.mask(mask_key, data)
-        
+
         frame = ABNF(fin, rsv1, rsv2, rsv3, opcode, mask, data)
         return frame
 
@@ -602,7 +603,7 @@ class WebSocket(object):
         if status < 0 or status >= ABNF.LENGTH_16:
             raise ValueError("code is invalid range")
         self.send(struct.pack('!H', status) + reason, ABNF.OPCODE_CLOSE)
-        
+
 
 
     def close(self, status=STATUS_NORMAL, reason=""):
@@ -637,7 +638,7 @@ class WebSocket(object):
         self.connected = False
         self.sock.close()
         self.io_sock = self.sock
-        
+
     def _recv(self, bufsize):
         bytes = self.io_sock.recv(bufsize)
         return bytes
@@ -648,7 +649,7 @@ class WebSocket(object):
         while remaining:
             bytes += self._recv(remaining)
             remaining = bufsize - len(bytes)
-            
+
         return bytes
 
     def _recv_line(self):
@@ -659,7 +660,7 @@ class WebSocket(object):
             if c == "\n":
                 break
         return "".join(line)
-            
+
 class WebSocketApp(object):
     """
     Higher level of APIs are provided. 
@@ -696,6 +697,10 @@ class WebSocketApp(object):
         self.get_mask_key = get_mask_key
         self.sock = None
 
+    def __repr__(self):
+        txt = '<ws> %d to %s' % (id(self), self.url)
+        return txt
+
     def send(self, data):
         """
         send message. data must be utf-8 string or unicode.
@@ -726,7 +731,13 @@ class WebSocketApp(object):
                     break
                 self._run_with_no_err(self.on_message, data)
         except Exception, e:
-            self._run_with_no_err(self.on_error, e)
+            # errors like broken pipe (#32) or bad file descriptor (#9)
+            # mean the socket was closed while it was still listening
+            # dont raise an error if the socket was closed vonluntarily [tho]
+            if not self.keep_running and e.errno in [errno.EPIPE, errno.EBADF]:
+                pass
+            else:
+                self._run_with_no_err(self.on_error, e)
         finally:
             self.sock.close()
             self._run_with_no_err(self.on_close)
