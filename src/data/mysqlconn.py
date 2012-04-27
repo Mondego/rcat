@@ -32,6 +32,7 @@ myip = ''
 mysqlconn = None
 pubsubs = None
 location = {}
+update = {}
 
 class ObjectManager(tornado.web.RequestHandler):
     def get(self):
@@ -132,15 +133,18 @@ class MySQLConnector():
     def __dump_to_database__(self):
         while(1):
             cur = self.cur 
-            #logger.debug("[mysqlconn]: Dumping to database.")
             for tblnames,tblvalues in tables.items():
-                for itemname,itemvalues in tblvalues.items():
-                    if not str(itemname).startswith("__"):
+                loc_update = deepcopy(update[tblnames])
+                update[tblnames].clear()
+                while loc_update:
+                    rid = loc_update.pop()
+                    itemvalues = tblvalues[rid]
+                    if not str(rid).startswith("__"):
                         for row in itemvalues:
-                            if location[itemname] == myip:
+                            if location[tblnames][rid] == myip:
                                 try:
-                                    mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`str(val)`]) for key,val in row.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],itemname)
-                                    print mystr
+                                    mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`str(val)`]) for key,val in row.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],rid)
+                                    logger.debug("[mysqlconn]: Dumping to database: " + mystr)
                                     cur.execute(mystr)
                                     cur.connection.commit()
                                 except mdb.cursors.Error,e:
@@ -157,6 +161,8 @@ class MySQLConnector():
         tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = pubsub.PubSubUpdateSender(name)
+        update[name] = set()
+        location[name] = {}
         if (cols):
             tables[name]["__columns__"] = cols
         else:
@@ -168,7 +174,7 @@ class MySQLConnector():
     def select(self,table,RID,names=None):
         if table in tables:
             if RID in tables[table]:
-                self.__send_request_owner(location[RID],table,RID,names,None) 
+                self.__send_request_owner(location[table][RID],table,RID,names,None) 
                 if not names:
                     return deepcopy(tables[table][RID])
                 else:
@@ -192,13 +198,14 @@ class MySQLConnector():
     def update(self,table,update_tuples,RID,row=0):
         if table in tables:
             if RID in tables[table]:
-                self.__send_request_owner(location[RID],table,RID,None,update_tuples)
+                self.__send_request_owner(location[table][RID],table,RID,None,update_tuples)
                 # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
                 tuples_dic = {}
                 for item in update_tuples:
                     tables[table][RID][row][item[0]] = item[1]
                     tuples_dic[item[0]] = item[1]
                 pubsubs[table].send(RID,tuples_dic)
+                update[table].add(RID)
                 return True
             else:
                 return self.__retrieve_object_from_db(table,RID,None,update_tuples)
@@ -229,7 +236,8 @@ class MySQLConnector():
                 except mdb.cursors.Error,e:
                     logger.error(e)
                     return False;
-            location[RID] = myip
+            location[table][RID] = myip
+            update[table].add(RID)
             tables[table][RID].append(newobj)
         else:
             return False
@@ -279,12 +287,12 @@ class MySQLConnector():
             if not row["__location__"]:
                 cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s", (table,myip,rid_name,RID)) #TODO: Concurrency?
                 cur.commit()
-                location[RID] = myip
+                location[table][RID] = myip
                 return allrows
             if (row["__location__"] != myip):
                 cur.commit()
                 tables[table][RID].append({})
-                location[RID] = row["__location__"]
+                location[table][RID] = row["__location__"]
                 return self.__send_request_owner(row["__location__"],table,RID,names,update_values)
             else:
                 tables[table][RID] = allrows
