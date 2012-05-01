@@ -41,9 +41,9 @@ class ObjectManager(tornado.web.RequestHandler):
             interests = json.loads(self.get_argument("interests",None))
             ip =  self.get_argument("ip",None)
             port = self.get_argument("port",None)
-            location = (ip,port)
+            loc = (ip,port)
             
-            pubsubs[tbl].add_subscriber(location,interests) 
+            pubsubs[tbl].add_subscriber(loc,interests) 
             
         else:            
             rid = self.get_argument("rid",None)
@@ -54,9 +54,13 @@ class ObjectManager(tornado.web.RequestHandler):
                 mysqlconn.update(tbl,tuples,rid)
                 self.write("OK")
             else:
-                names = json.loads(self.get_argument("names",None))
-                obj = mysqlconn.select(tbl,rid,names)
-                self.write(str(obj))
+                jnames = None
+                names = self.get_argument("names",None)
+                if names:
+                    jnames = json.loads(names)
+                obj = mysqlconn.select(tbl,rid,jnames)
+                jsonmsg = json.dumps(obj)
+                self.write(jsonmsg)
 
 class MySQLConnector():
     def __init__(self,cfg=None):
@@ -128,7 +132,7 @@ class MySQLConnector():
     
     
     """
-    TODO: Make this work! 
+    __dump_to_database__: Dumps updated locally owned objects to database
     """
     def __dump_to_database__(self):
         while(1):
@@ -172,22 +176,27 @@ class MySQLConnector():
     select(self,table,name=None,RID): Return object (or one property of object). Requires finding authoritative owner and requesting most recent status 
     """
     def select(self,table,RID,names=None):
+        result = None
         if table in tables:
             if RID in tables[table]:
-                self.__send_request_owner(location[table][RID],table,RID,names,None) 
-                if not names:
-                    return deepcopy(tables[table][RID])
+                if location[table][RID] != myip:
+                    jsonobj = self.__send_request_owner(location[table][RID],table,RID,names,None)
+                    result = json.loads(jsonobj)
+                    return result
                 else:
-                    result = []
-                    for item in tables[table][RID]:
-                        newobj = {}
-                        for name in names:
-                            newobj[name] = item[name]
-                        result.append(newobj)
-                return result
+                    if not names:
+                        return deepcopy(tables[table][RID])
+                    else:
+                        result = []
+                        for item in tables[table][RID]:
+                            newobj = {}
+                            for name in names:
+                                newobj[name] = item[name]
+                            result.append(newobj)
+                    return result
             else:
-                if self.__retrieve_object_from_db(table,RID,names,None):
-                    return deepcopy(tables[table][RID]) 
+                result = self.__retrieve_object_from_db(table,RID,names,None)
+                return result 
         else:
             return False
     
@@ -276,7 +285,7 @@ class MySQLConnector():
         cur = self.cur
         try:
             rid_name = tables[table]["__ridname__"]
-            cur.execute("SELECT * from %s WHERE %s = %s LOCK IN SHARE MODE" ,(table,rid_name,RID))
+            cur.execute("SELECT * from %s WHERE %s = %s".replace("'","`") % (table,rid_name,RID))
             allrows = cur.fetchall()
             
             if len (allrows) > 0:
@@ -285,19 +294,32 @@ class MySQLConnector():
                 return
             
             if not row["__location__"]:
-                cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s", (table,myip,rid_name,RID)) #TODO: Concurrency?
-                cur.commit()
+                cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,myip,rid_name,RID)) #TODO: Concurrency?
+                cur.connection.commit()
                 location[table][RID] = myip
                 return allrows
             if (row["__location__"] != myip):
-                cur.commit()
-                tables[table][RID].append({})
+                cur.connection.commit()
                 location[table][RID] = row["__location__"]
-                return self.__send_request_owner(row["__location__"],table,RID,names,update_values)
+                result = self.__send_request_owner(row["__location__"],table,RID,names,update_values)
+                # True or false for update; object for select
+                if not update_values:
+                    if result:
+                        tables[table][RID] = json.loads(result)
+                        ret_copy = deepcopy(tables[table][RID])
+                        del ret_copy["__location__"] 
+                        return result
+                    else:
+                        logger.error("[mysqlconn]: Did not receive remote object")
+                        return "ERROR"
+                else:
+                    return result
             else:
+                # TODO: Delete location information from each row!
                 tables[table][RID] = allrows
                 return deepcopy(tables[table][RID])
-        except:
+        except mdb.cursors.Error,e:
+            logger.error(e)
             return False
         
     """
@@ -305,12 +327,12 @@ class MySQLConnector():
     """    
     def __send_request_owner(self,host,table,RID,names=None,update_tuples=None):
         if update_tuples:
-            cmd = "?op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
+            cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
         else:
-            cmd = "?op=select"
+            cmd = "&op=select"
             if names:
                 cmd += "&names=" + urllib.quote(json.dumps(names))
-        conn = httplib.HTTPConnection(host)
+        conn = httplib.HTTPConnection(host,9999)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
         if update_tuples:
@@ -322,7 +344,8 @@ class MySQLConnector():
             else:
                 return False
         else:
-            return resp.read()
+            result = resp.read()
+            return result
     
 if __name__=="__main__":
     HOST, PORT = "localhost", 7777

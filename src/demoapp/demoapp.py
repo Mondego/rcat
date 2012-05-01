@@ -23,26 +23,36 @@ class EchoWebSocket(websocket.WebSocketHandler):
         print result
 
     def on_message(self, message):
-        enc = json.loads(message)
-        logging.debug(enc["M"])
-        
-        msg = json.loads(enc["M"])
-        user = enc["U"]
-        
-        newmsg = {}
-        if "H" in msg: # Request history from..?
-            if "ID" in msg["H"]:
-                history = datacon.select("chat", msg["H"]["ID"])
-                newmsg["M"] = str(history)
+        try:
+            enc = json.loads(message)
+            logging.debug(enc["M"])
+            
+            msg = json.loads(enc["M"])
+            user = enc["U"]
+            
+            newmsg = {}
+            if "H" in msg: # Request history from..?
+                if "ID" in msg["H"]:
+                    history = datacon.select("chat", msg["H"]["ID"])
+                    newmsg["M"] = str(history)
+                    newmsg["U"] = user
+                else:
+                    logging.error("[demoapp]: No USERID passed.")
+            elif "C" in msg: # Chat
+                newmsg["M"] = msg["C"]["M"]
+                insert_values = [msg["C"]["ID"],msg["C"]["M"]]
+                datacon.insert("chat",insert_values,msg["C"]["ID"])
+            json_msg = json.dumps(newmsg)
+            self.write_message(json_msg)
+        except Exception as e:
+            logging.error(e)
+            newmsg["M"] = "ERROR"
+            if user:
                 newmsg["U"] = user
-            else:
-                logging.error("[demoapp]: No USERID passed.")
-        elif "C" in msg: # Chat
-            newmsg["M"] = msg["C"]["M"]
-            insert_values = [msg["C"]["ID"],msg["C"]["M"]]
-            datacon.insert("chat",insert_values,msg["C"]["ID"])
-        json_msg = json.dumps(newmsg)
-        self.write_message(json_msg)
+            json_msg = json.dumps(newmsg)
+            self.write_message(json_msg)
+            return False 
+        
         
         # Append metadata here. For now just sending the user and the message.
         """
@@ -66,6 +76,6 @@ if __name__ == "__main__":
     application.listen(9999)
     logging.config.fileConfig("connector_logging.conf")    
     t = Thread(target=tornado.ioloop.IOLoop.instance().start).start()
-    pc = ProxyConnector(["ws://localhost:8888"],"ws://localhost:9999")
+    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"],"ws://localhost:9999")
     
     
