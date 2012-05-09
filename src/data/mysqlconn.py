@@ -30,6 +30,7 @@ mysqlconn = None
 pubsubs = None
 location = {}
 update = {}
+inserts = {}
 
 class ObjectManager(tornado.web.RequestHandler):
     def get(self):
@@ -134,6 +135,17 @@ class MySQLConnector():
                                     cur.connection.commit()
                                 except mdb.cursors.Error,e:
                                     print e
+                # perform the inserts
+                loc_inserts = inserts[tblnames]
+                inserts[tblnames] = []
+                for mystr in loc_inserts:
+                    try:                    
+                        logger.debug("[mysqlconn]: Inserting new values to database: " + mystr)
+                        cur.execute(mystr)
+                        cur.connection.commit()
+                    except mdb.cursors.Error,e:
+                        print e
+    
             time.sleep(5)
                 
     
@@ -142,12 +154,13 @@ class MySQLConnector():
     """
     def create_table(self,name,rid_name,cols=None,opts=None):
         # TODO: This is freaking hard! I will think about it later. For now, allow clients to inform table to be stored in memory
-        # cmd= "CREATE TABLE " + name + " (" + ','.join([colname+colnull+coldef for colname,colnull,coldef in cols,null,defaults]) 
+        # cmd= "CREATE TABLE " + name + " (" + ','.join([colname+colnull+coldef for colname,colnull,coldef in cols,null,defaults])
         tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = pubsub.PubSubUpdateSender(name)
         update[name] = set()
         location[name] = {}
+        inserts[name] = []
         if (cols):
             tables[name]["__columns__"] = cols
         else:
@@ -217,17 +230,18 @@ class MySQLConnector():
             for name,idx in tables[table]["__columns__"].items():
                 if not str(name).startswith('__location'):
                     newobj[name] = values[idx]
+            mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
             if RID not in tables[table]:
                 try:
-                    mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
                     logger.debug(mystr)
                     cur.execute(mystr)
                     cur.connection.commit()
                 except mdb.cursors.Error,e:
                     logger.error(e)
                     return False;
+            else:
+                inserts[table].append(mystr)
             location[table][RID] = mylocation
-            update[table].add(RID)
             tables[table][RID].append(newobj)
         else:
             return False
