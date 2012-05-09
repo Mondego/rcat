@@ -64,4 +64,4 @@ class PubSubUpdateSender():
                         break
             else:
                 self.sock.sendto(json.dumps(message) + "\n", subscriber["location"])
-  
+                

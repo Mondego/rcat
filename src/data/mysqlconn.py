@@ -7,15 +7,12 @@ mysqlconn.py: Used as an API between application layer and a MYSQL database. Use
 '''
 
 from threading import Timer
-import ConfigParser
 import MySQLdb as mdb
 import SocketServer
-import common.helper as helper
 import httplib
 import itertools
 import json
 import logging
-import os
 import pubsub
 import time
 import tornado.web
@@ -28,7 +25,7 @@ cursors = []
 tables = {}
 object_list = {}
 logger = logging.getLogger()
-myip = ''
+mylocation = ''
 mysqlconn = None
 pubsubs = None
 location = {}
@@ -45,8 +42,9 @@ class ObjectManager(tornado.web.RequestHandler):
             
             pubsubs[tbl].add_subscriber(loc,interests) 
             
-        else:            
-            rid = self.get_argument("rid",None)
+        else:
+            # Constraint! RID is always an INT
+            rid = int(self.get_argument("rid",None))
             tbl = self.get_argument("tbl",None)
             op = self.get_argument("op",None)
             if op == "update":
@@ -63,29 +61,11 @@ class ObjectManager(tornado.web.RequestHandler):
                 self.write(jsonmsg)
 
 class MySQLConnector():
-    def __init__(self,cfg=None):
-        global myip
+    def __init__(self,myip,myport):
+        global mylocation
         global mysqlconn
-        config = ConfigParser.ConfigParser()
-        if cfg:
-            try:
-                if (os.path.isfile(cfg)):
-                    fp = open(cfg)
-                else:
-                    fp = open(os.getenv("HOME") + '/.rcat/' + cfg)
-                config.readfp(fp)
-                myip = config.get('Main', 'ip')
-            except IOError as e:
-                logging.error("[mysqlconn]: Could not open file. Exception: ",e)
-                myip = helper.get_ip_address('eth0')
-        else:
-            try:
-                myip = helper.get_ip_address('eth0')
-            except:
-                logging.error("[mysqlconn]: Could not retrieve IP. Quitting...")
-                exit()
-        print myip
-        logger.debug("[mysqlconn]: Starting MySQL Connector.")
+        mylocation = myip + ':' + myport
+        logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + mylocation)
         mysqlconn = self
 
     @ property
@@ -120,7 +100,8 @@ class MySQLConnector():
         """
         Start Publish-Subscribe UDP socket to receive data subscribed to 
         """
-        HOST, PORT = myip, 7777
+        host,port = mylocation.split(':')
+        HOST, PORT = host,int(port) + 1
         server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
         Timer(5.0,server.serve_forever).start()
                 
@@ -145,7 +126,7 @@ class MySQLConnector():
                     itemvalues = tblvalues[rid]
                     if not str(rid).startswith("__"):
                         for row in itemvalues:
-                            if location[tblnames][rid] == myip:
+                            if location[tblnames][rid] == mylocation:
                                 try:
                                     mystr = ("UPDATE %s SET " % tblnames) + ','.join([' = '.join([`key`.replace("'","`"),`str(val)`]) for key,val in row.items()]) + " WHERE %s = %s" % (tblvalues["__ridname__"],rid)
                                     logger.debug("[mysqlconn]: Dumping to database: " + mystr)
@@ -171,7 +152,7 @@ class MySQLConnector():
             tables[name]["__columns__"] = cols
         else:
             self.__retrieve_column_names(name)
-            
+
     """
     select(self,table,name=None,RID): Return object (or one property of object). Requires finding authoritative owner and requesting most recent status 
     """
@@ -179,7 +160,7 @@ class MySQLConnector():
         result = None
         if table in tables:
             if RID in tables[table]:
-                if location[table][RID] != myip:
+                if location[table][RID] != mylocation:
                     jsonobj = self.__send_request_owner(location[table][RID],table,RID,names,None)
                     result = json.loads(jsonobj)
                     return result
@@ -227,8 +208,8 @@ class MySQLConnector():
     """  
     def insert(self,table,values,RID):
         cur = self.cur
-        # metadata: myip stores the IP where the authoritative object is
-        values.append(myip)
+        # metadata: mylocation stores the IP where the authoritative object is
+        values.append(mylocation)
         if table in tables:
             newobj = {}
             logger.debug("[mysqlconn]: New object: " + str(values))
@@ -245,7 +226,7 @@ class MySQLConnector():
                 except mdb.cursors.Error,e:
                     logger.error(e)
                     return False;
-            location[table][RID] = myip
+            location[table][RID] = mylocation
             update[table].add(RID)
             tables[table][RID].append(newobj)
         else:
@@ -278,7 +259,7 @@ class MySQLConnector():
         tables[table]["__columns__"] = fields
 
     """
-    __retrieve_object_from_db(self,table,RID,name=None,update_values=None): -------
+    __retrieve_object_from_db(self,table,RID,name=None,update_values=None):
     update_value: tuple with (old_value,new_value)
     """
     def __retrieve_object_from_db(self,table,RID,names=None,update_values=None):
@@ -294,11 +275,11 @@ class MySQLConnector():
                 return
             
             if not row["__location__"]:
-                cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,myip,rid_name,RID)) #TODO: Concurrency?
+                cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,mylocation,rid_name,RID)) #TODO: Concurrency?
                 cur.connection.commit()
-                location[table][RID] = myip
+                location[table][RID] = mylocation
                 return allrows
-            if (row["__location__"] != myip):
+            if (row["__location__"] != mylocation):
                 cur.connection.commit()
                 location[table][RID] = row["__location__"]
                 result = self.__send_request_owner(row["__location__"],table,RID,names,update_values)
@@ -307,8 +288,7 @@ class MySQLConnector():
                     if result:
                         tables[table][RID] = json.loads(result)
                         ret_copy = deepcopy(tables[table][RID])
-                        del ret_copy["__location__"] 
-                        return result
+                        return ret_copy
                     else:
                         logger.error("[mysqlconn]: Did not receive remote object")
                         return "ERROR"
@@ -325,14 +305,15 @@ class MySQLConnector():
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def __send_request_owner(self,host,table,RID,names=None,update_tuples=None):
+    def __send_request_owner(self,cl_location,table,RID,names=None,update_tuples=None):
+        host,port = cl_location.split(':')
         if update_tuples:
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
         else:
             cmd = "&op=select"
             if names:
                 cmd += "&names=" + urllib.quote(json.dumps(names))
-        conn = httplib.HTTPConnection(host,9999)
+        conn = httplib.HTTPConnection(host,port)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
         if update_tuples:
@@ -348,10 +329,11 @@ class MySQLConnector():
             return result
     
 if __name__=="__main__":
+    """
     HOST, PORT = "localhost", 7777
     server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
     server.serve_forever()
-    """
+    
     con = None
     try:
     
@@ -381,3 +363,4 @@ if __name__=="__main__":
         if con:    
             con.close()
     """
+    pass

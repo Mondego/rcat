@@ -84,14 +84,21 @@ class ClientLayer(proxy.AbstractFront):
         proxy_options = options
         
     def send_message_to_client(self, message, clientList=None):
+        remove_clients = []
         if clientList==None:
             clientList = clients
         logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
         for client in clientList:
             if (client in clients):
-                clients[client].write_message(message)
+                try:
+                    clients[client].write_message(message)
+                except IOError:
+                    remove_clients.append(client)
             else:
                 logger.warn("[Front]: Client " + client + " is not registered in this proxy.")
+        for client in remove_clients:
+            del clients[client]
+            remove_clients = []
     
     def authorize_client(self, authclient, cuuid):
         clients[authclient] = temp_users[cuuid]

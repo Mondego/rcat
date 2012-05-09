@@ -6,16 +6,18 @@ from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
 import data.mysqlconn as MySQLConn
-import ConfigParser, os
+import common.helper as helper
 
 pc = None
 datacon = None
+appip = None
+appport = None
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("App Websocket Open")
-        datacon = MySQLConn.MySQLConnector("demoapp.cfg")
+        datacon = MySQLConn.MySQLConnector(appip,appport)
         datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         result = datacon.execute('SHOW TABLES')
         datacon.create_table("chat","rid")
@@ -73,9 +75,13 @@ application = tornado.web.Application([
 ])
 
 if __name__ == "__main__":
-    application.listen(9999)
-    logging.config.fileConfig("connector_logging.conf")    
-    t = Thread(target=tornado.ioloop.IOLoop.instance().start).start()
-    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"],"ws://localhost:9999")
-    
+    appip,appport = helper.parse_input('demoapp.cfg')
+    application.listen(appport)
+    logging.config.fileConfig("connector_logging.conf")
+    logging.debug('[demoapp]: Starting app in ' + appip + appport)    
+    t = Thread(target=tornado.ioloop.IOLoop.instance().start)
+    t.daemon = True
+    t.start()
+    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"],"ws://" + appip + ':' + appport)
+    helper.terminal()
     

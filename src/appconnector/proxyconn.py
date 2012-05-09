@@ -44,10 +44,14 @@ class ProxyConnector():
             self.admin_proxy[adminWS] = proxyWS
             self.proxies.append(proxyWS)
             logger.debug("[ProxyConnector]: Connecting to Proxy in " + proxy)
-            Thread(target=proxyWS.run_forever).start()
+            pws = Thread(target=proxyWS.run_forever)
+            pws.daemon = True
+            pws.start()
             logger.debug("[ProxyConnector]: Proxy Connected!")
             logger.debug("[ProxyConnector]: Connecting to Admin in " + proxy)
-            Thread(target=adminWS.run_forever).start()
+            aws = Thread(target=adminWS.run_forever)
+            aws.daemon = True
+            aws.start()
             logger.debug("[ProxyConnector]: Admin Connected!")
             
         self.appWS = websocket.WebSocketApp(appURL,
@@ -58,7 +62,9 @@ class ProxyConnector():
         # TODO: Fix this sleep, looks so bad :(
         time.sleep(1)
         logger.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
-        Thread(target=self.appWS.run_forever).start()
+        t = Thread(target=self.appWS.run_forever)
+        t.daemon = True
+        t.start()
         logger.debug("[ProxyConnector]: App Server Connected!")
         
         self.manager = RMUVE_Manager()

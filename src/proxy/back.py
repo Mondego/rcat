@@ -32,7 +32,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             logger.debug(message)
             if "U" in msg:
                 users = msg["U"]
-                logger.debug("Sending message " + msg["M"] + "to users " + str(users))
+                logger.debug("Sending message " + msg["M"] + " to users " + str(users))
                 proxyref.front.send_message_to_client(msg["M"],users)
             else:
                 proxyref.front.send_message_to_client(msg["M"])
