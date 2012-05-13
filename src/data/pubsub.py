@@ -21,11 +21,18 @@ class PubSubUpdateHandler(SocketServer.BaseRequestHandler):
         data = json.loads(self.request[0].strip())
         tbl = data["tbl"]
         rid = data["rid"]
-        for name in data["data"]:
-            tables[tbl][rid][name] = data["data"][name]
+        op = data["op"]
+        if op == "insert":
+            tables[tbl][rid].append(data["data"])
+        elif op == "update":
+            if "row" in data:
+                row = int(data["row"])
+                tables[tbl][rid][row] = data["data"]
+            else:
+                tables[tbl][rid] = data["data"]
         
-        socket = self.request[1]
-        socket.sendto("OK", self.client_address)
+        #socket = self.request[1]
+        #socket.sendto("OK", self.client_address)
         
         """
         print "{} wrote:".format(self.client_address[0])

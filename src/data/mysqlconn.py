@@ -29,37 +29,40 @@ mylocation = ''
 mysqlconn = None
 pubsubs = None
 location = {}
-update = {}
-inserts = {}
+db_updates = {}
+db_inserts = {}
 
 class ObjectManager(tornado.web.RequestHandler):
     def get(self):
-        if self.get_argument("subscribe",None):
-            tbl = self.get_argument("tbl",None)
-            interests = json.loads(self.get_argument("interests",None))
-            ip =  self.get_argument("ip",None)
+        # Constraint! RID is always an INT
+        rid = int(self.get_argument("rid",None))
+        tbl = self.get_argument("tbl",None)
+        op = self.get_argument("op",None)
+        if op == "update":
+            tuples = json.loads(self.get_argument("tuples"),None)   
+            mysqlconn.update(tbl,tuples,rid)
+            self.write("OK")
+        elif op == "select":
+            jnames = None
+            names = self.get_argument("names",None)
+            if names:
+                jnames = json.loads(names)
+            obj = mysqlconn.select(tbl,rid,jnames)
+            jsonmsg = json.dumps(obj)
+            self.write(jsonmsg)
+        elif op == "relocate":
+            newowner = self.get_argument("no",None)
+            obj = mysqlconn.relocate(tbl,rid,newowner)
+            jsonmsg = json.dumps(obj)
+            self.write(jsonmsg)
+        elif op == "subscribe":
+            ip =  self.request.remote_ip
             port = self.get_argument("port",None)
+            interests = json.loads(self.get_argument("interests",None))
             loc = (ip,port)
-            
             pubsubs[tbl].add_subscriber(loc,interests) 
             
-        else:
-            # Constraint! RID is always an INT
-            rid = int(self.get_argument("rid",None))
-            tbl = self.get_argument("tbl",None)
-            op = self.get_argument("op",None)
-            if op == "update":
-                tuples = json.loads(self.get_argument("tuples"),None)   
-                mysqlconn.update(tbl,tuples,rid)
-                self.write("OK")
-            else:
-                jnames = None
-                names = self.get_argument("names",None)
-                if names:
-                    jnames = json.loads(names)
-                obj = mysqlconn.select(tbl,rid,jnames)
-                jsonmsg = json.dumps(obj)
-                self.write(jsonmsg)
+                
 
 class MySQLConnector():
     def __init__(self,myip,myport):
@@ -120,8 +123,8 @@ class MySQLConnector():
         while(1):
             cur = self.cur 
             for tblnames,tblvalues in tables.items():
-                loc_update = deepcopy(update[tblnames])
-                update[tblnames].clear()
+                loc_update = deepcopy(db_updates[tblnames])
+                db_updates[tblnames].clear()
                 while loc_update:
                     rid = loc_update.pop()
                     itemvalues = tblvalues[rid]
@@ -136,8 +139,8 @@ class MySQLConnector():
                                 except mdb.cursors.Error,e:
                                     print e
                 # perform the inserts
-                loc_inserts = inserts[tblnames]
-                inserts[tblnames] = []
+                loc_inserts = db_inserts[tblnames]
+                db_inserts[tblnames] = []
                 for mystr in loc_inserts:
                     try:                    
                         logger.debug("[mysqlconn]: Inserting new values to database: " + mystr)
@@ -147,7 +150,6 @@ class MySQLConnector():
                         print e
     
             time.sleep(5)
-                
     
     """
     create_table(self,name,cols=None,null=None,defaults=None): Creates a table with specified column names and data types
@@ -158,9 +160,9 @@ class MySQLConnector():
         tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = pubsub.PubSubUpdateSender(name)
-        update[name] = set()
         location[name] = {}
-        inserts[name] = []
+        db_updates[name] = set()
+        db_inserts[name] = []
         if (cols):
             tables[name]["__columns__"] = cols
         else:
@@ -174,7 +176,7 @@ class MySQLConnector():
         if table in tables:
             if RID in tables[table]:
                 if location[table][RID] != mylocation:
-                    jsonobj = self.__send_request_owner(location[table][RID],table,RID,names,None)
+                    jsonobj = self.__send_request_owner(location[table][RID],table,RID,"select",names)
                     result = json.loads(jsonobj)
                     return result
                 else:
@@ -201,14 +203,14 @@ class MySQLConnector():
     def update(self,table,update_tuples,RID,row=0):
         if table in tables:
             if RID in tables[table]:
-                self.__send_request_owner(location[table][RID],table,RID,None,update_tuples)
+                self.__send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
                 # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
                 tuples_dic = {}
                 for item in update_tuples:
                     tables[table][RID][row][item[0]] = item[1]
                     tuples_dic[item[0]] = item[1]
                 pubsubs[table].send(RID,tuples_dic)
-                update[table].add(RID)
+                db_updates[table].add(RID)
                 return True
             else:
                 return self.__retrieve_object_from_db(table,RID,None,update_tuples)
@@ -240,11 +242,39 @@ class MySQLConnector():
                     logger.error(e)
                     return False;
             else:
-                inserts[table].append(mystr)
+                db_inserts[table].append(mystr)
             location[table][RID] = mylocation
             tables[table][RID].append(newobj)
+            pubsubs[table].send(RID,newobj)
         else:
             return False
+    
+    """
+    __relocate(self,table,rid,newowner): Relocates data to another app
+    """
+    def relocate(self,table,rid,newowner):
+        try:
+            if location[table][rid] == mylocation:
+                cur = self.cur
+                mystr = "UPDATE {} SET __location__ = '{}' WHERE {} = {}".format(table,newowner,tables[table]["__ridname__"],`rid`)
+                logger.debug(mystr)
+                cur.execute(mystr)
+                location[table][rid] = newowner
+                return tables[table][rid]
+            else:
+                return location[table][rid]
+        except Exception,e:
+            logger.error(e)
+            return "[Relocation failed]"
+        
+    """
+    request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
+    the client is currently making requests to.
+    """
+    def request_relocate_to_local(self,table,rid):
+        if not location[table][rid]:
+            self.select(table,rid)
+        self.__send_request_owner(location[table][rid],table,rid,"relocate")
     
     """
     delete(self,table,name,newvalue,RID): Attempts to delete an new item in the database. Requires informing authoritative owner (if one exists)
@@ -286,17 +316,24 @@ class MySQLConnector():
             if len (allrows) > 0:
                 row = allrows[0]
             else:
-                return
+                return False
             
             if not row["__location__"]:
                 cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,mylocation,rid_name,RID)) #TODO: Concurrency?
                 cur.connection.commit()
                 location[table][RID] = mylocation
-                return allrows
+                for item in allrows:
+                    del item["__location__"]
+                tables[table][RID] = allrows
+                return deepcopy(allrows)
             if (row["__location__"] != mylocation):
                 cur.connection.commit()
                 location[table][RID] = row["__location__"]
-                result = self.__send_request_owner(row["__location__"],table,RID,names,update_values)
+                if update_values:
+                    op = "update"
+                else:
+                    op = "select"
+                result = self.__send_request_owner(row["__location__"],table,RID,op,names,update_values)
                 # True or false for update; object for select
                 if not update_values:
                     if result:
@@ -319,14 +356,16 @@ class MySQLConnector():
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def __send_request_owner(self,cl_location,table,RID,names=None,update_tuples=None):
-        host,port = cl_location.split(':')
-        if update_tuples:
+    def __send_request_owner(self,obj_location,table,RID,op,names=None,update_tuples=None):
+        host,port = obj_location.split(':')
+        if op == "update":
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
-        else:
+        elif op == "select":
             cmd = "&op=select"
             if names:
                 cmd += "&names=" + urllib.quote(json.dumps(names))
+        elif op == "relocate":
+            cmd = "&op=relocate&no=" + mylocation
         conn = httplib.HTTPConnection(host,port)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
