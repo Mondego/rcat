@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="jigsawScript.js"></script>
+    <script type="text/javascript">
+
+        var game = null;
+        var imageID = "img1";
+        var totalRows = 3;
+        var totalColumns = 3;
+
+
+        function InitGame() {
+            LoadNewImage(imageID);
+        }
+
+        function LoadNewImage(imgID) {
+            imageID = imgID;
+            
+            SetRowsColumn();
+            
+            LoadGame();
+        }
+        
+        function LoadGame() {
+            var canvasID = "canJigsaw";
+
+            game = new jigsaw(canvasID, imageID, totalRows, totalColumns);
+
+            game.initDrawing();
+
+        }
+
+        function ShowPreview() {
+            if (game) {
+
+                game.showPreview();
+
+            }
+        }
+
+        function SetRowsColumn() {
+            var r1 = document.getElementById("rd1");
+            var r2 = document.getElementById("rd2");
+            var r3 = document.getElementById("rd3");
+
+            if (r1.checked) {
+                totalRows = 2;
+                totalColumns = 2;
+
+            }
+            else if (r2.checked) {
+                totalRows = 3;
+                totalColumns = 3;
+
+            }
+            else if (r3.checked) {
+                totalRows = 4;
+                totalColumns = 4;
+
+            }
+
+
+        }
+
+    </script>
+</head>
+<body onload="InitGame();">
+    <table>
+        <tr>
+            <td>
+                <div>
+                    <table cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                            <td>
+                                <span>
+                                    <input id="rd1" type="radio" value="Easy" name="r1" onclick="InitGame();" />
+                                    Easy
+                                    <input id="rd2" type="radio" value="Medium" name="r1" onclick="InitGame();" checked />
+                                    Medium
+                                    <input id="rd3" type="radio" value="Hard" name="r1" onclick="InitGame();" />
+                                    Hard</span>
+                            </td>
+                            <td width="150px">
+                                <span >
+                                    <input type="button" value="Show Preview" onclick="ShowPreview()" />
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div>
+                    <canvas id="canJigsaw" width="850" height="575" style="border: black solid 2px;"></canvas>
+                </div>
+            </td>
+            <td width="20px">
+                &nbsp;
+            </td>
+            <td style="vertical-align: top;">
+                <div style="font-size:10px; text-align:center;">Double click on image to select.</div>
+                <div align="right" style="height: 585px; width: 320px; border: black solid 1px; overflow: auto;">
+                    <div>
+                        <img id="img1" width="300" height="200" ondblclick="LoadNewImage(this.id);" src="img/BugsLife.jpg"></img>
+                    </div>
+                    <div>
+                        <img id="img2" width="300" height="200" ondblclick="LoadNewImage(this.id);" src="img/WTP.jpg"></img>
+                    </div>
+                    <div>
+                        <img id="img3" width="300" height="200" ondblclick="LoadNewImage(this.id);" src="img/Cartoon.jpg"></img>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
