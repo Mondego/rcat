@@ -335,6 +335,12 @@ function clear(c) {
   c.clearRect(0, 0, canvas.width, canvas.height);
 }
 
+function clear_all() {
+	var p1 = ctx.transformedPoint(0,0);
+	var p2 = ctx.transformedPoint(canvas.width,canvas.height);
+	ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
+}
+
 function randomXtoY(minVal, maxVal, decimals) {
   var randVal = minVal + (Math.random() * (maxVal - minVal));
   var val = typeof decimals == 'undefined' ? Math.round(randVal) : randVal.toFixed(decimals);
@@ -412,17 +418,16 @@ function isFinished() {
   return true;
 }
 
-
 //------- zoom from http://phrogz.net/tmp/canvas_zoom_to_cursor.html
-
 function zoom(delta){
   var pt = ctx.transformedPoint(lastX,lastY);
   ctx.translate(pt.x,pt.y);
   var factor = Math.pow(scaleFactor,delta);
   ctx.scale(factor,factor);
   ctx.translate(-pt.x,-pt.y);
-  DrawGame();	
-}
+  clear_all();
+  DrawGame();
+}	
 
 function handleScroll (evt){
   // evt.wheelDelta for non-webkit, evt.detail for webkit
