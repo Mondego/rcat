@@ -1,8 +1,32 @@
 
 // ---------------- constants ---------------
 
-var game = null;
 var canvasID = "canJigsaw";
+
+a = 5
+a += 6
+console.log(a)
+
+var MAIN_IMG_WIDTH = 800;
+var MAIN_IMG_HEIGHT = 600;
+
+var BLOCK_IMG_WIDTH = 400;
+var BLOCK_IMG_HEIGHT = 300;
+    
+var TOTAL_ROWS = 2;
+var TOTAL_COLUMNS = 2;
+
+var TOTAL_PIECES = TOTAL_ROWS * TOTAL_COLUMNS;
+
+var IMG_WIDTH = Math.round(MAIN_IMG_WIDTH / TOTAL_COLUMNS);
+var IMG_HEIGHT = Math.round(MAIN_IMG_HEIGHT / TOTAL_ROWS);
+
+var BLOCK_WIDTH = 0; // Math.round(BLOCK_IMG_WIDTH / TOTAL_COLUMNS);
+var BLOCK_HEIGHT = 0; // Math.round(BLOCK_IMG_HEIGHT / TOTAL_ROWS);
+
+var image1 = new Image();
+image1.src = "img/BugsLife.jpg";
+
 
 // -------------------  code ---------------
 ﻿
@@ -15,60 +39,35 @@ function imageBlock(no, x, y) {
 }
 
 
-function jigsaw() {
-
-    var MAIN_IMG_WIDTH = 800;
-    var MAIN_IMG_HEIGHT = 600;
-
-
-    var BLOCK_IMG_WIDTH = 600;
-    var BLOCK_IMG_HEIGHT = 450;
-
-
-    var TOTAL_ROWS = 2;
-    var TOTAL_COLUMNS = 2;
-
-    var TOTAL_PIECES = TOTAL_ROWS * TOTAL_COLUMNS;
-
-    var IMG_WIDTH = Math.round(MAIN_IMG_WIDTH / TOTAL_COLUMNS);
-    var IMG_HEIGHT = Math.round(MAIN_IMG_HEIGHT / TOTAL_ROWS);
-
-
-    var BLOCK_WIDTH = 0; // Math.round(BLOCK_IMG_WIDTH / TOTAL_COLUMNS);
-    var BLOCK_HEIGHT = 0; // Math.round(BLOCK_IMG_HEIGHT / TOTAL_ROWS);
-
-
-
-    image1 = new Image();
-    image1.src = "img/BugsLife.jpg";
-    this.image1 = image1
+var jigsaw = {
     
-    var canvas;
+
+}
+function jigsaw() {
+   
+    var canvas; //var = private 
     var ctx;
 
-    this.canvasID = canvasID;
-    
-    this.top = 0;
+    this.top = 0; //this = public
     this.left = 0;
 
-    this.imageBlockList = new Array();
+    this.imageBlockList = [];
 
-
-    this.blockList = new Array();
+    this.blockList = [];
 
     this.selectedBlock = null;
 
-
     this.mySelf = this;
+    console.log(this.mySelf)
 
 
     this.initDrawing = function () {
         mySelf = this;
+        console.log(mySelf === this.mySelf)
         selectedBlock = null;
         canvas = document.getElementById(canvasID);
 
         // register events
-        //canvas.ondblclick = handleOnMouseDbClick;
         canvas.onmousedown = handleOnMouseDown;
         canvas.onmouseup = handleOnMouseUp;
         canvas.onmouseout = handleOnMouseOut;
@@ -98,8 +97,8 @@ function jigsaw() {
         imageBlockList = new Array();// blocks of movable images
         blockList = new Array();// blocks of correct images
 
-        var x1 = BLOCK_IMG_WIDTH + 20;
-        var x2 = canvas.width - 1000;
+        var x1 = BLOCK_IMG_WIDTH + 50;
+        var x2 = canvas.width - 100;
         var y2 = BLOCK_IMG_HEIGHT;
         for (var i = 0; i < total; i++) {
 
@@ -142,18 +141,18 @@ function jigsaw() {
         ctx.lineWidth = 1;
         ctx.beginPath();
         
-        // draw verticle lines
+        // draw vertical grid lines
         for (var i = 0; i <= TOTAL_COLUMNS; i++) {
             var x = BLOCK_WIDTH * i;
             ctx.moveTo(x, 0);
-            ctx.lineTo(x, 450);
+            ctx.lineTo(x, 300);
         }
         
-        // draw horizontal lines
+        // draw horizontal grid lines
         for (var i = 0; i <= TOTAL_ROWS; i++) {
             var y = BLOCK_HEIGHT * i;
             ctx.moveTo(0, y);
-            ctx.lineTo(600, y);
+            ctx.lineTo(400, y);
         }
 
         ctx.closePath();
@@ -233,7 +232,7 @@ function jigsaw() {
            
             // Restart game
             initializeNewGame(); 
-          //  alert("Congrats....");
+            
 
         }
     };
@@ -259,15 +258,9 @@ function jigsaw() {
     }
 
     function handleOnMouseDown(e) {
-
-        //clickx = e.pageX
-        //clicky = e.pageY 
-        // TODO: clicking bug here?
-        clickx = e.clientX
-        clicky = e.clientY
-        
-        console.log(clickx + ' ' + clicky)
-        console.log(imageBlockList)
+ 
+        clickx = e.pageX
+        clicky = e.pageY
         
         // remove old selected
         if (selectedBlock != null) {
@@ -280,6 +273,8 @@ function jigsaw() {
 
         if (selectedBlock) {
             imageBlockList[selectedBlock.no].isSelected = true;
+            offsetx = selectedBlock.x - clickx
+            offsety = selectedBlock.y - clicky
         }
 
     }
@@ -289,7 +284,6 @@ function jigsaw() {
 
         if (selectedBlock) {
             var index = selectedBlock.no;
-            //   alert(index);
 
             var block = GetImageBlock(blockList, e.pageX, e.pageY);
             if (block) {
@@ -320,8 +314,8 @@ function jigsaw() {
 
         if (selectedBlock) {
 
-            selectedBlock.x = e.pageX  - 25;
-            selectedBlock.y = e.pageY  - 25;
+            selectedBlock.x = e.pageX + offsetx;
+            selectedBlock.y = e.pageY + offsety;
 
             DrawGame();
 
@@ -346,7 +340,6 @@ function jigsaw() {
 
     function GetImageBlock(imglist, x, y) {
 
-        //for (var i = 0; i < list.length; i++) {
         for (var i = imglist.length - 1; i >= 0; i--) {
             var imgBlock = imglist[i];
     
@@ -360,10 +353,8 @@ function jigsaw() {
                 (x >= x1 && x <= x2) &&
                 (y >= y1 && y <= y2)
             ) {
-                //alert("found: " + imgBlock.no);
-
+                
                 var img = new imageBlock(imgBlock.no, imgBlock.x, imgBlock.y);
-                //drawImageBlock(img);
                 return img;
 
             }
@@ -387,7 +378,6 @@ function jigsaw() {
             ) {
 
                 var img = new imageBlock(imgBlock.no, imgBlock.x, imgBlock.y);
-                //drawImageBlock(img);
                 return img;
 
             }

@@ -12,7 +12,5 @@ body, html {
 }
 
 #canJigsaw {
-   width:850px;
-   height:575px;
    border: solid black 2px;
 }
