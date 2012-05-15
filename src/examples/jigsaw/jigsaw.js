@@ -5,8 +5,14 @@ var canvas;
 var ctx; // canvas context
 var canvasID = "canJigsaw";
 
-var lastX=400, lastY=300;
+var translatePos = {
+        x: 400,
+        y: 300
+    };
+ var startDragOffset = {};
+
 var dragStart,dragged;
+var dragging = false;
 
 var MAIN_IMG_WIDTH = 800;
 var MAIN_IMG_HEIGHT = 600;
@@ -257,7 +263,9 @@ function handleOnMouseOut(e) {
     imageBlockList[selectedBlock.no].isSelected = false;
     selectedBlock = null;
     DrawGame();
-
+  }
+  else if (dragging == true) {
+    dragging = false;
   }
 
 }
@@ -268,7 +276,6 @@ function handleOnMouseDown(e) {
 
   clickx = clicked.x;
   clicky = clicked.y;
-  console.log(clicked);
 
   // remove old selected
   if (selectedBlock != null) {
@@ -284,7 +291,11 @@ function handleOnMouseDown(e) {
     offsetx = selectedBlock.x - clickx
     offsety = selectedBlock.y - clicky
   }
-
+  else {
+    dragging = true;
+    startDragOffset.x = clicked.x - translatePos.x;
+    startDragOffset.y = clicked.y - translatePos.y;
+  }
 }
 
 
@@ -306,28 +317,32 @@ function handleOnMouseUp(e) {
       imageBlockList[index].x = selectedBlock.x;
       imageBlockList[index].y = selectedBlock.y;
     }
-
-    imageBlockList[index].isSelected = false;
     selectedBlock = null;
+    imageBlockList[index].isSelected = false;
     DrawGame();
 
     if (isFinished()) {
       OnFinished();
     }
-
   }
+  else if (dragging == true) {
+     dragging = false;
+  }
+
 }
 
 function handleOnMouseMove(e) {
-
+  var clicked = ctx.fromGlobalCoord(e.pageX,e.pageY);
   if (selectedBlock) {
-    var clicked = ctx.fromGlobalCoord(e.pageX,e.pageY);
-
     selectedBlock.x = clicked.x + offsetx;
     selectedBlock.y = clicked.y + offsety;
-
     DrawGame();
-
+  }
+  else if (dragging == true) {
+    translatePos.x = clicked.x - startDragOffset.x;
+    translatePos.y = clicked.y - startDragOffset.y;
+    ctx.translate(translatePos.x,translatePos.y);
+    DrawGame();
   }
 }
 
@@ -344,9 +359,6 @@ function clear(c) {
 function clear_all() {
 	var p1 = ctx.transformedPoint(0,0);
 	var p2 = ctx.transformedPoint(canvas.width,canvas.height);
-	//var p3 = ctx.transformedPoint(100,100);
-	//console.log(p3);
-        //console.log(ctx.toGlobalCoord(p3.x,p3.y));
 	ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
 }
 
@@ -450,13 +462,11 @@ function trackTransforms(ctx) {
   var svg = document.createElementNS("http://www.w3.org/2000/svg",'svg');
   var xform = svg.createSVGMatrix();
   xform = xform.translate(0,0);
-  console.log(xform);
   ctx.getTransform = function(){ return xform; };
 
   var scale = ctx.scale;
   ctx.scale = function(sx,sy){
     xform = xform.scaleNonUniform(sx,sy);
-    console.log(xform);
     return scale.call(ctx,sx,sy);
   };
 
@@ -484,7 +494,6 @@ function trackTransforms(ctx) {
 }
 
 
-
 //----------------- body-loaded code --------------
 
 
@@ -496,3 +505,4 @@ function LoadNewImage() {
   game = new Jigsaw();
 
 }
+
