@@ -264,8 +264,11 @@ function handleOnMouseOut(e) {
 
 function handleOnMouseDown(e) {
 
-  clickx = e.pageX
-  clicky = e.pageY
+  var clicked = ctx.fromGlobalCoord(e.pageX,e.pageY);
+
+  clickx = clicked.x;
+  clicky = clicked.y;
+  console.log(clicked);
 
   // remove old selected
   if (selectedBlock != null) {
@@ -286,11 +289,11 @@ function handleOnMouseDown(e) {
 
 
 function handleOnMouseUp(e) {
-
+  var clicked = ctx.fromGlobalCoord(e.pageX,e.pageY);
   if (selectedBlock) {
     var index = selectedBlock.no;
 
-    var block = GetImageBlock(blockList, e.pageX, e.pageY);
+    var block = GetImageBlock(blockList, clicked.x, clicked.y);
     if (block) {
 
       var blockOldImage = GetImageBlockOnEqual(imageBlockList, block.x, block.y);
@@ -318,9 +321,10 @@ function handleOnMouseUp(e) {
 function handleOnMouseMove(e) {
 
   if (selectedBlock) {
+    var clicked = ctx.fromGlobalCoord(e.pageX,e.pageY);
 
-    selectedBlock.x = e.pageX + offsetx;
-    selectedBlock.y = e.pageY + offsety;
+    selectedBlock.x = clicked.x + offsetx;
+    selectedBlock.y = clicked.y + offsety;
 
     DrawGame();
 
@@ -332,12 +336,17 @@ function handleOnMouseMove(e) {
 ////////////////////////////////////////////
 
 function clear(c) {
-  c.clearRect(0, 0, canvas.width, canvas.height);
+	var p1 = c.transformedPoint(0,0);
+	var p2 = c.transformedPoint(canvas.width,canvas.height);
+	ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
 }
 
 function clear_all() {
 	var p1 = ctx.transformedPoint(0,0);
 	var p2 = ctx.transformedPoint(canvas.width,canvas.height);
+	//var p3 = ctx.transformedPoint(100,100);
+	//console.log(p3);
+        //console.log(ctx.toGlobalCoord(p3.x,p3.y));
 	ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
 }
 
@@ -412,19 +421,19 @@ function isFinished() {
     ) {
       return false;
     }
-
   }
 
   return true;
 }
 
 //------- zoom from http://phrogz.net/tmp/canvas_zoom_to_cursor.html
-function zoom(delta){
-  var pt = ctx.transformedPoint(lastX,lastY);
-  ctx.translate(pt.x,pt.y);
+function zoom(delta) {
+//  Uncomment to add section zooming
+//  var pt = ctx.transformedPoint(lastX,lastY);
+//  ctx.translate(pt.x,pt.y);
   var factor = Math.pow(scaleFactor,delta);
   ctx.scale(factor,factor);
-  ctx.translate(-pt.x,-pt.y);
+//  ctx.translate(-pt.x,-pt.y);
   clear_all();
   DrawGame();
 }	
@@ -440,51 +449,37 @@ function handleScroll (evt){
 function trackTransforms(ctx) {
   var svg = document.createElementNS("http://www.w3.org/2000/svg",'svg');
   var xform = svg.createSVGMatrix();
+  xform = xform.translate(0,0);
+  console.log(xform);
   ctx.getTransform = function(){ return xform; };
-
-  var savedTransforms = [];
-  var save = ctx.save;
-  ctx.save = function(){
-    savedTransforms.push(xform.translate(0,0));
-    return save.call(ctx);
-  };
-  var restore = ctx.restore;
-  ctx.restore = function(){
-    xform = savedTransforms.pop();
-    return restore.call(ctx);
-  };
 
   var scale = ctx.scale;
   ctx.scale = function(sx,sy){
     xform = xform.scaleNonUniform(sx,sy);
+    console.log(xform);
     return scale.call(ctx,sx,sy);
   };
+
   var translate = ctx.translate;
   ctx.translate = function(dx,dy){
     xform = xform.translate(dx,dy);
     return translate.call(ctx,dx,dy);
   };
-  var transform = ctx.transform;
-  ctx.transform = function(a,b,c,d,e,f){
-    var m2 = svg.createSVGMatrix();
-    m2.a=a; m2.b=b; m2.c=c; m2.d=d; m2.e=e; m2.f=f;
-    xform = xform.multiply(m2);
-    return transform.call(ctx,a,b,c,d,e,f);
-  };
-  var setTransform = ctx.setTransform;
-  ctx.setTransform = function(a,b,c,d,e,f){
-    xform.a = a;
-    xform.b = b;
-    xform.c = c;
-    xform.d = d;
-    xform.e = e;
-    xform.f = f;
-    return setTransform.call(ctx,a,b,c,d,e,f);
-  };
+
   var pt  = svg.createSVGPoint();
   ctx.transformedPoint = function(x,y){
     pt.x=x; pt.y=y;
     return pt.matrixTransform(xform.inverse());
+  }
+
+  ctx.fromGlobalCoord = function(x,y){
+    pt.x=x; pt.y=y;
+    return pt.matrixTransform(xform.inverse());
+  }
+
+  ctx.toGlobalCoord = function(x,y){
+    pt.x=x; pt.y=y;
+    return pt.matrixTransform(xform);
   }
 }
 
