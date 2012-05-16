@@ -6,12 +6,11 @@ var ctx; // canvas context
 var canvasID = "canJigsaw";
 
 var translatePos = {
-        x: 400,
-        y: 300
+        x: 0,
+        y: 0
     };
  var startDragOffset = {};
 
-var dragStart,dragged;
 var dragging = false;
 
 var MAIN_IMG_WIDTH = 800;
