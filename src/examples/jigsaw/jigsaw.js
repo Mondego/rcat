@@ -498,7 +498,7 @@ function trackTransforms(ctx) {
 
 
 
-function LoadNewImage() {
+window.onload= function() {
 
   canvas = document.getElementById(canvasID);
 
