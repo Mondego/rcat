@@ -14,28 +14,35 @@ window.onload = function() {
 // stores game logic and data
 function Model() {
 
+  // game areas: board = grid + empty space around the grid
+  this.BOARD_W = 800, this.BOARD_H = 600;
+  // grid = where pieces can be dropped
+  this.GRID_X = 50, this.GRID_Y = 50; 
+  this.GRID_W = 400, this.GRID_H = 300;
+
+  // puzzle difficulty
+  this.ROWS = 2, this.COLUMNS = 2; // simple 2-by-2 puzzle, 4 pieces
+  
   img = new Image(); // large image to be sliced for the puzzle
   img.src = "img/BugsLife.jpg"; // 800 x 600 px
   this.img = img;
-
-  // --- Create the pieces.
-  // The image contained in a piece is rendered by the view
-  // from that piece's coords.
-  this.ROWS = 2, this.COLUMNS = 2; // simple 2-by-2 puzzle, 4 pieces
   // each piece contains PC_W x PC_H from the original image
   this.PC_W = img.width / this.COLUMNS;
   this.PC_H = img.height / this.ROWS;
-  // pieces[i][j] = ith column, jth row
-  this.pieces = []; // set of all pieces
+
+  // Create the pieces.
+  this.loosePieces = []; // set of movable pieces
+  this.boundPieces = []; // pieces that have been dropped in the correct cell
   var x, y; // coords of the piece on the board
   var sx, sy; // dimensions of the slice from the original image
   for ( var c = 0; c < this.COLUMNS; c++) {
     for ( var r = 0; r < this.ROWS; r++) {
-      x = c * 300;
-      y = r * 200;
+      x = Math.random() * (this.BOARD_W - this.PC_W);
+      y = Math.random() * (this.BOARD_H - this.PC_H);
       sx = c * this.PC_W; // slice from original
       sy = r * this.PC_H;
-      this.pieces.push(new Piece(c, r, x, y, sx, sy, this.PC_W, this.PC_H));
+      var p = new Piece(c, r, x, y, sx, sy, this.PC_W, this.PC_H);
+      this.loosePieces.push(p);
     }
   }
 
@@ -44,9 +51,6 @@ function Model() {
   // the grid "magnets" it, and the piece can't be moved anymore.
   // TODO: should display an effect when the piece is magnetted.
   // the whole board area
-  this.BOARD_W = 800, this.BOARD_H = 600;
-  // the grid area
-  this.GRID_X = 50, this.GRID_Y = 50, this.GRID_W = 400, this.GRID_H = 300;
 
 }
 
@@ -163,14 +167,14 @@ function View() {
 
   // draw movable pieces
   function drawLoosePieces() {
-    for ( var pnum in model.pieces) {
-      drawPiece(model.pieces[pnum]);
+    for ( var pnum in model.loosePieces) {
+      drawPiece(model.loosePieces[pnum]);
     }
   }
 
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
-    var dx = p.x; 
+    var dx = p.x;
     var dy = p.y;
     var dw = GRID.CELLW;
     var dh = GRID.CELLH;
@@ -180,7 +184,6 @@ function View() {
 
   // init: draw the grid, the pieces in the grid, and the loose pieces
   drawGrid();
-  //drawPiece(model.pieces[3])
   // drawBoundPieces();
   drawLoosePieces();
 }
