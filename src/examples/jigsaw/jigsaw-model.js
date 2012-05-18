@@ -96,6 +96,7 @@ function Model() {
     if (pnum >= 0) { // at least a piece collides: prepare to drag it around
       p = this.loosePieces[pnum];
       this.draggedPiece = p;
+      // TODO: view draws a shiny border around the piece to show it's selected
       return p;
     } else { // no piece collides: prepare to translate the board
       return null;
@@ -230,8 +231,7 @@ function View() {
   var view = this; // in canvas callbacks, 'this' is the canvas, not the view
 
   this.mousedown = false;
-  this.dragStartx = null;
-  this.dragStarty = null;
+  this.dragStart = null; // last position recorded when dragging the mouse
 
   // register canvas callbacks to mouse events
   // left click to select a piece or drag the board
@@ -241,25 +241,21 @@ function View() {
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
     var p = model.getCollidedPiece(pos.x, pos.y);
-    // modes such as "dragging a piece" or "sliding the board"
-    // are stored in the model
-    if (p) { // piece is selected
-      // remember initial screen dragging position
-      view.dragStartx = pos.x;
-      view.dragStarty = pos.y;
-    } else { // TODO: drag the board
-    }
-    // TODO: draw a shiny border around the piece to show it is selected
+    // remember initial screen dragging position
+    view.dragStart = {
+      x : pos.x,
+      y : pos.y
+    };
+    // the modes "drag a piece" or "slide the board" are in the model logic
   };
 
   canvas.onmouseup = function(e) {
     view.mousedown = false;
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
-    // release the piece where the user mouseupped
+    // release the piece where the user mouse-upped
     model.release(pos.x, pos.y);
-    view.dragStartx = null;
-    view.dragStarty = null;
+    view.dragStart = null;
   };
 
   // Don't redraw the canvas if the mouse moved but was not down.
@@ -267,11 +263,13 @@ function View() {
     if (view.mousedown) {
       var screenPos = getScreenPos(e);
       var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
-      var dx = pos.x - view.dragStartx;
-      var dy = pos.y - view.dragStarty;
+      var dx = pos.x - view.dragStart.x;
+      var dy = pos.y - view.dragStart.y;
       // reset the dragging origin
-      view.dragStartx = pos.x;
-      view.dragStarty = pos.y;
+      view.dragStart = {
+        x : pos.x,
+        y : pos.y
+      };
       model.dragRelative(dx, dy);
     }
   };
@@ -399,7 +397,7 @@ function View() {
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
     var grid = model.GRID;
-    var dx = p.x;
+    var dx = p.x; // destination coords and dimensions
     var dy = p.y;
     var dw = grid.cellw;
     var dh = grid.cellh;
