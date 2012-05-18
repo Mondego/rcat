@@ -13,8 +13,8 @@ var translatePos = {
 
 var dragging = false;
 
-var MAIN_IMG_WIDTH = 800;
-var MAIN_IMG_HEIGHT = 600;
+var MAIN_IMG_WIDTH = 9000;
+var MAIN_IMG_HEIGHT = 6000;
 
 var BLOCK_IMG_WIDTH = 400;
 var BLOCK_IMG_HEIGHT = 300;
@@ -33,7 +33,8 @@ var BLOCK_WIDTH = 0; // Math.round(BLOCK_IMG_WIDTH / TOTAL_COLUMNS);
 var BLOCK_HEIGHT = 0; // Math.round(BLOCK_IMG_HEIGHT / TOTAL_ROWS);
 
 var image1 = new Image();
-image1.src = "img/BugsLife.jpg";
+//image1.src = "img/BugsLife.jpg";
+image1.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; //9k x 6k px
 
 
 //------------------- code ---------------

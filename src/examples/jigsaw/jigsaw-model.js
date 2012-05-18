@@ -1,3 +1,18 @@
+// ------------------------- GLOBAL --------------------
+
+// start by downloading the large image to be sliced for the puzzle
+// 
+var img = new Image();
+img.onload = function() {
+  console.log('image loaded');
+  // TODO: time the image loading
+}
+// img.src = "img/BugsLife.jpg"; // 800 x 600
+// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
+// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
+// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
+img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
+
 var model, view;
 
 window.onload = function() {
@@ -9,45 +24,52 @@ window.onload = function() {
   // The view renders the game from the model.
   // The view is also in charge of converting user input into model commands.
   view = new View();
+  model.startGame();
+  console.log('game started')
 }
+
+// ------------------------ MODEL --------------------------
 
 // stores game logic and data
 function Model() {
 
   // game areas: board = grid + empty space around the grid
-  this.BOARD_W = 800, this.BOARD_H = 600;
+  this.BOARD_W = 900, this.BOARD_H = 600;
   // grid = where pieces can be dropped
   this.GRID_X = 50, this.GRID_Y = 50;
-  this.GRID_W = 400, this.GRID_H = 300;
+  this.GRID_W = 300, this.GRID_H = 200;
 
   // puzzle difficulty
   this.ROWS = 2, this.COLUMNS = 2; // simple 2-by-2 puzzle, 4 pieces
   this.CELL_W = this.GRID_W / this.ROWS; // TODO: beware: what if float?
   this.CELL_H = this.GRID_H / this.COLUMNS;
 
-  var img = new Image(); // large image to be sliced for the puzzle
-  img.src = "img/BugsLife.jpg"; // 800 x 600 px
-  this.img = img;
   // each piece contains PC_W x PC_H from the original image
   this.PC_W = img.width / this.COLUMNS;
   this.PC_H = img.height / this.ROWS;
 
-  // Create the pieces.
-  this.loosePieces = []; // set of movable pieces
-  this.boundPieces = []; // pieces that have been dropped in the correct cell
-  var x, y; // coords of the piece on the board
-  var sx, sy; // dimensions of the slice from the original image
-  for ( var c = 0; c < this.COLUMNS; c++) {
-    for ( var r = 0; r < this.ROWS; r++) {
-      x = Math.random() * (this.BOARD_W - this.PC_W);
-      y = Math.random() * (this.BOARD_H - this.PC_H);
-      w = this.GRID_W / this.COLUMNS;
-      h = this.GRID_H / this.ROWS;
-      sx = c * this.PC_W; // slice from original
-      sy = r * this.PC_H;
-      var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
-      this.loosePieces.push(p);
+  this.loosePieces; // set of movable pieces
+  this.boundPieces; // pieces that have been dropped in the correct cell
+
+  // Init: create the pieces.
+  this.startGame = function() {
+    this.loosePieces = [];
+    this.boundPieces = [];
+    var x, y; // coords of the piece on the board
+    var sx, sy; // dimensions of the slice from the original image
+    for ( var c = 0; c < this.COLUMNS; c++) {
+      for ( var r = 0; r < this.ROWS; r++) {
+        x = Math.random() * (this.BOARD_W - this.CELL_W);
+        y = Math.random() * (this.BOARD_H - this.CELL_H);
+        w = this.GRID_W / this.COLUMNS;
+        h = this.GRID_H / this.ROWS;
+        sx = c * this.PC_W; // slice from original
+        sy = r * this.PC_H;
+        var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
+        this.loosePieces.push(p);
+      }
     }
+    view.drawAll();
   }
 
   // Return a loose piece colliding with the given board coords.
@@ -94,7 +116,7 @@ function Model() {
   // it can't be moved anymore.
   // TODO: should display an effect when the piece is magnetted.
   this.release = function(x, y) {
-    if (this.draggedPiece != null) { // stop dragging
+    if (this.draggedPiece) { // stop dragging a piece
       var p = this.draggedPiece;
       this.draggedPiece = null;
       var cell = this.getCellFromPos(x, y);
@@ -104,9 +126,18 @@ function Model() {
         p.y = cell.y;
         // bind the piece
         this.bindPiece(p);
+        if (this.gameIsOver()) {
+          // TODO: should display an animation
+          this.startGame();
+        }
         view.drawAll();
       }
     }
+  }
+
+  // The game is over when all the pieces are dropped on their correct cell.
+  this.gameIsOver = function() {
+    return this.loosePieces.length == 0;
   }
 
   // Bind piece: remove it from the loose pieces and add it to the bound pieces.
@@ -190,6 +221,7 @@ function View() {
   var ctx = canvas.getContext('2d');
   var view = this; // in canvas callbacks, 'this' is the canvas, not the view
 
+  this.mousedown = false;
   this.dragStartx = null;
   this.dragStarty = null;
 
@@ -197,7 +229,7 @@ function View() {
   // left click to select a piece or drag the board
   canvas.onmousedown = function(e) {
     // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
-    // view.mousedown = true;
+    view.mousedown = true;
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
     var p = model.getCollidedPiece(pos.x, pos.y);
@@ -213,6 +245,7 @@ function View() {
   };
 
   canvas.onmouseup = function(e) {
+    view.mousedown = false;
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
     // release the piece where the user mouseupped
@@ -221,16 +254,19 @@ function View() {
     view.dragStarty = null;
   };
 
+  // Don't redraw the canvas if the mouse moved but was not down.
   canvas.onmousemove = function(e) {
-    var screenPos = getScreenPos(e);
-    // convert screen coords to model coords
-    var pos = toBoardPos(screenPos.x, screenPos.y);
-    var dx = pos.x - view.dragStartx;
-    var dy = pos.y - view.dragStarty;
-    // reset the dragging origin
-    view.dragStartx = pos.x;
-    view.dragStarty = pos.y;
-    model.dragRelative(dx, dy);
+    if (view.mousedown) {
+      var screenPos = getScreenPos(e);
+      // convert screen coords to model coords
+      var pos = toBoardPos(screenPos.x, screenPos.y);
+      var dx = pos.x - view.dragStartx;
+      var dy = pos.y - view.dragStarty;
+      // reset the dragging origin
+      view.dragStartx = pos.x;
+      view.dragStarty = pos.y;
+      model.dragRelative(dx, dy);
+    }
   };
 
   canvas.onmouseout = function(e) {
@@ -302,6 +338,21 @@ function View() {
     BOARD_H : model.BOARD_H
   };
 
+  // draw lines showing the board limits
+  function drawBoard() {
+    ctx.save();
+    ctx.strokeStyle = "#222"; // gray
+    ctx.lineWidth = 1;
+    // draw board lines
+    ctx.beginPath();
+    ctx.moveTo(CFG.BOARD_W, 0);
+    ctx.lineTo(CFG.BOARD_W, CFG.BOARD_H);
+    ctx.moveTo(CFG.BOARD_W, CFG.BOARD_H);
+    ctx.lineTo(0, CFG.BOARD_H);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // draw a gray grid showing where pieces can be dropped
   // TODO: for now, it draws at same scale as model
   function drawGrid() {
@@ -351,19 +402,20 @@ function View() {
     var dw = CFG.CELL_W;
     var dh = CFG.CELL_H;
     ctx.save();
-    ctx.drawImage(model.img, p.sx, p.sy, p.sw, p.sh, dx, dy, dw, dh);
+    ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dx, dy, dw, dh);
     ctx.restore();
   }
 
-  // draw everything in this order: grid, bound pieces, and loose pieces
+  // first clean,
+  // then draw in this order: grid, bound pieces, and loose pieces
   // public method of view so that model can call it
   this.drawAll = function() {
-    ctx.clearRect(0, 0, CFG.BOARD_W, CFG.BOARD_H);
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    drawBoard();
     drawGrid();
     drawBoundPieces();
     drawLoosePieces();
   }
 
-  // init: draw everything
-  this.drawAll();
 }
