@@ -7,11 +7,11 @@ img.onload = function() {
   console.log('image loaded');
   // TODO: time the image loading
 }
-// img.src = "img/BugsLife.jpg"; // 800 x 600
+img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
-img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
+// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
 
 var model, view;
 
@@ -25,7 +25,6 @@ window.onload = function() {
   // The view is also in charge of converting user input into model commands.
   view = new View();
   model.startGame();
-  console.log('game started')
 }
 
 // ------------------------ MODEL --------------------------
@@ -33,37 +32,45 @@ window.onload = function() {
 // stores game logic and data
 function Model() {
 
-  // game areas: board = grid + empty space around the grid
-  this.BOARD_W = 900, this.BOARD_H = 600;
-  // grid = where pieces can be dropped
-  this.GRID_X = 50, this.GRID_Y = 50;
-  this.GRID_W = 300, this.GRID_H = 200;
+  // board = grid + empty space around the grid
+  this.BOARD = {
+    w : 900,
+    h : 600
+  };
 
-  // puzzle difficulty
-  this.ROWS = 2, this.COLUMNS = 2; // simple 2-by-2 puzzle, 4 pieces
-  this.CELL_W = this.GRID_W / this.ROWS; // TODO: beware: what if float?
-  this.CELL_H = this.GRID_H / this.COLUMNS;
+  // grid = where pieces can be dropped
+  this.GRID = {
+    x : 50, // position relative to the board
+    y : 50,
+    ncols : 2, // puzzle difficulty
+    nrows : 2,
+    cellw : 150, // cell dimensions
+    cellh : 100
+  };
 
   // each piece contains PC_W x PC_H from the original image
-  this.PC_W = img.width / this.COLUMNS;
-  this.PC_H = img.height / this.ROWS;
+  this.PC_W = img.width / this.GRID.ncols;
+  this.PC_H = img.height / this.GRID.nrows;
 
   this.loosePieces; // set of movable pieces
   this.boundPieces; // pieces that have been dropped in the correct cell
 
   // Init: create the pieces.
   this.startGame = function() {
+    var board = this.BOARD;
+    var grid = this.GRID;
     this.loosePieces = [];
     this.boundPieces = [];
     var x, y; // coords of the piece on the board
     var sx, sy; // dimensions of the slice from the original image
-    for ( var c = 0; c < this.COLUMNS; c++) {
-      for ( var r = 0; r < this.ROWS; r++) {
-        x = Math.random() * (this.BOARD_W - this.CELL_W);
-        y = Math.random() * (this.BOARD_H - this.CELL_H);
-        w = this.GRID_W / this.COLUMNS;
-        h = this.GRID_H / this.ROWS;
-        sx = c * this.PC_W; // slice from original
+    var w = grid.cellw;
+    var h = grid.cellh;
+    for ( var c = 0; c < grid.ncols; c++) {
+      for ( var r = 0; r < grid.nrows; r++) {
+        // place randomly on the board
+        x = Math.random() * (board.w - w);
+        y = Math.random() * (board.h - h);
+        sx = c * this.PC_W; // coords of image sliced from original
         sy = r * this.PC_H;
         var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
         this.loosePieces.push(p);
@@ -164,12 +171,13 @@ function Model() {
   // Return cell (grid col+row, board x+y) from board coords.
   // Return null if out of grid.
   this.getCellFromPos = function(mousex, mousey) {
-    var col = Math.floor((mousex - this.GRID_X) / this.CELL_W);
-    var row = Math.floor((mousey - this.GRID_Y) / this.CELL_H);
+    var grid = this.GRID;
+    var col = Math.floor((mousex - grid.x) / grid.cellw);
+    var row = Math.floor((mousey - grid.y) / grid.cellh);
     var res = null;
-    if (col >= 0 && col < this.COLUMNS && row >= 0 && row < this.ROWS) {
-      var cellx = this.GRID_X + this.CELL_W * col;
-      var celly = this.GRID_Y + this.CELL_H * row;
+    if (col >= 0 && col < grid.ncols && row >= 0 && row < grid.nrows) {
+      var cellx = grid.x + grid.cellw * col;
+      var celly = grid.y + grid.cellh * row;
       res = {
         c : col,
         r : row,
@@ -258,8 +266,7 @@ function View() {
   canvas.onmousemove = function(e) {
     if (view.mousedown) {
       var screenPos = getScreenPos(e);
-      // convert screen coords to model coords
-      var pos = toBoardPos(screenPos.x, screenPos.y);
+      var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
       var dx = pos.x - view.dragStartx;
       var dy = pos.y - view.dragStarty;
       // reset the dragging origin
@@ -270,6 +277,10 @@ function View() {
   };
 
   canvas.onmouseout = function(e) {
+    view.mousedown = false;
+    var screenPos = getScreenPos(e);
+    var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
+    model.release(pos.x, pos.y);
   };
 
   function onmousewheel(e) {
@@ -324,31 +335,18 @@ function View() {
 
   // ---------------------- VIEW ------------------------------
 
-  // config of the board, grid, and pieces at the same scale as the model
-  // TODO: should be in toScreenPos?
-
-  var CFG = {
-    OFFSETX : model.GRID_X,
-    OFFSETY : model.GRID_Y,
-    GRID_BOTTOM : model.GRID_Y + model.GRID_H,
-    GRID_RIGHT : model.GRID_X + model.GRID_W,
-    CELL_W : model.CELL_W,
-    CELL_H : model.CELL_H,
-    BOARD_W : model.BOARD_W,
-    BOARD_H : model.BOARD_H
-  };
-
   // draw lines showing the board limits
   function drawBoard() {
+    var board = model.BOARD;
     ctx.save();
     ctx.strokeStyle = "#222"; // gray
     ctx.lineWidth = 1;
     // draw board lines
     ctx.beginPath();
-    ctx.moveTo(CFG.BOARD_W, 0);
-    ctx.lineTo(CFG.BOARD_W, CFG.BOARD_H);
-    ctx.moveTo(CFG.BOARD_W, CFG.BOARD_H);
-    ctx.lineTo(0, CFG.BOARD_H);
+    ctx.moveTo(board.w, 0);
+    ctx.lineTo(board.w, board.h);
+    ctx.moveTo(board.w, board.h);
+    ctx.lineTo(0, board.h);
     ctx.stroke();
     ctx.restore();
   }
@@ -356,21 +354,24 @@ function View() {
   // draw a gray grid showing where pieces can be dropped
   // TODO: for now, it draws at same scale as model
   function drawGrid() {
+    var grid = model.GRID;
     ctx.save();
     ctx.strokeStyle = "#222"; // gray
     ctx.lineWidth = 1;
     ctx.beginPath();
     // draw vertical grid lines
-    for ( var c = 0; c <= model.COLUMNS; c++) {
-      var x = CFG.OFFSETX + c * CFG.CELL_W;
-      ctx.moveTo(x, CFG.OFFSETY);
-      ctx.lineTo(x, CFG.GRID_BOTTOM);
+    var grid_bottom = grid.y + grid.nrows * grid.cellh;
+    for ( var c = 0; c <= grid.ncols; c++) {
+      var x = grid.x + c * grid.cellw;
+      ctx.moveTo(x, grid.y);
+      ctx.lineTo(x, grid_bottom);
     }
     // draw horizontal grid lines
-    for ( var r = 0; r <= model.ROWS; r++) {
-      var y = CFG.OFFSETY + r * CFG.CELL_H;
-      ctx.moveTo(CFG.OFFSETX, y);
-      ctx.lineTo(CFG.GRID_RIGHT, y);
+    var grid_right = grid.x + grid.ncols * grid.cellw;
+    for ( var r = 0; r <= grid.nrows; r++) {
+      var y = grid.y + r * grid.cellh;
+      ctx.moveTo(grid.x, y);
+      ctx.lineTo(grid_right, y);
     }
     ctx.closePath();
     ctx.stroke();
@@ -397,10 +398,11 @@ function View() {
 
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
+    var grid = model.GRID;
     var dx = p.x;
     var dy = p.y;
-    var dw = CFG.CELL_W;
-    var dh = CFG.CELL_H;
+    var dw = grid.cellw;
+    var dh = grid.cellh;
     ctx.save();
     ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dx, dy, dw, dh);
     ctx.restore();
