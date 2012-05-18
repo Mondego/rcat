@@ -93,18 +93,19 @@ function Model() {
   // the grid "magnets" it, and the piece becomes "bound":
   // it can't be moved anymore.
   // TODO: should display an effect when the piece is magnetted.
-  this.dropPiece = function(x, y) {
-    // stop dragging
-    var p = this.draggedPiece;
-    this.draggedPiece = null;
-    var cell = this.getCellFromPos(x, y);
-    if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
-      // magnet the piece
-      p.x = cell.x;
-      p.y = cell.y;
-      // bind the piece
-      this.bindPiece(p);
-      view.drawAll();
+  this.release = function(x, y) {
+    if (this.draggedPiece != null) { // stop dragging
+      var p = this.draggedPiece;
+      this.draggedPiece = null;
+      var cell = this.getCellFromPos(x, y);
+      if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
+        // magnet the piece
+        p.x = cell.x;
+        p.y = cell.y;
+        // bind the piece
+        this.bindPiece(p);
+        view.drawAll();
+      }
     }
   }
 
@@ -215,7 +216,7 @@ function View() {
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
     // release the piece where the user mouseupped
-    model.dropPiece(pos.x, pos.y);
+    model.release(pos.x, pos.y);
     view.dragStartx = null;
     view.dragStarty = null;
   };
