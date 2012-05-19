@@ -3,16 +3,18 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-from data.mysqlconn import pubsubs
 import json
 import tornado.web
 
 conn = None
+pubsubs = None
 
 class ObjectManager(tornado.web.RequestHandler):
-    def initialize(self, connector):
+    def initialize(self, connector, pubsub_list = None):
         global conn
+        global pubsubs
         conn = connector
+        pubsubs = pubsub_list
     
     def get(self):
         # Constraint! RID is always an INT
@@ -41,5 +43,6 @@ class ObjectManager(tornado.web.RequestHandler):
             port = self.get_argument("port",None)
             interests = json.loads(self.get_argument("interests",None))
             loc = (ip,port)
-            pubsubs[tbl].add_subscriber(loc,interests) 
+            if pubsubs:
+                pubsubs[tbl].add_subscriber(loc,interests) 
             

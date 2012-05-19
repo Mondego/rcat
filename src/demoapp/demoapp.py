@@ -5,7 +5,6 @@ from threading import Thread
 from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
-import data.obm as obm
 import data.mysqlconn as MySQLConn
 import common.helper as helper
 
@@ -79,7 +78,7 @@ if __name__ == "__main__":
     logging.config.fileConfig("connector_logging.conf")
     logging.debug('[demoapp]: Starting app in ' + appip + appport)
     # TODO: Set options to allow adding OBM as a plugin to the data connector    
-    datacon = MySQLConn.MySQLConnector(appip,appport,handlers,{"plugins":["obm"]})
+    datacon = MySQLConn.MySQLConnector(appip,appport,handlers,{"plugins":["obm","pubsub"]})
 
     application = tornado.web.Application(handlers)
     application.listen(appport)
