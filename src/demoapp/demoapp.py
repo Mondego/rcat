@@ -5,6 +5,7 @@ from threading import Thread
 from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
+import data.obm as obm
 import data.mysqlconn as MySQLConn
 import common.helper as helper
 
@@ -17,7 +18,6 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("App Websocket Open")
-        datacon = MySQLConn.MySQLConnector(appip,appport)
         datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         result = datacon.execute('SHOW TABLES')
         datacon.create_table("chat","rid")
@@ -68,17 +68,22 @@ class EchoWebSocket(websocket.WebSocketHandler):
 
     def on_close(self):
         logging.debug("App WebSocket closed")
-        
-application = tornado.web.Application([
-    (r"/", EchoWebSocket),
-    (r"/obm", MySQLConn.ObjectManager)
-])
+  
 
+handlers = [
+    (r"/", EchoWebSocket)
+]
+      
 if __name__ == "__main__":
-    appip,appport = helper.parse_input('demoapp.cfg')
-    application.listen(appport)
+    appip,appport = helper.parse_input('demoapp.cfg')    
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[demoapp]: Starting app in ' + appip + appport)    
+    logging.debug('[demoapp]: Starting app in ' + appip + appport)
+    # TODO: Set options to allow adding OBM as a plugin to the data connector    
+    datacon = MySQLConn.MySQLConnector(appip,appport,handlers,{"plugins":["obm"]})
+
+    application = tornado.web.Application(handlers)
+    application.listen(appport)
+    
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
