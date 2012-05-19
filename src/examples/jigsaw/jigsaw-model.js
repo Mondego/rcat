@@ -40,8 +40,8 @@ function Model() {
   };
   // grid = where pieces can be dropped
   this.GRID = {
-    x : 50, // position relative to the board
-    y : 50,
+    x : 100, // position relative to the board
+    y : 100,
     ncols : 2, // puzzle difficulty
     nrows : 2,
     cellw : 150, // cell dimensions
@@ -75,8 +75,10 @@ function Model() {
     for ( var c = 0; c < grid.ncols; c++) {
       for ( var r = 0; r < grid.nrows; r++) {
         // place randomly on the board
-        x = Math.random() * (board.w - w);
-        y = Math.random() * (board.h - h);
+        // x = Math.random() * (board.w - w);
+        // y = Math.random() * (board.h - h);
+        x = 2 * (1 - c) * grid.cellw;
+        y = 2 * (1 - r) * grid.cellh;
         sx = c * this.PC_W; // coords of image sliced from original
         sy = r * this.PC_H;
         var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
@@ -120,6 +122,7 @@ function Model() {
     if (p) { // drag a piece around
       p.x = p.x + dx;
       p.y = p.y + dy;
+
     } else { // no piece is being dragged: translate the board
       this.frustum.x -= dx; // opposite direction of the mouse movement
       this.frustum.y -= dy;
