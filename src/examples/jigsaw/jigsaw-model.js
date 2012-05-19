@@ -277,7 +277,7 @@ function View() {
       var dy = pos.y - view.dragStart.y;
       model.dragRelative(dx, dy); // shift the model's frustum
       // board moved => need to recompute mouse-to-board coords in new frustum
-      pos = toBoardPos(screenPos.x, screenPos.y); 
+      pos = toBoardPos(screenPos.x, screenPos.y);
       view.dragStart = {
         x : pos.x,
         y : pos.y
@@ -346,22 +346,6 @@ function View() {
 
   // ---------------------- VIEW ------------------------------
 
-  // draw lines showing the board limits
-  function drawBoard() {
-    var board = model.BOARD;
-    ctx.save();
-    ctx.strokeStyle = "#222"; // gray
-    ctx.lineWidth = 1;
-    // draw board lines
-    ctx.beginPath();
-    ctx.moveTo(board.w, 0);
-    ctx.lineTo(board.w, board.h);
-    ctx.moveTo(board.w, board.h);
-    ctx.lineTo(0, board.h);
-    ctx.stroke();
-    ctx.restore();
-  }
-
   // draw a gray grid showing where pieces can be dropped
   // TODO: for now, it draws at same scale as model
   function drawGrid() {
@@ -416,12 +400,11 @@ function View() {
   function drawPiece(p) {
     var grid = model.GRID;
     var frus = model.frustum;
-    var dx = p.x - frus.x; // destination coords and dimensions
-    var dy = p.y - frus.y;
+    var dest = toScreenPos(p.x, p.y);
     var dw = grid.cellw;
     var dh = grid.cellh;
     ctx.save();
-    ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dx, dy, dw, dh);
+    ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dest.x, dest.y, dw, dh);
     ctx.restore();
   }
 
@@ -431,7 +414,6 @@ function View() {
   this.drawAll = function() {
     var w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
-    // drawBoard();
     drawGrid();
     drawBoundPieces();
     drawLoosePieces();
