@@ -7,8 +7,8 @@ img.onload = function() {
   console.log('image loaded');
   // TODO: time the image loading
 }
-// img.src = "img/BugsLife.jpg"; // 800 x 600
-img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
+img.src = "img/BugsLife.jpg"; // 800 x 600
+// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
@@ -35,8 +35,8 @@ function Model() {
   // constants
   // board = grid + empty space around the grid
   this.BOARD = {
-    w : 900,
-    h : 600
+    w : 500,
+    h : 400
   };
   // grid = where pieces can be dropped
   this.GRID = {
@@ -256,8 +256,8 @@ function View() {
   function toBoardPos(x, y) {
     var frus = model.frustum;
     var res = {
-      x : (x + frus.x) * frus.zoom,
-      y : (y + frus.y) * frus.zoom
+      x : (x + frus.x) / frus.zoom,
+      y : (y + frus.y) / frus.zoom
     };
     return res;
   }
@@ -317,8 +317,6 @@ function View() {
     }
   };
 
-
-  
   canvas.onmouseout = function(e) {
     view.isMouseDown = false;
     var screenPos = getScreenPos(e);
@@ -422,8 +420,9 @@ function View() {
   function drawPiece(p) {
     var grid = model.GRID;
     var dest = toScreenPos(p.x, p.y);
-    var dw = grid.cellw;
-    var dh = grid.cellh;
+    var destBotRight = toScreenPos(p.x + grid.cellw, p.y + grid.cellh);
+    var dw = destBotRight.x - dest.x;
+    var dh = destBotRight.y - dest.y;
     ctx.save();
     ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dest.x, dest.y, dw, dh);
     ctx.restore();
@@ -439,8 +438,6 @@ function View() {
     drawGrid();
     drawBoundPieces();
     drawLoosePieces();
-  }
+  };
 
-  console.log(ctx);
-  
 }
