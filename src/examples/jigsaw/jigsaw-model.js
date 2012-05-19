@@ -7,8 +7,8 @@ img.onload = function() {
   console.log('image loaded');
   // TODO: time the image loading
 }
-img.src = "img/BugsLife.jpg"; // 800 x 600
-// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
+// img.src = "img/BugsLife.jpg"; // 800 x 600
+img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
@@ -32,12 +32,12 @@ window.onload = function() {
 // stores game logic and data
 function Model() {
 
+  // constants
   // board = grid + empty space around the grid
   this.BOARD = {
     w : 900,
     h : 600
   };
-
   // grid = where pieces can be dropped
   this.GRID = {
     x : 50, // position relative to the board
@@ -46,6 +46,14 @@ function Model() {
     nrows : 2,
     cellw : 150, // cell dimensions
     cellh : 100
+  };
+
+  // which part of the board is currently being viewed by the user
+  this.frustum = {
+    x : 0,
+    y : 0,
+    w : 800,
+    h : 600
   };
 
   // each piece contains PC_W x PC_H from the original image
@@ -114,7 +122,8 @@ function Model() {
       p.x = p.x + dx;
       p.y = p.y + dy;
     } else { // no piece is being dragged: translate the board
-      // TODO
+      this.frustum.x -= dx; // opposite direction of the mouse movement
+      this.frustum.y -= dy;
     }
     view.drawAll();
   }
@@ -225,28 +234,27 @@ function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
 function View() {
 
   // private vars
-  var canvasID = "canJigsaw";
-  var canvas = document.getElementById(canvasID);
+  var canvas = document.getElementById("canJigsaw");
   var ctx = canvas.getContext('2d');
-  var view = this; // in canvas callbacks, 'this' is the canvas, not the view
+
+  // ------------------ MOUSE CONTROLLER ------------------
+  // register canvas callbacks to mouse events
 
   this.mousedown = false;
   this.dragStart = null; // last position recorded when dragging the mouse
+  var view = this; // in canvas callbacks, 'this' is the canvas, not the view
 
-  // register canvas callbacks to mouse events
-  // left click to select a piece or drag the board
   canvas.onmousedown = function(e) {
     // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
     view.mousedown = true;
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
     var p = model.getCollidedPiece(pos.x, pos.y);
-    // remember initial screen dragging position
+    // store dragging start position
     view.dragStart = {
       x : pos.x,
       y : pos.y
     };
-    // the modes "drag a piece" or "slide the board" are in the model logic
   };
 
   canvas.onmouseup = function(e) {
@@ -259,18 +267,21 @@ function View() {
   };
 
   // Don't redraw the canvas if the mouse moved but was not down.
+  // The modes "drag a piece" or "slide the board" are in the model logic;
+  // For the view, it's only about mouse movement.
   canvas.onmousemove = function(e) {
     if (view.mousedown) {
       var screenPos = getScreenPos(e);
       var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
-      // reset the dragging origin
+      model.dragRelative(dx, dy); // shift the model's frustum
+      // board moved => need to recompute mouse-to-board coords in new frustum
+      pos = toBoardPos(screenPos.x, screenPos.y); 
       view.dragStart = {
         x : pos.x,
         y : pos.y
       };
-      model.dragRelative(dx, dy);
     }
   };
 
@@ -316,17 +327,19 @@ function View() {
   // TODO: Should take into account translations.
   // TODO: Should take into account zooming.
   function toBoardPos(x, y) {
+    var frus = model.frustum;
     var res = {
-      x : x,
-      y : y
+      x : x + frus.x,
+      y : y + frus.y
     };
     return res;
   }
   // The reverse of above: convert board coords to screen coords.
   function toScreenPos(x, y) {
+    var frus = model.frustum;
     var res = {
-      x : x,
-      y : y
+      x : x - frus.x,
+      y : y - frus.y
     };
     return res;
   }
@@ -357,19 +370,24 @@ function View() {
     ctx.strokeStyle = "#222"; // gray
     ctx.lineWidth = 1;
     ctx.beginPath();
+    var screenPos;
     // draw vertical grid lines
     var grid_bottom = grid.y + grid.nrows * grid.cellh;
     for ( var c = 0; c <= grid.ncols; c++) {
       var x = grid.x + c * grid.cellw;
-      ctx.moveTo(x, grid.y);
-      ctx.lineTo(x, grid_bottom);
+      screenPos = toScreenPos(x, grid.y);
+      ctx.moveTo(screenPos.x, screenPos.y);
+      screenPos = toScreenPos(x, grid_bottom);
+      ctx.lineTo(screenPos.x, screenPos.y);
     }
     // draw horizontal grid lines
     var grid_right = grid.x + grid.ncols * grid.cellw;
     for ( var r = 0; r <= grid.nrows; r++) {
       var y = grid.y + r * grid.cellh;
-      ctx.moveTo(grid.x, y);
-      ctx.lineTo(grid_right, y);
+      screenPos = toScreenPos(grid.x, y);
+      ctx.moveTo(screenPos.x, screenPos.y);
+      screenPos = toScreenPos(grid_right, y);
+      ctx.lineTo(screenPos.x, screenPos.y);
     }
     ctx.closePath();
     ctx.stroke();
@@ -397,8 +415,9 @@ function View() {
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
     var grid = model.GRID;
-    var dx = p.x; // destination coords and dimensions
-    var dy = p.y;
+    var frus = model.frustum;
+    var dx = p.x - frus.x; // destination coords and dimensions
+    var dy = p.y - frus.y;
     var dw = grid.cellw;
     var dh = grid.cellh;
     ctx.save();
@@ -412,7 +431,7 @@ function View() {
   this.drawAll = function() {
     var w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
-    drawBoard();
+    // drawBoard();
     drawGrid();
     drawBoundPieces();
     drawLoosePieces();
