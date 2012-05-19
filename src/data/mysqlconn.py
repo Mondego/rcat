@@ -18,8 +18,8 @@ import time
 import urllib
 from collections import defaultdict
 from copy import deepcopy
-import data.obm
 
+import data.plugins
 
 conns = []
 cursors = []
@@ -46,7 +46,7 @@ class MySQLConnector():
             if "plugins" in options:
                 for plg in options["plugins"]:
                     if plg == "obm":
-                        handlers.append((r"/obm", data.obm.ObjectManager, dict(conn=self)))
+                        handlers.append((r"/obm", data.plugins.obm.ObjectManager, dict(conn=self)))
 
     @ property
     def cur(self):
