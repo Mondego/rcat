@@ -72,7 +72,6 @@ class JigsawServer(websocket.WebSocketHandler):
         
 application = tornado.web.Application([
     (r"/", JigsawServer),
-    (r"/obm", MySQLConn.ObjectManager)
 ])
 
 if __name__ == "__main__":

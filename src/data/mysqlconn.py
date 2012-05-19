@@ -13,13 +13,13 @@ import httplib
 import itertools
 import json
 import logging
-import pubsub
 import time
 import urllib
 from collections import defaultdict
 from copy import deepcopy
-import data.obm
 
+import data.plugins.obm
+import data.plugins.pubsub as pubsub
 
 conns = []
 cursors = []
@@ -46,7 +46,14 @@ class MySQLConnector():
             if "plugins" in options:
                 for plg in options["plugins"]:
                     if plg == "obm":
-                        handlers.append((r"/obm", data.obm.ObjectManager, dict(conn=self)))
+                        handlers.append((r"/obm", data.plugins.obm.ObjectManager, dict(conn=self,pubsub_list=pubsubs)))
+                    elif plg == "pubsub":
+                        """
+                        Start Publish-Subscribe UDP socket to receive data subscribed to 
+                        """
+                        HOST, PORT = myip,int(myport) + 1
+                        server = SocketServer.UDPServer((HOST, PORT), data.plugins.pubsub.PubSubUpdateHandler)
+                        Timer(5.0,server.serve_forever).start()
 
     @ property
     def cur(self):
@@ -77,14 +84,7 @@ class MySQLConnector():
         """
         Timer(5.0,self.__dump_to_database__).start()
         
-        """
-        Start Publish-Subscribe UDP socket to receive data subscribed to 
-        """
-        host,port = mylocation.split(':')
-        HOST, PORT = host,int(port) + 1
-        server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
-        Timer(5.0,server.serve_forever).start()
-                
+               
     def execute(self,cmd):
         cur = self.cur
         cur.execute(cmd)
