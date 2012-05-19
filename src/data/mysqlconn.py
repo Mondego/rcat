@@ -15,10 +15,11 @@ import json
 import logging
 import pubsub
 import time
-import tornado.web
 import urllib
 from collections import defaultdict
 from copy import deepcopy
+import data.obm
+
 
 conns = []
 cursors = []
@@ -32,45 +33,20 @@ location = {}
 db_updates = {}
 db_inserts = {}
 
-class ObjectManager(tornado.web.RequestHandler):
-    def get(self):
-        # Constraint! RID is always an INT
-        rid = int(self.get_argument("rid",None))
-        tbl = self.get_argument("tbl",None)
-        op = self.get_argument("op",None)
-        if op == "update":
-            tuples = json.loads(self.get_argument("tuples"),None)   
-            mysqlconn.update(tbl,tuples,rid)
-            self.write("OK")
-        elif op == "select":
-            jnames = None
-            names = self.get_argument("names",None)
-            if names:
-                jnames = json.loads(names)
-            obj = mysqlconn.select(tbl,rid,jnames)
-            jsonmsg = json.dumps(obj)
-            self.write(jsonmsg)
-        elif op == "relocate":
-            newowner = self.get_argument("no",None)
-            obj = mysqlconn.relocate(tbl,rid,newowner)
-            jsonmsg = json.dumps(obj)
-            self.write(jsonmsg)
-        elif op == "subscribe":
-            ip =  self.request.remote_ip
-            port = self.get_argument("port",None)
-            interests = json.loads(self.get_argument("interests",None))
-            loc = (ip,port)
-            pubsubs[tbl].add_subscriber(loc,interests) 
-            
-                
-
 class MySQLConnector():
-    def __init__(self,myip,myport):
+    def __init__(self,myip,myport,handlers=None,options=None):
         global mylocation
         global mysqlconn
         mylocation = myip + ':' + myport
         logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + mylocation)
         mysqlconn = self
+        
+        if options:
+            # Set new handlers to main application
+            if "plugins" in options:
+                for plg in options["plugins"]:
+                    if plg == "obm":
+                        handlers.append((r"/obm", data.obm.ObjectManager, dict(conn=self)))
 
     @ property
     def cur(self):
