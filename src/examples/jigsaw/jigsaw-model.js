@@ -35,12 +35,15 @@ function Model() {
   // constants
   // board = grid + empty space around the grid
   this.BOARD = {
-    w : 500,
-    h : 400
+    w : 900, // width and height of the whole board 
+    h : 600,
+    minScale : 1 / 8, // cap zooming out
+    maxScale : 8 //cap zoom-in
   };
+  
   // grid = where pieces can be dropped
   this.GRID = {
-    x : 100, // position relative to the board
+    x : 200, // position relative to the board
     y : 100,
     ncols : 2, // puzzle difficulty
     nrows : 2,
@@ -50,7 +53,7 @@ function Model() {
 
   // which part of the board is currently being viewed by the user
   this.frustum = {
-    zoom : 1, // zooming scale; 10 is zoomed in, .1 is zoomed out
+    scale : 1, // zooming scale; 10 is zoomed in, .1 is zoomed out
     x : 0,
     y : 0
   };
@@ -106,11 +109,8 @@ function Model() {
       p = this.loosePieces[pnum];
       this.draggedPiece = p;
       // TODO: view draws a shiny border around the piece to show it's selected
-      return p;
-    } else { // no piece collides: prepare to translate the board
-      return null;
     }
-  }
+  };
 
   // which loose piece is currently being dragged
   this.draggedPiece = null;
@@ -120,23 +120,24 @@ function Model() {
   this.dragRelative = function(dx, dy) {
     var p = this.draggedPiece;
     if (p) { // drag a piece around
-      p.x = p.x + dx;
-      p.y = p.y + dy;
-
+      p.x += dx;
+      p.y += dy;
     } else { // no piece is being dragged: translate the board
-      this.frustum.x -= dx; // opposite direction of the mouse movement
-      this.frustum.y -= dy;
+      // in the opposite direction of the mouse movement
+      var scale = this.frustum.scale;
+      this.frustum.x -= dx * scale;
+      this.frustum.y -= dy * scale;
     }
     view.drawAll();
-  }
+  };
 
   // Zoom in or out, centered on a particular position
   this.zoom = function(isZoomingOut, x, y) {
-    var frus = this.frustum;
-    if (isZoomingOut) {
-      this.frustum.zoom /= 2;
-    } else {
-      this.frustum.zoom *= 2;
+    var scale = this.frustum.scale;
+    if (isZoomingOut && scale > this.BOARD.minScale) {
+      this.frustum.scale /= 2;
+    } else if (!isZoomingOut && scale < this.BOARD.maxScale) {
+      this.frustum.scale *= 2;
     }
 
     // TODO: need to change frustum.x,y if zooming on a particular x,y
@@ -221,26 +222,31 @@ function Model() {
 // TODO: could have an ID given by the server instead of c,r
 // (that would make cheating more annoying for puzzles with lots of pieces)
 function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
+
   // grid coordinates, column and row
   this.c = c;
   this.r = r;
+
   // coords and dimensions of the piece on the board
   this.x = x;
   this.y = y;
   this.w = w;
   this.h = h;
+
   // dimensions of the slice from the original image
   this.sx = sx;
   this.sy = sy;
   this.sw = sw;
   this.sh = sh;
+
   // whether the piece has been correctly placed or not
   this.bound = false;
+
   // whether a click (x,y) collides with the piece
   this.collides = function(x, y) {
     return x >= this.x && x <= this.x + this.w && y >= this.y
         && y <= this.y + this.h
-  }
+  };
 }
 
 // -------------------------- VIEW + CONTROLLER -----------------------------
@@ -250,26 +256,39 @@ function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
 function View() {
 
   // private vars
-  var canvas = document.getElementById("canJigsaw");
+  var canvas = document.getElementById("jigsaw");
 
   // ------------------ MOUSE CONTROLLER ------------------
 
   // Convert screen coordinates to board coordinates.
   // Takes into account board translation and zooming.
-  function toBoardPos(x, y) {
+  // When zoomed-in by 2, a point at 100px from the left of the screen
+  // is actually at 50 model-units from it.
+  function toBoardPos(pos) {
     var frus = model.frustum;
     var res = {
-      x : (x + frus.x) / frus.zoom,
-      y : (y + frus.y) / frus.zoom
+      x : (pos.x + frus.x) / frus.scale,
+      y : (pos.y + frus.y) / frus.scale
     };
     return res;
   }
+  // convert differences between points (ie dimensions) to board dimensions
+  // When zoomed-in by 2, a 100px distance represents a 50-model-unit distance.
+  function toBoardDims(dx, dy) {
+    var frus = model.frustum;
+    var res = {
+      x : dx * frus.scale,
+      y : dy * frus.scale
+    };
+    return res;
+  }
+
   // The reverse of above: convert board coords to screen coords.
   function toScreenPos(x, y) {
     var frus = model.frustum;
     var res = {
-      x : (x - frus.x) * frus.zoom,
-      y : (y - frus.y) * frus.zoom
+      x : x * frus.scale - frus.x,
+      y : y * frus.scale - frus.y
     };
     return res;
   }
@@ -283,8 +302,8 @@ function View() {
     // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
     view.isMouseDown = true;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
-    var p = model.getCollidedPiece(pos.x, pos.y);
+    var pos = toBoardPos(screenPos); // screen to model coords
+    model.getCollidedPiece(pos.x, pos.y);
     // store dragging start position
     view.dragStart = {
       x : pos.x,
@@ -295,7 +314,7 @@ function View() {
   canvas.onmouseup = function(e) {
     view.isMouseDown = false;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
+    var pos = toBoardPos(screenPos); // screen to model coords
     // release the piece where the user mouse-upped
     model.release(pos.x, pos.y);
     view.dragStart = null;
@@ -307,12 +326,14 @@ function View() {
   canvas.onmousemove = function(e) {
     if (view.isMouseDown) {
       var screenPos = getScreenPos(e);
-      var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
+      var pos = toBoardPos(screenPos); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
+      delta = toBoardDims(dx, dy);
+      // model.dragRelative(delta.x, delta.y); // shift the model's frustum
       model.dragRelative(dx, dy); // shift the model's frustum
       // board moved => need to recompute mouse-to-board coords in new frustum
-      pos = toBoardPos(screenPos.x, screenPos.y);
+      pos = toBoardPos(screenPos);
       view.dragStart = {
         x : pos.x,
         y : pos.y
@@ -323,7 +344,7 @@ function View() {
   canvas.onmouseout = function(e) {
     view.isMouseDown = false;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
+    var pos = toBoardPos(screenPos); // screen to model coords
     model.release(pos.x, pos.y);
   };
 
@@ -333,7 +354,7 @@ function View() {
     var scroll = e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
     var isZoomingOut = scroll > 0; // boolean
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos.x, screenPos.y); // screen to model coords
+    var pos = toBoardPos(screenPos); // screen to model coords
     model.zoom(isZoomingOut, pos.x, pos.y);
   }
   canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
@@ -369,8 +390,36 @@ function View() {
 
   var ctx = canvas.getContext('2d');
 
+  // draw a gray rectangle to show the board limits (just for debug purposes)
+  function drawBoard() {
+    ctx.save();
+    ctx.strokeStyle = "#222"; // gray
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    var screenPos = toScreenPos(0, 0);
+    ctx.moveTo(screenPos.x, screenPos.y);
+    screenPos = toScreenPos(0, model.BOARD.h);
+    ctx.lineTo(screenPos.x, screenPos.y);
+
+    ctx.moveTo(screenPos.x, screenPos.y);
+    screenPos = toScreenPos(model.BOARD.w, model.BOARD.h);
+    ctx.lineTo(screenPos.x, screenPos.y);
+
+    ctx.moveTo(screenPos.x, screenPos.y);
+    screenPos = toScreenPos(model.BOARD.w, 0);
+    ctx.lineTo(screenPos.x, screenPos.y);
+
+    ctx.moveTo(screenPos.x, screenPos.y);
+    screenPos = toScreenPos(0, 0);
+    ctx.lineTo(screenPos.x, screenPos.y);
+
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // draw a gray grid showing where pieces can be dropped
-  // TODO: for now, it draws at same scale as model
   function drawGrid() {
     var grid = model.GRID;
     ctx.save();
@@ -438,6 +487,7 @@ function View() {
     var w = ctx.canvas.width;
     var h = ctx.canvas.height;
     ctx.clearRect(0, 0, w, h);
+    drawBoard();
     drawGrid();
     drawBoundPieces();
     drawLoosePieces();
