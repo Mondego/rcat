@@ -1,7 +1,7 @@
 // ------------------------- GLOBAL --------------------
 
 // start by downloading the large image to be sliced for the puzzle
-// 
+// TODO: async image loading instead
 var img = new Image();
 img.onload = function() {
   console.log('image loaded');
@@ -14,48 +14,42 @@ img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
 
 var model, view;
-
 window.onload = function() {
+  var canvas = document.getElementById("jigsaw");
   // The model tracks the game state and executes commands.
   // The model is also in charge of the network.
   // The model should be created before the view
   // so that the view can render it at init.
-  model = new Model();
+  model = new Model(canvas);
   // The view renders the game from the model.
   // The view is also in charge of converting user input into model commands.
-  view = new View();
+  view = new View(canvas);
   model.startGame();
 }
 
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
-function Model() {
+function Model(canvas) {
 
   // constants
   // board = grid + empty space around the grid
   this.BOARD = {
-    w : 900, // width and height of the whole board 
+    w : 900, // width and height of the whole board
     h : 600,
     minScale : 1 / 8, // cap zooming out
-    maxScale : 8 //cap zoom-in
+    maxScale : 8
+  // cap zoom-in
   };
-  
+
   // grid = where pieces can be dropped
   this.GRID = {
-    x : 200, // position relative to the board
+    x : 50, // position relative to the board
     y : 100,
     ncols : 2, // puzzle difficulty
     nrows : 2,
-    cellw : 150, // cell dimensions
-    cellh : 100
-  };
-
-  // which part of the board is currently being viewed by the user
-  this.frustum = {
-    scale : 1, // zooming scale; 10 is zoomed in, .1 is zoomed out
-    x : 0,
-    y : 0
+    cellw : 200, // cell dimensions
+    cellh : 150
   };
 
   // each piece contains PC_W x PC_H from the original image
@@ -80,8 +74,8 @@ function Model() {
         // place randomly on the board
         // x = Math.random() * (board.w - w);
         // y = Math.random() * (board.h - h);
-        x = 2 * (1 - c) * grid.cellw;
-        y = 2 * (1 - r) * grid.cellh;
+        x = 2 * (1 - c) * grid.cellw + 10;
+        y = 2 * (1 - r) * grid.cellh + 10;
         sx = c * this.PC_W; // coords of image sliced from original
         sy = r * this.PC_H;
         var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
@@ -89,7 +83,10 @@ function Model() {
       }
     }
     view.drawAll();
-  }
+  };
+
+  // which loose piece is currently being dragged
+  this.draggedPiece = null;
 
   // Return a loose piece colliding with the given board coords.
   // Return null if no loose piece collides.
@@ -112,8 +109,14 @@ function Model() {
     }
   };
 
-  // which loose piece is currently being dragged
-  this.draggedPiece = null;
+  // which part of the board is currently being viewed by the user
+  this.frustum = {
+    x : 0,
+    y : 0,
+    scale : 1, // zooming scale; >1 is zoomed in, <1 is zoomed out
+    w : canvas.width,
+    h : canvas.height
+  };
 
   // Pieces are moved as they are dragged (not just when they are dropped)
   // If no piece is being dragged, then slide the board.
@@ -122,11 +125,29 @@ function Model() {
     if (p) { // drag a piece around
       p.x += dx;
       p.y += dy;
-    } else { // no piece is being dragged: translate the board
-      // in the opposite direction of the mouse movement
-      var scale = this.frustum.scale;
-      this.frustum.x -= dx * scale;
-      this.frustum.y -= dy * scale;
+      // fix eventual past-board-edges overflows
+      if (p.x < 0)
+        p.x = 0;
+      if (p.x + p.w > this.BOARD.w)
+        p.x = this.BOARD.w - p.w;
+      if (p.y < 0)
+        p.y = 0;
+      if (p.y + p.h > this.BOARD.h)
+        p.y = this.BOARD.h - p.h;
+    } else { // translate board in opposite direction of the mouse movement
+      var fru = this.frustum;
+      var scale = fru.scale;
+      this.frustum.x -= dx;
+      this.frustum.y -= dy;
+      // dont scroll past board edges
+      if (fru.x < 0)
+        this.frustum.x = 0;
+      if (fru.x + fru.w > this.BOARD.w)
+        this.frustum.x = this.BOARD.w - canvas.width / scale;
+      if (fru.y < 0)
+        this.frustum.y = 0;
+      if (fru.y + fru.h > this.BOARD.h)
+        this.frustum.y = this.BOARD.h - canvas.height / scale;
     }
     view.drawAll();
   };
@@ -136,10 +157,14 @@ function Model() {
     var scale = this.frustum.scale;
     if (isZoomingOut && scale > this.BOARD.minScale) {
       this.frustum.scale /= 2;
+      this.frustum.w *= 2;
+      this.frustum.h *= 2;
     } else if (!isZoomingOut && scale < this.BOARD.maxScale) {
       this.frustum.scale *= 2;
+      this.frustum.w /= 2;
+      this.frustum.h /= 2;
     }
-
+    
     // TODO: need to change frustum.x,y if zooming on a particular x,y
 
     view.drawAll();
@@ -247,250 +272,4 @@ function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
     return x >= this.x && x <= this.x + this.w && y >= this.y
         && y <= this.y + this.h
   };
-}
-
-// -------------------------- VIEW + CONTROLLER -----------------------------
-
-// Display the puzzle in a canvas
-// and translate user inputs into model commands
-function View() {
-
-  // private vars
-  var canvas = document.getElementById("jigsaw");
-
-  // ------------------ MOUSE CONTROLLER ------------------
-
-  // Convert screen coordinates to board coordinates.
-  // Takes into account board translation and zooming.
-  // When zoomed-in by 2, a point at 100px from the left of the screen
-  // is actually at 50 model-units from it.
-  function toBoardPos(pos) {
-    var frus = model.frustum;
-    var res = {
-      x : (pos.x + frus.x) / frus.scale,
-      y : (pos.y + frus.y) / frus.scale
-    };
-    return res;
-  }
-  // convert differences between points (ie dimensions) to board dimensions
-  // When zoomed-in by 2, a 100px distance represents a 50-model-unit distance.
-  function toBoardDims(dx, dy) {
-    var frus = model.frustum;
-    var res = {
-      x : dx * frus.scale,
-      y : dy * frus.scale
-    };
-    return res;
-  }
-
-  // The reverse of above: convert board coords to screen coords.
-  function toScreenPos(x, y) {
-    var frus = model.frustum;
-    var res = {
-      x : x * frus.scale - frus.x,
-      y : y * frus.scale - frus.y
-    };
-    return res;
-  }
-
-  this.isMouseDown = false;
-  this.dragStart = null; // last position recorded when dragging the mouse
-  var view = this; // in canvas callbacks, 'this' is the canvas, not the view
-
-  // register canvas callbacks to mouse events
-  canvas.onmousedown = function(e) {
-    // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
-    view.isMouseDown = true;
-    var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
-    model.getCollidedPiece(pos.x, pos.y);
-    // store dragging start position
-    view.dragStart = {
-      x : pos.x,
-      y : pos.y
-    };
-  };
-
-  canvas.onmouseup = function(e) {
-    view.isMouseDown = false;
-    var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
-    // release the piece where the user mouse-upped
-    model.release(pos.x, pos.y);
-    view.dragStart = null;
-  };
-
-  // Don't redraw the canvas if the mouse moved but was not down.
-  // The modes "drag a piece" or "slide the board" are in the model logic;
-  // For the view, it's only about mouse movement.
-  canvas.onmousemove = function(e) {
-    if (view.isMouseDown) {
-      var screenPos = getScreenPos(e);
-      var pos = toBoardPos(screenPos); // screen to model coords
-      var dx = pos.x - view.dragStart.x;
-      var dy = pos.y - view.dragStart.y;
-      delta = toBoardDims(dx, dy);
-      // model.dragRelative(delta.x, delta.y); // shift the model's frustum
-      model.dragRelative(dx, dy); // shift the model's frustum
-      // board moved => need to recompute mouse-to-board coords in new frustum
-      pos = toBoardPos(screenPos);
-      view.dragStart = {
-        x : pos.x,
-        y : pos.y
-      };
-    }
-  };
-
-  canvas.onmouseout = function(e) {
-    view.isMouseDown = false;
-    var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
-    model.release(pos.x, pos.y);
-  };
-
-  function onmousewheel(e) {
-    e.preventDefault(); // dont scroll the window
-    // detail for FF, wheelDelta for Chrome and IE
-    var scroll = e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
-    var isZoomingOut = scroll > 0; // boolean
-    var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
-    model.zoom(isZoomingOut, pos.x, pos.y);
-  }
-  canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
-  canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE
-
-  // get click position relative to the canvas's top left corner
-  // adapted from http://www.quirksmode.org/js/events_properties.html
-  // TODO: this does not take into account the canvas' border thickness
-  function getScreenPos(e) {
-    var posx;
-    var posy;
-    if (!e)
-      var e = window.event;
-    if (e.pageX || e.pageY) {
-      posx = e.pageX - canvas.offsetLeft;
-      posy = e.pageY - canvas.offsetTop;
-    } else if (e.clientX || e.clientY) {
-      posx = e.clientX + document.body.scrollLeft
-          + document.documentElement.scrollLeft - canvas.offsetLeft;
-      posy = e.clientY + document.body.scrollTop
-          + document.documentElement.scrollTop - canvas.offsetTop;
-    } else {
-      console.log('Error: event did not contain mouse position.')
-    }
-    var res = {
-      x : posx,
-      y : posy
-    };
-    return res;
-  }
-
-  // ---------------------- VIEW ------------------------------
-
-  var ctx = canvas.getContext('2d');
-
-  // draw a gray rectangle to show the board limits (just for debug purposes)
-  function drawBoard() {
-    ctx.save();
-    ctx.strokeStyle = "#222"; // gray
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-
-    var screenPos = toScreenPos(0, 0);
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(0, model.BOARD.h);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(model.BOARD.w, model.BOARD.h);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(model.BOARD.w, 0);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(0, 0);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // draw a gray grid showing where pieces can be dropped
-  function drawGrid() {
-    var grid = model.GRID;
-    ctx.save();
-    ctx.strokeStyle = "#222"; // gray
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    var screenPos;
-    // draw vertical grid lines
-    var grid_bottom = grid.y + grid.nrows * grid.cellh;
-    for ( var c = 0; c <= grid.ncols; c++) {
-      var x = grid.x + c * grid.cellw;
-      screenPos = toScreenPos(x, grid.y);
-      ctx.moveTo(screenPos.x, screenPos.y);
-      screenPos = toScreenPos(x, grid_bottom);
-      ctx.lineTo(screenPos.x, screenPos.y);
-    }
-    // draw horizontal grid lines
-    var grid_right = grid.x + grid.ncols * grid.cellw;
-    for ( var r = 0; r <= grid.nrows; r++) {
-      var y = grid.y + r * grid.cellh;
-      screenPos = toScreenPos(grid.x, y);
-      ctx.moveTo(screenPos.x, screenPos.y);
-      screenPos = toScreenPos(grid_right, y);
-      ctx.lineTo(screenPos.x, screenPos.y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // draw pieces that are correctly placed in the grid
-  function drawBoundPieces() {
-    var p;
-    for ( var pnum in model.boundPieces) {
-      p = model.boundPieces[pnum];
-      drawPiece(p);
-    }
-  }
-
-  // draw movable pieces
-  function drawLoosePieces() {
-    var p;
-    for ( var pnum in model.loosePieces) {
-      p = model.loosePieces[pnum];
-      drawPiece(p);
-    }
-  }
-
-  // Draw a piece, whether loose or bound
-  function drawPiece(p) {
-    var grid = model.GRID;
-    var dest = toScreenPos(p.x, p.y);
-    var destBotRight = toScreenPos(p.x + grid.cellw, p.y + grid.cellh);
-    var dw = destBotRight.x - dest.x;
-    var dh = destBotRight.y - dest.y;
-    ctx.save();
-    ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dest.x, dest.y, dw, dh);
-    ctx.restore();
-  }
-
-  // first clean the whole canvas,
-  // then draw in this order: grid, bound pieces, and loose pieces
-  // public method of view so that model can call it
-  this.drawAll = function() {
-    var w = ctx.canvas.width;
-    var h = ctx.canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    drawBoard();
-    drawGrid();
-    drawBoundPieces();
-    drawLoosePieces();
-  };
-
 }
