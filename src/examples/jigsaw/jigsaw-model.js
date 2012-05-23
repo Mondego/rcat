@@ -4,9 +4,9 @@
 // TODO: async image loading instead
 var img = new Image();
 img.onload = function() {
-  console.log('image loaded');
-  // TODO: time the image loading
-}
+  // console.log('image loaded');
+  // TODO: time the image loading + async img load
+};
 img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
@@ -39,7 +39,6 @@ function Model(canvas) {
     h : 600,
     minScale : 1 / 8, // cap zooming out
     maxScale : 8
-  // cap zoom-in
   };
 
   // grid = where pieces can be dropped
@@ -52,23 +51,19 @@ function Model(canvas) {
     cellh : 150
   };
 
-  // each piece contains PC_W x PC_H from the original image
-  this.PC_W = img.width / this.GRID.ncols;
-  this.PC_H = img.height / this.GRID.nrows;
-
-  this.loosePieces; // set of movable pieces
-  this.boundPieces; // pieces that have been dropped in the correct cell
-
   // Init: create the pieces.
   this.startGame = function() {
     var board = this.BOARD;
     var grid = this.GRID;
-    this.loosePieces = [];
-    this.boundPieces = [];
+    this.loosePieces = []; // set of movable pieces
+    this.boundPieces = []; // pieces that have been dropped in the correct cell
     var x, y; // coords of the piece on the board
     var sx, sy; // dimensions of the slice from the original image
     var w = grid.cellw;
     var h = grid.cellh;
+    // each piece contains a pc_w x pc_h slice of the original image
+    var pc_w = img.width / this.GRID.ncols;
+    var pc_h = img.height / this.GRID.nrows;
     for ( var c = 0; c < grid.ncols; c++) {
       for ( var r = 0; r < grid.nrows; r++) {
         // place randomly on the board
@@ -76,9 +71,9 @@ function Model(canvas) {
         // y = Math.random() * (board.h - h);
         x = 2 * (1 - c) * grid.cellw + 10;
         y = 2 * (1 - r) * grid.cellh + 10;
-        sx = c * this.PC_W; // coords of image sliced from original
-        sy = r * this.PC_H;
-        var p = new Piece(c, r, x, y, w, h, sx, sy, this.PC_W, this.PC_H);
+        sx = c * pc_w; // coords of image sliced from original
+        sy = r * pc_h;
+        var p = new Piece(c, r, x, y, w, h, sx, sy, pc_w, pc_h);
         this.loosePieces.push(p);
       }
     }
@@ -140,33 +135,47 @@ function Model(canvas) {
       this.frustum.x -= dx;
       this.frustum.y -= dy;
       // dont scroll past board edges
-      if (fru.x < 0)
-        this.frustum.x = 0;
-      if (fru.x + fru.w > this.BOARD.w)
-        this.frustum.x = this.BOARD.w - canvas.width / scale;
-      if (fru.y < 0)
-        this.frustum.y = 0;
-      if (fru.y + fru.h > this.BOARD.h)
-        this.frustum.y = this.BOARD.h - canvas.height / scale;
+      /*
+       * if (fru.x < 0) this.frustum.x = 0; if (fru.x + fru.w > this.BOARD.w)
+       * this.frustum.x = this.BOARD.w - canvas.width / scale; if (fru.y < 0)
+       * this.frustum.y = 0; if (fru.y + fru.h > this.BOARD.h) this.frustum.y =
+       * this.BOARD.h - canvas.height / scale;
+       */
     }
     view.drawAll();
   };
 
   // Zoom in or out, centered on a particular position
   this.zoom = function(isZoomingOut, x, y) {
+    var scaleStep = 2;
+    var newFrus;
     var scale = this.frustum.scale;
     if (isZoomingOut && scale > this.BOARD.minScale) {
-      this.frustum.scale /= 2;
-      this.frustum.w *= 2;
-      this.frustum.h *= 2;
+      newFrus = {
+        x : scaleStep * this.frustum.x - x,
+        y : scaleStep * this.frustum.y - y,
+        w : this.frustum.w * scaleStep,
+        h : this.frustum.h * scaleStep,
+        scale : this.frustum.scale / scaleStep
+      };
     } else if (!isZoomingOut && scale < this.BOARD.maxScale) {
-      this.frustum.scale *= 2;
-      this.frustum.w /= 2;
-      this.frustum.h /= 2;
+      newFrus = {
+        x : (this.frustum.x + x) / scaleStep,
+        y : (this.frustum.y + y) / scaleStep,
+        w : this.frustum.w / scaleStep,
+        h : this.frustum.h / scaleStep,
+        scale : this.frustum.scale * scaleStep
+      };
+    } else { // TODO: ugly code
+      return;
     }
-    
-    // TODO: need to change frustum.x,y if zooming on a particular x,y
+    this.frustum.x = newFrus.x;
+    this.frustum.y = newFrus.y;
+    this.frustum.scale = newFrus.scale;
+    this.frustum.w = newFrus.w;
+    this.frustum.h = newFrus.h;
 
+    console.log(this.frustum)
     view.drawAll();
   };
 
