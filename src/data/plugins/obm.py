@@ -71,7 +71,7 @@ class ObjectManager():
     def relocate(self,table,rid,newowner):
         try:
             if location[table][rid] == mylocation:
-                cur = self.cur
+                cur = conn.cur
                 mystr = "UPDATE {} SET __location__ = '{}' WHERE {} = {}".format(table,newowner,tables[table]["__ridname__"],`rid`)
                 logger.debug(mystr)
                 cur.execute(mystr)
@@ -84,12 +84,26 @@ class ObjectManager():
             return "[Relocation failed]"
         
     """
+    set_object_owner(self,table,RID,objects): Sets the location flag for items with the same desired RID to this location. 
+    Objects are the MySQL query result of the selecting all rows with RID.
+    """
+    def set_object_owner(self,table,RID,objects):
+        rid_name = tables[table]["__ridname__"]
+        cur = conn.cur        
+        cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,mylocation,rid_name,RID)) #TODO: Concurrency?
+        cur.connection.commit()
+        location[table][RID] = mylocation
+        for item in objects:
+            del item["__location__"]
+        tables[table][RID] = objects
+        
+    """
     request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
     the client is currently making requests to.
     """
     def request_relocate_to_local(self,table,rid):
         if not location[table][rid]:
-            self.select(table,rid)
+            conn.select(table,rid)
         self.send_request_owner(location[table][rid],table,rid,"relocate")
         
     """

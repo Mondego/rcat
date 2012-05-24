@@ -9,12 +9,10 @@ mysqlconn.py: Used as an API between application layer and a MYSQL database. Use
 from threading import Timer
 import MySQLdb as mdb
 import SocketServer
-import httplib
 import itertools
 import json
 import logging
 import time
-import urllib
 from collections import defaultdict
 from copy import deepcopy
 
@@ -270,15 +268,9 @@ class MySQLConnector():
                 row = allrows[0]
             else:
                 return False
-            
             if not row["__location__"]:
-                cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,mylocation,rid_name,RID)) #TODO: Concurrency?
-                cur.connection.commit()
-                location[table][RID] = mylocation
-                for item in allrows:
-                    del item["__location__"]
-                tables[table][RID] = allrows
-                return deepcopy(allrows)
+                obm.set_object_owner(table,RID,allrows)
+                return deepcopy(tables[table][RID])
             if (row["__location__"] != mylocation):
                 cur.connection.commit()
                 location[table][RID] = row["__location__"]
@@ -305,42 +297,3 @@ class MySQLConnector():
         except mdb.cursors.Error,e:
             logger.error(e)
             return False
-        
-    
-    
-if __name__=="__main__":
-    """
-    HOST, PORT = "localhost", 7777
-    server = SocketServer.UDPServer((HOST, PORT), pubsub.PubSubUpdateHandler)
-    server.serve_forever()
-    
-    con = None
-    try:
-    
-        con = mdb.connect('opensim.ics.uci.edu', 'rcat', 
-            'isnotamused', 'rcat');
-    
-        cur = con.cursor(mdb.cursors.DictCursor)
-        #cur.execute("INSERT INTO users VALUES(123456789,0,0,0,0)")
-        cur.execute("select * from users")
-                    
-        rows = cur.fetchall()
-        cur.connection.commit()
-        #print data
-        #print data["name"]
-        for row in rows:
-            print row["name"]
-        print rows
-        print cur.description
-        
-    except mdb.connections.Error, e:
-        con.rollback()
-        print "Error %d: %s" % (e.args[0],e.args[1])
-        sys.exit(1)
-        
-    finally:    
-            
-        if con:    
-            con.close()
-    """
-    pass
