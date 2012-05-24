@@ -65,7 +65,7 @@ function View(canvas) {
       var pos = toBoardPos(screenPos); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
-      model.dragRelative(dx, dy); // shift the model's frustum
+      model.scrollRelative(dx, dy); // shift the model's frustum
       // board moved => need to recompute mouse-to-board coords in new frustum
       pos = toBoardPos(screenPos);
       view.dragStart = {
@@ -95,7 +95,7 @@ function View(canvas) {
     var frus = model.frustum;
     var newx = pos.x - screenPos.x / frus.scale;
     var newy = pos.y - screenPos.y / frus.scale;
-    model.scrollTo(newx, newy);
+    model.scrollAbsolute(newx, newy);
   }
   canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
   canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE

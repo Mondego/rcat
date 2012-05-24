@@ -127,7 +127,7 @@ function Model(canvas) {
 
   // Pieces are moved as they are dragged (not just when they are dropped)
   // If no piece is being dragged, then slide the board.
-  this.dragRelative = function(dx, dy) {
+  this.scrollRelative = function(dx, dy) {
     var p = this.draggedPiece;
     if (p) { // drag a piece around
       p.x += dx;
@@ -151,7 +151,7 @@ function Model(canvas) {
   };
 
   // Scroll so that the given coordinates are at the top left of the frustum.
-  this.scrollTo = function(x, y) {
+  this.scrollAbsolute = function(x, y) {
     this.frustum.x = x;
     this.frustum.y = y;
     this.keepFrustumOnBoard();
