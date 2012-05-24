@@ -156,7 +156,7 @@ class MySQLConnector():
         if table in tables:
             if RID in tables[table]:
                 if location[table][RID] != mylocation:
-                    jsonobj = obm.__send_request_owner_request_owner(location[table][RID],table,RID,"select",names)
+                    jsonobj = obm.send_request_owner_request_owner(location[table][RID],table,RID,"select",names)
                     result = json.loads(jsonobj)
                     return result
                 else:
@@ -183,7 +183,7 @@ class MySQLConnector():
     def update(self,table,update_tuples,RID,row=0):
         if table in tables:
             if RID in tables[table]:
-                obm.__send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
+                obm.send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
                 # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
                 tuples_dic = {}
                 for item in update_tuples:
@@ -254,7 +254,7 @@ class MySQLConnector():
     def request_relocate_to_local(self,table,rid):
         if not location[table][rid]:
             self.select(table,rid)
-        obm.__send_request_owner(location[table][rid],table,rid,"relocate")
+        obm.send_request_owner(location[table][rid],table,rid,"relocate")
     
     """
     delete(self,table,name,newvalue,RID): Attempts to delete an new item in the database. Requires informing authoritative owner (if one exists)
@@ -313,7 +313,7 @@ class MySQLConnector():
                     op = "update"
                 else:
                     op = "select"
-                result = obm.__send_request_owner(row["__location__"],table,RID,op,names,update_values)
+                result = obm.send_request_owner(row["__location__"],table,RID,op,names,update_values)
                 # True or false for update; object for select
                 if not update_values:
                     if result:

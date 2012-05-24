@@ -57,7 +57,7 @@ class ObjectManager():
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def __send_request_owner(self,obj_location,table,RID,op,names=None,update_tuples=None):
+    def send_request_owner(self,obj_location,table,RID,op,names=None,update_tuples=None):
         host,port = obj_location.split(':')
         if op == "update":
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
