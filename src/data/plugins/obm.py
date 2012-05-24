@@ -87,14 +87,17 @@ class ObjectManager():
     set_object_owner(self,table,RID,objects): Sets the location flag for items with the same desired RID to this location. 
     Objects are the MySQL query result of the selecting all rows with RID.
     """
-    def set_object_owner(self,table,RID,objects):
+    def set_object_owner(self,table,RID):
         rid_name = tables[table]["__ridname__"]
         cur = conn.cur        
         cur.execute("UPDATE %s SET location = '%s' WHERE %s = %s".replace("'","`") % (table,mylocation,rid_name,RID)) #TODO: Concurrency?
         cur.connection.commit()
         location[table][RID] = mylocation
-        for item in objects:
-            del item["__location__"]
+        # Get me all the rows except location, we already have that =)
+        rows = tables[table]["__columns__"].keys()
+        rows.remove('__location__')
+        cur.execute("SELECT " + ",".join(col for col in rows) + " from %s WHERE %s = %s".replace("'","`") % (table,rid_name,RID))
+        objects = cur.fetchall()
         tables[table][RID] = objects
         
     """

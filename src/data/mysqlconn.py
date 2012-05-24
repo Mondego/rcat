@@ -269,7 +269,7 @@ class MySQLConnector():
             else:
                 return False
             if not row["__location__"]:
-                obm.set_object_owner(table,RID,allrows)
+                obm.set_object_owner(table,RID)
                 return deepcopy(tables[table][RID])
             if (row["__location__"] != mylocation):
                 cur.connection.commit()
