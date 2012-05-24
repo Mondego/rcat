@@ -87,7 +87,7 @@ function View(canvas) {
   function onmousewheel(e) {
     e.preventDefault(); // dont scroll the window
     // detail for FF, wheelDelta for Chrome and IE
-    var scroll = e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
+    var scroll =  - e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
     var isZoomingOut = scroll > 0; // boolean
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos); // screen to model coords

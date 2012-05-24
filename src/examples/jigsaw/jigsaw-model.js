@@ -37,7 +37,7 @@ function Model(canvas) {
     w : 900, // width and height of the whole board
     h : 600,
     maxScale : 8, // cap zooming in and out
-    minScale : 1 / 2
+    minScale : 1
   };
 
   // grid = where pieces can be dropped
