@@ -20,7 +20,9 @@ from copy import deepcopy
 
 import data.plugins.obm
 import data.plugins.pubsub as pubsub
+from data.plugins.obm import ObjectManager
 
+obm = None
 conns = []
 cursors = []
 tables = {}
@@ -37,6 +39,7 @@ class MySQLConnector():
     def __init__(self,myip,myport,handlers=None,options=None):
         global mylocation
         global mysqlconn
+        global obm
         mylocation = myip + ':' + myport
         logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + mylocation)
         mysqlconn = self
@@ -47,6 +50,7 @@ class MySQLConnector():
                 for plg in options["plugins"]:
                     if plg == "obm":
                         handlers.append((r"/obm", data.plugins.obm.ObjectManager, dict(conn=self,pubsub_list=pubsubs)))
+                        obm = ObjectManager(mylocation)
                     elif plg == "pubsub":
                         """
                         Start Publish-Subscribe UDP socket to receive data subscribed to 
@@ -152,7 +156,7 @@ class MySQLConnector():
         if table in tables:
             if RID in tables[table]:
                 if location[table][RID] != mylocation:
-                    jsonobj = self.__send_request_owner(location[table][RID],table,RID,"select",names)
+                    jsonobj = obm.__send_request_owner_request_owner(location[table][RID],table,RID,"select",names)
                     result = json.loads(jsonobj)
                     return result
                 else:
@@ -179,7 +183,7 @@ class MySQLConnector():
     def update(self,table,update_tuples,RID,row=0):
         if table in tables:
             if RID in tables[table]:
-                self.__send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
+                obm.__send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
                 # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
                 tuples_dic = {}
                 for item in update_tuples:
@@ -250,7 +254,7 @@ class MySQLConnector():
     def request_relocate_to_local(self,table,rid):
         if not location[table][rid]:
             self.select(table,rid)
-        self.__send_request_owner(location[table][rid],table,rid,"relocate")
+        obm.__send_request_owner(location[table][rid],table,rid,"relocate")
     
     """
     delete(self,table,name,newvalue,RID): Attempts to delete an new item in the database. Requires informing authoritative owner (if one exists)
@@ -309,7 +313,7 @@ class MySQLConnector():
                     op = "update"
                 else:
                     op = "select"
-                result = self.__send_request_owner(row["__location__"],table,RID,op,names,update_values)
+                result = obm.__send_request_owner(row["__location__"],table,RID,op,names,update_values)
                 # True or false for update; object for select
                 if not update_values:
                     if result:
@@ -329,33 +333,7 @@ class MySQLConnector():
             logger.error(e)
             return False
         
-    """
-    __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
-    """    
-    def __send_request_owner(self,obj_location,table,RID,op,names=None,update_tuples=None):
-        host,port = obj_location.split(':')
-        if op == "update":
-            cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
-        elif op == "select":
-            cmd = "&op=select"
-            if names:
-                cmd += "&names=" + urllib.quote(json.dumps(names))
-        elif op == "relocate":
-            cmd = "&op=relocate&no=" + mylocation
-        conn = httplib.HTTPConnection(host,port)
-        conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
-        resp = conn.getresponse()
-        if update_tuples:
-            if resp.status.startswith("200"):
-                if resp.read() == "OK":
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        else:
-            result = resp.read()
-            return result
+    
     
 if __name__=="__main__":
     """
