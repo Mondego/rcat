@@ -49,8 +49,8 @@ class MySQLConnector():
             if "plugins" in options:
                 for plg in options["plugins"]:
                     if plg == "obm":
+                        obm = ObjectManager(mylocation,tables,location)
                         handlers.append((r"/obm", data.plugins.obm.ObjectManager, dict(conn=self,pubsub_list=pubsubs)))
-                        obm = ObjectManager(mylocation)
                     elif plg == "pubsub":
                         """
                         Start Publish-Subscribe UDP socket to receive data subscribed to 
@@ -228,34 +228,7 @@ class MySQLConnector():
             pubsubs[table].send(RID,newobj)
         else:
             return False
-    
-    """
-    __relocate(self,table,rid,newowner): Relocates data to another app
-    """
-    def relocate(self,table,rid,newowner):
-        try:
-            if location[table][rid] == mylocation:
-                cur = self.cur
-                mystr = "UPDATE {} SET __location__ = '{}' WHERE {} = {}".format(table,newowner,tables[table]["__ridname__"],`rid`)
-                logger.debug(mystr)
-                cur.execute(mystr)
-                location[table][rid] = newowner
-                return tables[table][rid]
-            else:
-                return location[table][rid]
-        except Exception,e:
-            logger.error(e)
-            return "[Relocation failed]"
-        
-    """
-    request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
-    the client is currently making requests to.
-    """
-    def request_relocate_to_local(self,table,rid):
-        if not location[table][rid]:
-            self.select(table,rid)
-        obm.send_request_owner(location[table][rid],table,rid,"relocate")
-    
+     
     """
     delete(self,table,name,newvalue,RID): Attempts to delete an new item in the database. Requires informing authoritative owner (if one exists)
     and then deleting the object in the database

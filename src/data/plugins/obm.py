@@ -7,10 +7,15 @@ import json
 import tornado.web
 import urllib
 import httplib
+import logging
 
 conn = None
 pubsubs = None
 mylocation = None
+tables = None
+location = None
+obm = None
+logger = logging.getLogger()
 
 class OBMHandler(tornado.web.RequestHandler):
     def initialize(self, connector, pubsub_list = None):
@@ -25,7 +30,7 @@ class OBMHandler(tornado.web.RequestHandler):
         tbl = self.get_argument("tbl",None)
         op = self.get_argument("op",None)
         if op == "update":
-            tuples = json.loads(self.get_argument("tuples"),None)   
+            tuples = json.loads(self.get_argument("tuples"),None)
             conn.update(tbl,tuples,rid)
             self.write("OK")
         elif op == "select":
@@ -38,7 +43,7 @@ class OBMHandler(tornado.web.RequestHandler):
             self.write(jsonmsg)
         elif op == "relocate":
             newowner = self.get_argument("no",None)
-            obj = conn.relocate(tbl,rid,newowner)
+            obj = obm.relocate(tbl,rid,newowner)
             jsonmsg = json.dumps(obj)
             self.write(jsonmsg)
         elif op == "subscribe":
@@ -50,9 +55,42 @@ class OBMHandler(tornado.web.RequestHandler):
                 pubsubs[tbl].add_subscriber(loc,interests) 
             
 class ObjectManager():
-    def __init__(self,loc):
+    def __init__(self,myloc,r_tables,r_location):
         global mylocation
-        mylocation = loc
+        global tables
+        global location
+        global obm
+        obm = self
+        mylocation = myloc
+        tables = r_tables
+        location = r_location
+
+    """
+    __relocate(self,table,rid,newowner): Relocates data to another app
+    """
+    def relocate(self,table,rid,newowner):
+        try:
+            if location[table][rid] == mylocation:
+                cur = self.cur
+                mystr = "UPDATE {} SET __location__ = '{}' WHERE {} = {}".format(table,newowner,tables[table]["__ridname__"],`rid`)
+                logger.debug(mystr)
+                cur.execute(mystr)
+                location[table][rid] = newowner
+                return tables[table][rid]
+            else:
+                return location[table][rid]
+        except Exception,e:
+            logger.error(e)
+            return "[Relocation failed]"
+        
+    """
+    request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
+    the client is currently making requests to.
+    """
+    def request_relocate_to_local(self,table,rid):
+        if not location[table][rid]:
+            self.select(table,rid)
+        self.send_request_owner(location[table][rid],table,rid,"relocate")
         
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
