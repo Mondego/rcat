@@ -82,6 +82,8 @@ function View(canvas) {
     model.release(pos.x, pos.y);
   };
 
+  this.scaleStep = 2; // how smooth is the zooming-in and out
+
   function onmousewheel(e) {
     e.preventDefault(); // dont scroll the window
     // detail for FF, wheelDelta for Chrome and IE
@@ -89,7 +91,11 @@ function View(canvas) {
     var isZoomingOut = scroll > 0; // boolean
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos); // screen to model coords
-    model.zoom(isZoomingOut, pos.x, pos.y);
+    model.zoom(isZoomingOut, view.scaleStep);
+    var frus = model.frustum;
+    var newx = pos.x - screenPos.x / frus.scale;
+    var newy = pos.y - screenPos.y / frus.scale;
+    model.scrollTo(newx, newy);
   }
   canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
   canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE
@@ -124,32 +130,15 @@ function View(canvas) {
 
   var ctx = canvas.getContext('2d');
 
-  // draw a gray rectangle to show the board limits (just for debug purposes)
+  // draw a white board background
   function drawBoard() {
     ctx.save();
-    ctx.strokeStyle = "#e22"; // pinkish
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-
-    var screenPos = toScreenPos(-1, -1);
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(-1, model.BOARD.h + 1);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(model.BOARD.w + 1, model.BOARD.h + 1);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(model.BOARD.w + 1, -1);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.moveTo(screenPos.x, screenPos.y);
-    screenPos = toScreenPos(-1, -1);
-    ctx.lineTo(screenPos.x, screenPos.y);
-
-    ctx.closePath();
-    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    var scale = model.frustum.scale;
+    var topleft = toScreenPos(0, 0);
+    var w = model.BOARD.w * scale;
+    var h = model.BOARD.h * scale;
+    ctx.fillRect(topleft.x, topleft.y, w, h)
     ctx.restore();
   }
 
@@ -216,7 +205,8 @@ function View(canvas) {
   this.drawAll = function() {
     var w = ctx.canvas.width;
     var h = ctx.canvas.height;
-    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#000'; // black
+    ctx.fillRect(0, 0, w, h);
     drawBoard();
     drawGrid();
     drawPieces();

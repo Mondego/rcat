@@ -32,13 +32,12 @@ window.onload = function() {
 // stores game logic and data
 function Model(canvas) {
 
-  // constants
   // board = grid + empty space around the grid
   this.BOARD = {
     w : 900, // width and height of the whole board
     h : 600,
-    minScale : 1 / 8, // cap zooming out
-    maxScale : 8
+    maxScale : 8, // cap zooming in and out
+    minScale : 1 / 2
   };
 
   // grid = where pieces can be dropped
@@ -69,7 +68,7 @@ function Model(canvas) {
         // place randomly on the board
         // x = Math.random() * (board.w - w);
         // y = Math.random() * (board.h - h);
-        x = 2 * (1 - c) * grid.cellw + 10;
+        x = 2 * (1 - c) * grid.cellw + 100;
         y = 2 * (1 - r) * grid.cellh + 10;
         sx = c * pc_w; // coords of image sliced from original
         sy = r * pc_h;
@@ -113,6 +112,19 @@ function Model(canvas) {
     h : canvas.height
   };
 
+  // fix the frustum if user scrolled past board edges
+  this.keepFrustumOnBoard = function() {
+    var fru = this.frustum;
+    if (fru.x < 0)
+      this.frustum.x = 0;
+    if (fru.x + fru.w > this.BOARD.w)
+      this.frustum.x = this.BOARD.w - canvas.width / fru.scale;
+    if (fru.y < 0)
+      this.frustum.y = 0;
+    if (fru.y + fru.h > this.BOARD.h)
+      this.frustum.y = this.BOARD.h - canvas.height / fru.scale;
+  };
+
   // Pieces are moved as they are dragged (not just when they are dropped)
   // If no piece is being dragged, then slide the board.
   this.dragRelative = function(dx, dy) {
@@ -129,53 +141,39 @@ function Model(canvas) {
         p.y = 0;
       if (p.y + p.h > this.BOARD.h)
         p.y = this.BOARD.h - p.h;
-    } else { // translate board in opposite direction of the mouse movement
-      var fru = this.frustum;
-      var scale = fru.scale;
+      // TODO: if piece near the board edges, scroll the board too
+    } else { // scroll board in opposite direction of the mouse movement
       this.frustum.x -= dx;
       this.frustum.y -= dy;
-      // dont scroll past board edges
-      /*
-       * if (fru.x < 0) this.frustum.x = 0; if (fru.x + fru.w > this.BOARD.w)
-       * this.frustum.x = this.BOARD.w - canvas.width / scale; if (fru.y < 0)
-       * this.frustum.y = 0; if (fru.y + fru.h > this.BOARD.h) this.frustum.y =
-       * this.BOARD.h - canvas.height / scale;
-       */
+      this.keepFrustumOnBoard();
     }
     view.drawAll();
   };
 
-  // Zoom in or out, centered on a particular position
-  this.zoom = function(isZoomingOut, x, y) {
-    var scaleStep = 2;
-    var newFrus;
+  // Scroll so that the given coordinates are at the top left of the frustum.
+  this.scrollTo = function(x, y) {
+    this.frustum.x = x;
+    this.frustum.y = y;
+    this.keepFrustumOnBoard();
+    view.drawAll();
+  };
+
+  // Zoom in or out
+  this.zoom = function(isZoomingOut, scaleStep) {
     var scale = this.frustum.scale;
+    // cap zoom-in and zoom-out
     if (isZoomingOut && scale > this.BOARD.minScale) {
-      newFrus = {
-        x : scaleStep * this.frustum.x - x,
-        y : scaleStep * this.frustum.y - y,
-        w : this.frustum.w * scaleStep,
-        h : this.frustum.h * scaleStep,
-        scale : this.frustum.scale / scaleStep
-      };
+      this.frustum.scale /= scaleStep;
+      this.frustum.w *= scaleStep;
+      this.frustum.h *= scaleStep;
     } else if (!isZoomingOut && scale < this.BOARD.maxScale) {
-      newFrus = {
-        x : (this.frustum.x + x) / scaleStep,
-        y : (this.frustum.y + y) / scaleStep,
-        w : this.frustum.w / scaleStep,
-        h : this.frustum.h / scaleStep,
-        scale : this.frustum.scale * scaleStep
-      };
-    } else { // TODO: ugly code
+      this.frustum.scale *= scaleStep;
+      this.frustum.w /= scaleStep;
+      this.frustum.h /= scaleStep;
+    } else { // reached max scale or min scale
       return;
     }
-    this.frustum.x = newFrus.x;
-    this.frustum.y = newFrus.y;
-    this.frustum.scale = newFrus.scale;
-    this.frustum.w = newFrus.w;
-    this.frustum.h = newFrus.h;
-
-    console.log(this.frustum)
+    // TODO: this is useless, since the controller will call the model again
     view.drawAll();
   };
 
