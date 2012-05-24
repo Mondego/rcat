@@ -17,20 +17,20 @@ class JigsawServer(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("Jigsaw App Websocket Open")
-        datacon = MySQLConn.MySQLConnector(appip,appport)
+        datacon = MySQLConn.MySQLConnector(appip, appport)
         datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         #result = datacon.execute('SHOW TABLES')
-        datacon.create_table("jigsaw","pid")
+        datacon.create_table("jigsaw", "pid")
         datacon.execute("delete from jigsaw")
 
     def on_message(self, message):
         try:
             enc = json.loads(message)
             logging.debug(enc["M"])
-            
+
             msg = json.loads(enc["M"])
             user = enc["U"]
-            
+
             newmsg = {}
             """
             Protocol: 
@@ -44,8 +44,8 @@ class JigsawServer(websocket.WebSocketHandler):
             if "P" in msg:
                 if "ID" in msg["P"]:
                     newmsg["M"] = msg["P"]["NP"]
-                    insert_values = [msg["P"]["ID"],msg["P"]["NP"]]
-                    datacon.insert("jigsaw",insert_values,msg["P"]["ID"])
+                    insert_values = [msg["P"]["ID"], msg["P"]["NP"]]
+                    datacon.insert("jigsaw", insert_values, msg["P"]["ID"])
                 else:
                     logging.error("[jigsaw]: No USERID passed.")
             elif "RP" in msg: # Request history from..?
@@ -65,23 +65,22 @@ class JigsawServer(websocket.WebSocketHandler):
                 newmsg["U"] = user
             json_msg = json.dumps(newmsg)
             self.write_message(json_msg)
-            return False 
-        
+            return False
+
     def on_close(self):
         logging.debug("App WebSocket closed")
-        
+
 application = tornado.web.Application([
     (r"/", JigsawServer),
 ])
 
 if __name__ == "__main__":
-    appip,appport = helper.parse_input('demoapp.cfg')
+    appip, appport = helper.parse_input('demoapp.cfg')
     application.listen(appport)
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[jigsawapp]: Starting jigsaw app in ' + appip + appport)    
+    logging.debug('[jigsawapp]: Starting jigsaw app in ' + appip + appport)
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
-    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"],"ws://" + appip + ':' + appport)
+    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"], "ws://" + appip + ':' + appport)
     helper.terminal()
-    
