@@ -34,12 +34,17 @@ class JigsawServer(websocket.WebSocketHandler):
             newmsg = {}
             """
             Protocol: 
-            "P":  Stands for new position type of message. Is a dictionary with two values:
-                "NP": The new position
-                "ID": The game ID of the client
-            "RP": Stands for request pieces. Contains:
-                "V": View area to look for pieces
-                "ID": The game ID of the client
+            "P":  Piece movement message. Exchanged between server and clients.
+                "x": The piece's new x
+                "y": The piece's new y
+                "id": the piece's uuid
+            "RP": Frustum update message. From clients to server.
+                "V": client's frustum
+            "c": config of the puzzle, sent when client connects
+                "imgurl": url of the puzzle image
+                "board": stores w, h, maxScale, minScale
+                "grid": stores x, y, ncols, nrows, cellw, cellh
+                "pieces": mapping of pid to {pid, x, y, c, r}
             """
             if "P" in msg:
                 if "ID" in msg["P"]:

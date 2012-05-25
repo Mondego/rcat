@@ -7,74 +7,72 @@ img.onload = function() {
   // console.log('image loaded');
   // TODO: time the image loading + async img load
 };
-img.src = "img/BugsLife.jpg"; // 800 x 600
+// img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
 
-var model, view;
+var model, view, nw;
+var canvas;
+
 window.onload = function() {
-  var canvas = document.getElementById("jigsaw");
-  // The model tracks the game state and executes commands.
-  // The model is also in charge of the network.
-  // The model should be created before the view
-  // so that the view can render it at init.
-  model = new Model(canvas);
-  // The view renders the game from the model.
-  // The view is also in charge of converting user input into model commands.
-  view = new View(canvas);
-  model.startGame();
+  canvas = document.getElementById("jigsaw");
+  model = new Model();
+  view = new View();
+  nw = new Network();
 }
 
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
-function Model(canvas) {
+function Model() {
 
-  // board = grid + empty space around the grid
-  this.BOARD = {
-    w : 900, // width and height of the whole board
-    h : 600,
-    maxScale : 8, // cap zooming in and out
-    minScale : 1
+  this.BOARD = {}; // board = grid + empty space around the grid
+  this.GRID = {}; // grid = where pieces can be dropped
+
+  // which part of the board is currently being viewed by the user
+  this.frustum = {
+    x : null,
+    y : null,
+    scale : null, // zooming scale; >1 is zoomed in, <1 is zoomed out
+    w : null,
+    h : null
   };
 
-  // grid = where pieces can be dropped
-  this.GRID = {
-    x : 50, // position relative to the board
-    y : 100,
-    ncols : 2, // puzzle difficulty
-    nrows : 2,
-    cellw : 200, // cell dimensions
-    cellh : 150
-  };
+  // Init board, grid, and frustum from server config.
+  // Also create the pieces from server data.
+  this.startGame = function(board, grid, dfrus, piecesData) {
 
-  // Init: create the pieces.
-  this.startGame = function() {
-    var board = this.BOARD;
-    var grid = this.GRID;
-    this.loosePieces = []; // set of movable pieces
-    this.boundPieces = []; // pieces that have been dropped in the correct cell
+    this.BOARD = board;
+    this.GRID = grid;
+
+    // Send back the frustum's w and h to the server,
+    // as they are determined by the client's canvas size.
+    this.frustum.x = dfrus.x;
+    this.frustum.y = dfrus.y;
+    this.frustum.scale = dfrus.scale;
+    this.frustum.w = canvas.width / dfrus.scale;
+    this.frustum.h = canvas.height / dfrus.scale;
+    nw.sendFrustum(this.frustum);
+
+    // piece creations
+    this.loosePieces = {}; // hash table of movable pieces
+    this.boundPieces = {}; // pieces that have been dropped in the correct cell
     var x, y; // coords of the piece on the board
     var sx, sy; // dimensions of the slice from the original image
     var w = grid.cellw;
     var h = grid.cellh;
     // each piece contains a pc_w x pc_h slice of the original image
-    var pc_w = img.width / this.GRID.ncols;
-    var pc_h = img.height / this.GRID.nrows;
-    for ( var c = 0; c < grid.ncols; c++) {
-      for ( var r = 0; r < grid.nrows; r++) {
-        // place randomly on the board
-        // x = Math.random() * (board.w - w);
-        // y = Math.random() * (board.h - h);
-        x = 2 * (1 - c) * grid.cellw + 100;
-        y = 2 * (1 - r) * grid.cellh + 10;
-        sx = c * pc_w; // coords of image sliced from original
-        sy = r * pc_h;
-        var p = new Piece(c, r, x, y, w, h, sx, sy, pc_w, pc_h);
-        this.loosePieces.push(p);
-      }
+    var sw = img.width / this.GRID.ncols;
+    var sh = img.height / this.GRID.nrows;
+    var pdata, p, sx, sy;
+    for ( var id in piecesData) {
+      pd = piecesData[id];
+      sx = pd.c * sw; // coords of image sliced from original
+      sy = pd.r * sh;
+      p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
+      this.loosePieces[id] = p;
     }
     view.drawAll();
   };
@@ -87,41 +85,37 @@ function Model(canvas) {
   // TODO: index loose pieces spatially for faster collision detection
   this.getCollidedPiece = function(x, y) {
     // iterate over all pieces
-    var pnum = this.loosePieces.length - 1;
     var p;
-    while (pnum >= 0) {
-      p = this.loosePieces[pnum];
+    var found = false;
+    for ( var pid in this.loosePieces) {
+      p = this.loosePieces[pid];
       if (p.collides(x, y)) {
+        found = true;
         break;
       }
-      pnum--;
     }
-    if (pnum >= 0) { // at least a piece collides: prepare to drag it around
-      p = this.loosePieces[pnum];
+    if (found) {// at least one piece collides: prepare to drag it around
       this.draggedPiece = p;
-      // TODO: view draws a shiny border around the piece to show it's selected
     }
-  };
-
-  // which part of the board is currently being viewed by the user
-  this.frustum = {
-    x : 0,
-    y : 0,
-    scale : 1, // zooming scale; >1 is zoomed in, <1 is zoomed out
-    w : canvas.width,
-    h : canvas.height
+    // TODO: view draws a shiny border around the piece to show it's selected
   };
 
   // fix the frustum if user scrolled past board edges
   this.keepFrustumOnBoard = function() {
+    // horizontally
     var fru = this.frustum;
-    if (fru.x < 0)
+    var tooHigh = fru.x < 0;
+    var tooLow = fru.x + fru.w > this.BOARD.w
+    if (tooHigh && !tooLow)
       this.frustum.x = 0;
-    if (fru.x + fru.w > this.BOARD.w)
+    else if (tooLow && !tooHigh)
       this.frustum.x = this.BOARD.w - canvas.width / fru.scale;
-    if (fru.y < 0)
+    // vertically
+    var tooLeft = fru.y < 0;
+    var tooRight = fru.y + fru.h > this.BOARD.h;
+    if (tooLeft && !tooRight)
       this.frustum.y = 0;
-    if (fru.y + fru.h > this.BOARD.h)
+    else if (tooRight && !tooLeft)
       this.frustum.y = this.BOARD.h - canvas.height / fru.scale;
   };
 
@@ -146,6 +140,7 @@ function Model(canvas) {
       this.frustum.x -= dx;
       this.frustum.y -= dy;
       this.keepFrustumOnBoard();
+      nw.sendFrustum(this.frustum);
     }
     view.drawAll();
   };
@@ -155,6 +150,7 @@ function Model(canvas) {
     this.frustum.x = x;
     this.frustum.y = y;
     this.keepFrustumOnBoard();
+    nw.sendFrustum(this.frustum); // TODO: should happen in zoom
     view.drawAll();
   };
 
@@ -174,6 +170,7 @@ function Model(canvas) {
       return;
     }
     // TODO: this is useless, since the controller will call the model again
+    // TODO: should ask to send frustum to server?
     view.drawAll();
   };
 
@@ -184,6 +181,7 @@ function Model(canvas) {
   this.release = function(x, y) {
     if (this.draggedPiece) { // stop dragging a piece
       var p = this.draggedPiece;
+      nw.sendPieceMove(p.id, p.x, p.y);
       this.draggedPiece = null;
       var cell = this.getCellFromPos(x, y);
       if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
@@ -194,7 +192,7 @@ function Model(canvas) {
         this.bindPiece(p);
         if (this.gameIsOver()) {
           // TODO: should display an animation
-          this.startGame();
+          // this.startGame(); // TODO: should come from the server
         }
         view.drawAll();
       }
@@ -203,28 +201,32 @@ function Model(canvas) {
 
   // The game is over when all the pieces are dropped on their correct cell.
   this.gameIsOver = function() {
-    return this.loosePieces.length == 0;
+    return this.loosePieces == {};
   }
 
   // Bind piece: remove it from the loose pieces and add it to the bound pieces.
+  // TODO: should happen on the server side
   this.bindPiece = function(piece) {
-    var c = piece.c, r = piece.r;
-    // iterate over all the pieces to find the one with that c and r
-    var pnum = this.loosePieces.length - 1;
+    delete this.loosePieces[piece.id];
+    this.boundPieces[piece.id] = piece;
+  }
+
+  // Move a piece to a given position.
+  this.movePiece = function(id, x, y) {
     var p;
-    while (pnum >= 0) {
-      p = model.loosePieces[pnum];
-      if (p == piece) {
-        break;
-      }
-      pnum--;
+    if (id in this.loosePieces) {
+      p = this.loosePieces[id];
+      p.x = x;
+      p.y = y;
+    } else if (id in this.boundPieces) {
+      // The piece was bound locally before the client received the pos update.
+      // this case is TODO
     }
-    if (pnum >= 0) { // the piece was found in the loose pieces
-      this.loosePieces.splice(pnum, 1);
-      this.boundPieces.push(p);
-    } else {
-      console.log('Error in model.bindPiece: piece not found in loosePieces');
+    // cancel dragging if needed
+    if (this.draggedPiece && this.draggedPiece.id == id) {
+      this.draggedPiece = null;
     }
+    view.drawAll(); // TODO: redraw only if the piece was or is in the frustum
   }
 
   // Return cell (grid col+row, board x+y) from board coords.
@@ -253,7 +255,12 @@ function Model(canvas) {
 // Could be an object {c:5,r:6} instead of a whole Piece class.
 // TODO: could have an ID given by the server instead of c,r
 // (that would make cheating more annoying for puzzles with lots of pieces)
-function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
+function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
+
+  this.id = id; // id
+
+  // whether the piece has been correctly placed or not
+  this.bound = b;
 
   // grid coordinates, column and row
   this.c = c;
@@ -270,9 +277,6 @@ function Piece(c, r, x, y, w, h, sx, sy, sw, sh) {
   this.sy = sy;
   this.sw = sw;
   this.sh = sh;
-
-  // whether the piece has been correctly placed or not
-  this.bound = false;
 
   // whether a click (x,y) collides with the piece
   this.collides = function(x, y) {
