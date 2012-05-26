@@ -1,26 +1,34 @@
 from tornado import websocket
 import tornado.ioloop
-import tornado.web
 from threading import Thread
 from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
-import data.mysqlconn as MySQLConn
+import data.dataconn as DataConn
 import common.helper as helper
+from data.plugins.obm import ObjectManager
+from data.mappers.chatmapper import ChatManager
+from data.db.mysqlconn import MySQLConnector
+
+global db
+global dm
+global obm
 
 pc = None
-datacon = None
+db = None
+obm = None
+dm = None
 appip = None
 appport = None
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
-        global datacon
+        global dm
         logging.debug("App Websocket Open")
-        datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        result = datacon.execute('SHOW TABLES')
-        datacon.create_table("chat","rid")
-        datacon.execute("delete from chat")
+        db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
+        result = db.execute('SHOW TABLES')
+        dm.create_table("chat","rid")
+        db.execute("delete from chat")
         print result
 
     def on_message(self, message):
@@ -34,7 +42,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
             newmsg = {}
             if "H" in msg: # Request history from..?
                 if "ID" in msg["H"]:
-                    history = datacon.select("chat", msg["H"]["ID"])
+                    history = dm.select("chat", msg["H"]["ID"])
                     newmsg["M"] = str(history)
                     newmsg["U"] = user
                 else:
@@ -42,7 +50,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
             elif "C" in msg: # Chat
                 newmsg["M"] = msg["C"]["M"]
                 insert_values = [msg["C"]["ID"],msg["C"]["M"]]
-                datacon.insert("chat",insert_values,msg["C"]["ID"])
+                dm.insert("chat",insert_values,msg["C"]["ID"])
             json_msg = json.dumps(newmsg)
             self.write_message(json_msg)
         except Exception as e:
@@ -60,8 +68,8 @@ class EchoWebSocket(websocket.WebSocketHandler):
         newmsg["M"] = msg["M"].swapcase()
         newmsg["U"] = msg["U"]
         json_msg = json.dumps(newmsg)
-        datacon.insert("users", [int(newmsg["M"]),0,1,2,3], newmsg["M"])
-        datacon.update("users", [("top",3)], newmsg["M"])
+        dm.insert("users", [int(newmsg["M"]),0,1,2,3], newmsg["M"])
+        dm.update("users", [("top",3)], newmsg["M"])
         
         """
 
@@ -76,9 +84,12 @@ handlers = [
 if __name__ == "__main__":
     appip,appport = helper.parse_input('demoapp.cfg')    
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[demoapp]: Starting app in ' + appip + appport)
-    # TODO: Set options to allow adding OBM as a plugin to the data connector    
-    datacon = MySQLConn.MySQLConnector(appip,appport,handlers,{"plugins":["obm","pubsub"]})
+    logging.debug('[demoapp]: Starting app in ' + appip + ":" + appport)
+    # TODO: Allow passing of options to determine which mapper and db to use. For now, hardcoded
+    db = MySQLConnector(appip, appport)
+    dm = ChatManager(db)
+    obm = ObjectManager(dm,handlers)
+    datacon = DataConn.DataConnector(dm, db, obm)
 
     application = tornado.web.Application(handlers)
     application.listen(appport)

@@ -18,11 +18,11 @@ obm = None
 logger = logging.getLogger()
 
 class OBMHandler(tornado.web.RequestHandler):
-    def initialize(self, connector, pubsub_list = None):
+    def initialize(self, mapper):
         global conn
         global pubsubs
-        conn = connector
-        pubsubs = pubsub_list
+        conn = mapper
+        pubsubs = mapper.pubsubs
     
     def get(self):
         # Constraint! RID is always an INT
@@ -55,15 +55,16 @@ class OBMHandler(tornado.web.RequestHandler):
                 pubsubs[tbl].add_subscriber(loc,interests) 
             
 class ObjectManager():
-    def __init__(self,myloc,r_tables,r_location):
+    def __init__(self,mapper,handlers):
         global mylocation
         global tables
         global location
         global obm
         obm = self
-        mylocation = myloc
-        tables = r_tables
-        location = r_location
+        mylocation = mapper.mylocation
+        tables = mapper.tables
+        location = mapper.location
+        handlers.append((r"/obm", OBMHandler, dict(mapper=mapper)))
 
     """
     __relocate(self,table,rid,newowner): Relocates data to another app
