@@ -9,12 +9,13 @@ import tornado.websocket
 import itertools
 import logging
 import proxy
+import uuid
 
 servers = []
-admins = []
+admins = {}
 sticky_client = {}
 server_cycle = None
-admins_cycle = None
+server_ref = None
 proxyref = None
 logger = logging.getLogger("proxy")
 
@@ -47,9 +48,11 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         server_cycle = itertools.cycle(servers)
         
 class AdminHandler(tornado.websocket.WebSocketHandler):
+    admid = None
     def open(self):
         logger.debug("Admin Opened Connection")
-        admins.append(self)
+        self.admid = str(uuid.uuid4())
+        admins[self.admid] = self
         newmsg = {}
         newmsg["LU"] = proxyref.front.list_users()
         self.write_message(json.dumps(newmsg))
@@ -58,21 +61,45 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         try:
             msg = json.loads(message)
             logger.debug(message)
+            newmsg = {}
             # List of Users - Request
             if "LUR" in msg:
-                newmsg = {}
                 newmsg["LU"] = proxyref.front.list_users()
-                self.write_message(json.dumps(newmsg))
+                json_newmsg = json.dumps(newmsg)
+                self.write_message(json_newmsg)
+            # Broadcast msg to all servers    
+            elif "BC" in msg:
+                newmsg["M"] = msg["BC"]["M"]
+                json_newmsg = json.dumps(newmsg)
+                proxyref.back.broadcast_admins(json_newmsg)
+            # Forward message to specific server
+            elif "FW" in msg:
+                newmsg["M"] = msg["FW"]["M"]
+                aid = msg["FW"]["ID"]
+                json_newmsg = json.dumps(newmsg)
+                admins[aid].write_message(json_newmsg)
+            # Request list of servers
+            elif "LS" in msg:
+                newmsg["M"] = admins.keys()
+                json_newmsg = json.dumps(newmsg)
+                print json_newmsg
+                self.write_message(json_newmsg)
+                
         except Exception:
             logger.exception('[Back]: Error processing message on Back module:')
             
     def on_close(self):
-        logger.debug("Admin Closed Connection")        
-        admins.remove(self)
+        try:
+            logger.debug("Admin Closed Connection")        
+            del admins[self.admid]
+        except Exception:
+            logger.warning("[back]: Problem deleting admin from dictionary. Maybe it's already gone?")
 
 class ServerLayer(proxy.AbstractBack):
     def __init__(self,proxy,options):
         global proxyref
+        global serverlayer
+        serverlayer = self
         logging.debug("Starting ServerLayer")
         proxyref = proxy
         
@@ -86,6 +113,6 @@ class ServerLayer(proxy.AbstractBack):
         return server_cycle.next()
     
     def broadcast_admins(self,message):
-        for adm in admins:
+        for adm in admins.values():
             adm.write_message(message)
         
