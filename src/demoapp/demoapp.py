@@ -89,7 +89,7 @@ if __name__ == "__main__":
     db = MySQLConnector(appip, appport)
     dm = ChatManager(db)
     obm = ObjectManager(dm,handlers)
-    datacon = DataConn.DataConnector(dm, db, obm)
+    datacon = DataConn.DataConnector("ChatManagerByID",dm, db, obm)
 
     application = tornado.web.Application(handlers)
     application.listen(appport)
