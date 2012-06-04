@@ -23,10 +23,12 @@ db_inserts = {}
 
 class ChatManager(Mapper):
     def __init__(self,db=None):
+        global mylocation
         """
         Start the thread that dumps to database
         """
         self.db = db
+        mylocation = db.mylocation
         self.mylocation = mylocation
         self.location = location
         self.tables = tables

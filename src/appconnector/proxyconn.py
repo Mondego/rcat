@@ -15,6 +15,8 @@ import websocket
 logger = logging.getLogger()
 
 class ProxyConnector():
+    # admin_hook: Used for applications and data connectors to access proxies
+    admin_hook = None
     appWS = None
     proxies = None
     events = None
@@ -90,6 +92,10 @@ class ProxyConnector():
         elif "UD" in msg:
             if msg["UD"] in self.client_location:
                 del self.client_location[msg["UD"]]
+        else:
+            if self.admin_hook:
+                self.admin_hook(message)
+                
         logger.debug("List of users: " + str(self.client_location))
     
     def Admin_on_error(self,ws, error):

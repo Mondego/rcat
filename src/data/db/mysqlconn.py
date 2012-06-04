@@ -31,6 +31,7 @@ class MySQLConnector():
         global mysqlconn
         global obm
         mylocation = myip + ':' + myport
+        self.mylocation = mylocation
         logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + mylocation)
         mysqlconn = self
 

@@ -23,7 +23,7 @@ def get_ip_address(ifname):
         struct.pack('256s', ifname[:15])
     )[20:24])
     
-def parse_input(cfg_file='app.cfg'):
+def parse_input(cfg_file='app.cfg',cfg_file_hook=None):
     myip,myport,fp,cfg = None,None,None,cfg_file
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', help='port', default='9999')
@@ -49,6 +49,8 @@ def parse_input(cfg_file='app.cfg'):
                 config.readfp(fp)
                 myip = config.get('Main', 'host')
                 myport = config.get('Main', 'port')
+                if cfg_file_hook:
+                    cfg_file_hook(config)
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ",e)
                 myip = get_ip_address('eth0')

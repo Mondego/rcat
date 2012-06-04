@@ -5,23 +5,38 @@ from threading import Thread
 from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
-import data.mysqlconn as MySQLConn
 import common.helper as helper
+from data.plugins.obm import ObjectManager
+from data.mappers.spacepart import SpacePartitioning 
+from data.db.mysqlconn import MySQLConnector
+import data.dataconn as DataConn
 
+global db
+global pc
+global settings
+
+settings = None
+db = None
 pc = None
 datacon = None
 appip = None
 appport = None
+tables = {}
+location = {}
 
 class JigsawServer(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("Jigsaw App Websocket Open")
-        datacon = MySQLConn.MySQLConnector(appip, appport)
-        datacon.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
+        
+        db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
+        # TODO: "Game" should be the name of a particular game, set in options.
+        tables['game'] = {}
+        location['game'] = {}
+        
         #result = datacon.execute('SHOW TABLES')
-        datacon.create_table("jigsaw", "pid")
-        datacon.execute("delete from jigsaw")
+        db.create_table("jigsaw", "pid")
+        db.execute("delete from jigsaw")
 
     def on_message(self, message):
         try:
@@ -75,17 +90,39 @@ class JigsawServer(websocket.WebSocketHandler):
     def on_close(self):
         logging.debug("App WebSocket closed")
 
-application = tornado.web.Application([
-    (r"/", JigsawServer),
-])
+handlers = [
+    (r"/", JigsawServer)
+]
+
+def jigsaw_parser(config):
+    global settings
+    parsed = config.items('Jigsaw')
+    settings = {}
+    for k,v in parsed:
+        settings[k] = v
+
+def start_game():
+    newmsg = {}
+    newmsg["BC"] = {}
+    newmsg["M"] = settings
+    json_message = json.dumps(newmsg)
+    pc.appWS.write_message(json_message)
 
 if __name__ == "__main__":
-    appip, appport = helper.parse_input('demoapp.cfg')
+    appip, appport = helper.parse_input('jigsawapp.cfg',jigsaw_parser)
+    db = MySQLConnector(appip, appport)
+    dm = SpacePartitioning(db,'first_puzzle')
+    obm = ObjectManager(dm,handlers)
+    datacon = DataConn.DataConnector("JigsawSpacePart",dm, db, obm)
+    application = tornado.web.Application(handlers)
     application.listen(appport)
+
     logging.config.fileConfig("connector_logging.conf")
     logging.debug('[jigsawapp]: Starting jigsaw app in ' + appip + appport)
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
     pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"], "ws://" + appip + ':' + appport)
+    if settings['start'] == "true":
+        start_game()
     helper.terminal()
