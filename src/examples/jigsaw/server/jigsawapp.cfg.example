@@ -1,0 +1,6 @@
+[Main]
+host=128.195.4.46
+port=9999
+
+[Jigsaw]
+start=true
