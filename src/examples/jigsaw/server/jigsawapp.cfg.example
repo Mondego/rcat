@@ -5,3 +5,5 @@ proxyaddr=[ws://opensim.ics.uci.edu:8888]
 
 [Jigsaw]
 start=true
+board_size=5000,5000
+bucket_size=10
