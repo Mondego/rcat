@@ -11,6 +11,7 @@ import logging
 import sys
 import time
 import websocket
+import uuid
 
 logger = logging.getLogger()
 
@@ -19,15 +20,21 @@ class ProxyConnector():
     admin_hook = None
     appWS = None
     proxies = None
+    admins = None
     events = None
     manager = None
     client_location = None
     admin_proxy = None
+    adm_id = None
 
     def __init__(self,proxyURLs,appURL):
         websocket.enableTrace(True)
         self.admin_proxy = {}
-        self.proxies = []
+        self.proxies = set()
+        self.admins = set()
+        self.adm_id = str(uuid.uuid4())
+        self.broadcasted = False
+        
         if not appURL.endswith("/"):
                 appURL += "/"
         for proxy in proxyURLs:
@@ -44,7 +51,7 @@ class ProxyConnector():
                                         on_error = self.Proxy_on_error,
                                         on_close = self.Proxy_on_close)
             self.admin_proxy[adminWS] = proxyWS
-            self.proxies.append(proxyWS)
+            self.proxies.add(proxyWS)
             logger.debug("[ProxyConnector]: Connecting to Proxy in " + proxy)
             pws = Thread(target=proxyWS.run_forever)
             pws.daemon = True
@@ -55,7 +62,7 @@ class ProxyConnector():
             aws.daemon = True
             aws.start()
             logger.debug("[ProxyConnector]: Admin Connected!")
-            
+        
         self.appWS = websocket.WebSocketApp(appURL,
                                     on_open = self.App_on_open,
                                     on_message = self.App_on_message,
@@ -82,19 +89,16 @@ class ProxyConnector():
         msg = json.loads(message)
         # New user
         if "NU" in msg:
-            if msg["NU"] not in self.client_location:
-                self.client_location[msg["NU"]] = self.admin_proxy[ws]
-        # List of Users
-        elif "LU" in msg:
             for user in msg["LU"]:
                 self.client_location[user] = self.admin_proxy[ws]
         # User disconnected
         elif "UD" in msg:
             if msg["UD"] in self.client_location:
                 del self.client_location[msg["UD"]]
-        else:
-            if self.admin_hook:
-                self.admin_hook(message)
+        elif "NS" in msg:
+            self.admins.update(set(msg["NS"]))
+        elif self.admin_hook:
+            self.admin_hook(message)
                 
         logger.debug("List of users: " + str(self.client_location))
     
@@ -105,7 +109,12 @@ class ProxyConnector():
         logger.debug("### Admin closed ###")
     
     def Admin_on_open(self,ws):
-        logger.debug("### Admin open ###")
+        reg = {}
+        reg["REG"] = self.adm_id
+        if self.broadcasted == False:
+            self.broadcasted = True
+            reg["REGBC"] = None
+        ws.send(reg)
     
     """
     App websocket events

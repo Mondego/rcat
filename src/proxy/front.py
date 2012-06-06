@@ -44,7 +44,7 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         clients[self.myid] = self
         
         newmsg = {}
-        newmsg["NU"] = self.myid 
+        newmsg["NU"] = [self.myid] 
         
         if proxy_options["DISTRIBUTION"] == PROXY_DISTRIBUTION.STICKY:
             self.sticky_server = proxyref.back.sticky_server()
@@ -104,5 +104,5 @@ class ClientLayer(proxy.AbstractFront):
         clients[authclient] = temp_users[cuuid]
         
     def list_users(self):
-        return clients
+        return clients.keys()
     

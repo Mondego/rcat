@@ -11,7 +11,6 @@ client_mapper = []
 m_size = None
 m_boardx = None
 m_boardy = None
-m_idname = None
 client_loc = {}
 object_loc = {}
 cur_boardx = None
@@ -21,18 +20,28 @@ class SpacePartitioning():
     '''
     classdocs
     '''
-    def __init__(self,db,idname,board_size=(5000,5000),bucket_size=10):
-        global m_idname
+    db = None
+    mylocation = None
+    idname = None
+    tables = None
+    location = None
+    
+    def __init__(self,db,idname):
+        self.db = db
+        self.mylocation = db.mylocation
+        self.idname = idname
+        self.tables = {}
+        self.location = {}
+        
+    def join(self,settings):
         global m_boardx
         global m_boardy
         global piece_mapper
         global client_mapper
-
-        self.db = db
-        self.mylocation = db.mylocation
-        m_idname = idname
         
-        m_boardx,m_boardy = board_size
+        bx,by = settings["board_size"].split(',')
+        m_boardx,m_boardy = int(bx),int(by)
+        bucket_size = int(settings["bucket_size"])
         
         # Build the bucket matrix for pieces and clients
         line = [ set() for _ in range(0,m_boardx/bucket_size)]
@@ -41,11 +50,18 @@ class SpacePartitioning():
         for _ in range(0,m_boardy/bucket_size):
             client_mapper.append(deepcopy(line))
         
-    def join(self,partition_x=(0,5000),partition_y=(0,5000)):
-        pass
     
-    def create(self,puzzle_size=(800,600),partition=(50,50)):
-        pass
+    def create(self,settings,servers):
+        bx,by = settings["board_size"].split(',')
+        boardx,boardy = int(bx),int(by)
+        
+        logging.debug("[spacepart]: Starting a new game.")
+        # Partition the board across all existing servers
+        part = {}
+        for srv in servers:
+            part[srv] = boardx,boardy
+        
+        return part
         
     
     # Return range
@@ -86,7 +102,7 @@ class SpacePartitioning():
         buktx,bukty = int(x/m_size),int(y/m_size)
         list_items = piece_mapper[buktx][bukty]
         for item in list_items:
-            if item[m_idname] == objid:
+            if item[self.idname] == objid:
                 list_items.remove(item)
     """
     def retrieve_near(self,x,y,search_range=10):

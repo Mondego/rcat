@@ -1,3 +1,4 @@
+from copy import deepcopy
 from tornado import websocket
 import tornado.ioloop
 import tornado.web
@@ -10,6 +11,7 @@ from data.plugins.obm import ObjectManager
 from data.mappers.spacepart import SpacePartitioning 
 from data.db.mysqlconn import MySQLConnector
 import data.dataconn as DataConn
+import ConfigParser
 
 global db
 global pc
@@ -24,7 +26,7 @@ appport = None
 tables = {}
 location = {}
 
-class JigsawServer(websocket.WebSocketHandler):
+class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
         global datacon
         logging.debug("Jigsaw App Websocket Open")
@@ -35,8 +37,8 @@ class JigsawServer(websocket.WebSocketHandler):
         location['game'] = {}
         
         #result = datacon.execute('SHOW TABLES')
-        db.create_table("jigsaw", "pid")
-        db.execute("delete from jigsaw")
+        #db.create_table("jigsaw", "pid")
+        #db.execute("delete from jigsaw")
 
     def on_message(self, message):
         try:
@@ -91,22 +93,54 @@ class JigsawServer(websocket.WebSocketHandler):
         logging.debug("App WebSocket closed")
 
 handlers = [
-    (r"/", JigsawServer)
+    (r"/", JigsawServerHandler)
 ]
 
+class JigsawServer():
+    def __init__(self,settings):
+        # Hook to the proxy connector admin messages. Needed to request data about other data servers
+        pc.admin_hook = self.admin_parser
+        
+        if settings["start"] == "true":
+            self.start_game()
+    
+    # Parses messages coming through admin channel of proxy
+    def admin_parser(self,msg):
+        if "FW" in msg:
+            if "NEW" in msg["FW"]:
+                newgame_settings = msg["FW"]["NEW"]
+                dm.join(newgame_settings)
+    
+    def start_game(self):
+        # Space partitioning mapper creates the data structure for the puzzle and assigns space to servers
+        # partitioning is a dictionary of server uuid to board partition, represented as two tuples, x0-x1, y0-y1
+        partitioning = dm.create(settings, pc.admins)        
+        newmsg = {}
+        newmsg["FW"] = {}
+        json_message = ""
+        mod_settings = deepcopy(settings)
+        del mod_settings["start"]
+        
+        for server in pc.admins:
+            mod_settings["PART"] = partitioning[server]
+            newmsg["FW"]["ID"] = server
+            newmsg["FW"]["NEW"] = mod_settings
+            json_message = json.dumps(newmsg)
+            pc.appWS.write_message(json_message)
+        
+        
+
+# Parses settings for Jigsaw server. Extends helper input parser
 def jigsaw_parser(config):
     global settings
-    parsed = config.items('Jigsaw')
-    settings = {}
-    for k,v in parsed:
-        settings[k] = v
-
-def start_game():
-    newmsg = {}
-    newmsg["BC"] = {}
-    newmsg["M"] = settings
-    json_message = json.dumps(newmsg)
-    pc.appWS.write_message(json_message)
+    try:
+        parsed = config.items('Jigsaw')
+        settings = {}
+        for k,v in parsed:
+            settings[k] = v
+    except ConfigParser.NoSectionError:
+        settings = {}
+        settings["start"] = "false"
 
 if __name__ == "__main__":
     appip, appport, proxies = helper.parse_input('jigsawapp.cfg',jigsaw_parser)
@@ -124,6 +158,5 @@ if __name__ == "__main__":
     t.start()
     pc = ProxyConnector(proxies, 
                         "ws://" + appip + ':' + appport) # server
-    if settings['start'] == "true":
-        start_game()
+    jigsaw = JigsawServer(settings)    
     helper.terminal()

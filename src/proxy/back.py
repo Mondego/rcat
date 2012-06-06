@@ -51,39 +51,56 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
     admid = None
     def open(self):
         logger.debug("Admin Opened Connection")
+        """
         self.admid = str(uuid.uuid4())
+
+        newmsg = {"NS":[self.admid]}
+        jsonmsg = json.dumps(newmsg)
+        for adm in admins:
+            adm.write_message(jsonmsg)
         admins[self.admid] = self
-        newmsg = {}
-        newmsg["LU"] = proxyref.front.list_users()
-        self.write_message(json.dumps(newmsg))
+        """    
         
     def on_message(self, message):
         try:
             msg = json.loads(message)
             logger.debug(message)
             newmsg = {}
-            # List of Users - Request
+            
+            # Internal requests
+            ### List of Users - Request
             if "LUR" in msg:
-                newmsg["LU"] = proxyref.front.list_users()
+                newmsg["NU"] = proxyref.front.list_users()
                 json_newmsg = json.dumps(newmsg)
                 self.write_message(json_newmsg)
-            # Broadcast msg to all servers    
-            elif "BC" in msg:
-                newmsg["M"] = msg["BC"]["M"]
-                json_newmsg = json.dumps(newmsg)
-                proxyref.back.broadcast_admins(json_newmsg)
-            # Forward message to specific server
-            elif "FW" in msg:
-                newmsg["M"] = msg["FW"]["M"]
-                aid = msg["FW"]["ID"]
-                json_newmsg = json.dumps(newmsg)
-                admins[aid].write_message(json_newmsg)
             # Request list of servers
-            elif "LS" in msg:
-                newmsg["M"] = admins.keys()
+            elif "LSR" in msg:
+                newmsg["LS"] = admins.keys()
                 json_newmsg = json.dumps(newmsg)
                 print json_newmsg
                 self.write_message(json_newmsg)
+            # Admin handler registers its UUID 
+            elif "REG" in msg:
+                self.admid = msg["REG"]
+                admins[self.admid] = self
+                if "REGBC" in msg:
+                    newmsg = {"NS":[self.admid]}
+                    jsonmsg = json.dumps(newmsg)
+                    for adm in admins:
+                        if adm != self:
+                            adm.write_message(jsonmsg)
+                    
+            # Developer customized messages
+            ### Broadcast messages to all admins
+            elif "BC" in msg:
+                proxyref.back.broadcast_admins(msg)
+            # Forward message to specific server
+            elif "FW" in msg:
+                aid = msg["FW"]["ID"]
+                msg["FW"] = msg["FW"]
+                msg["FW"]["ID"] = self.admid
+                json_newmsg = json.dumps(msg)
+                admins[aid].write_message(json_newmsg)
                 
         except Exception:
             logger.exception('[Back]: Error processing message on Back module:')
