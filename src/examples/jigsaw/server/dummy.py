@@ -12,15 +12,15 @@ log = logging.getLogger('dummysrv')
 img_url = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'
 board = {'w': 2000,
          'h': 1600,
-         'maxScale': 8,
+         'maxScale': 16,
          'minScale': 0.5
          }
 grid = {'x': 250,
         'y': 200,
-        'ncols': 4,
-        'nrows': 4,
-        'cellw': 100,
-        'cellh': 75
+        'ncols': 16,
+        'nrows': 12,
+        'cellw': 25,
+        'cellh': 25
         }
 # default frustum; w and h are determined by each client's canvas size
 dfrus = {'x': 0,

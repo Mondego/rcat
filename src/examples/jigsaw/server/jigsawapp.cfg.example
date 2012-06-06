@@ -1,6 +1,7 @@
 [Main]
 host=128.195.4.46
 port=9999
+proxyaddr=[ws://opensim.ics.uci.edu:8888]
 
 [Jigsaw]
 start=true

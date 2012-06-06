@@ -109,7 +109,7 @@ def start_game():
     pc.appWS.write_message(json_message)
 
 if __name__ == "__main__":
-    appip, appport = helper.parse_input('jigsawapp.cfg',jigsaw_parser)
+    appip, appport, proxies = helper.parse_input('jigsawapp.cfg',jigsaw_parser)
     db = MySQLConnector(appip, appport)
     dm = SpacePartitioning(db,'first_puzzle')
     obm = ObjectManager(dm,handlers)
@@ -122,7 +122,8 @@ if __name__ == "__main__":
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
-    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"], "ws://" + appip + ':' + appport)
+    pc = ProxyConnector(proxies, 
+                        "ws://" + appip + ':' + appport) # server
     if settings['start'] == "true":
         start_game()
     helper.terminal()
