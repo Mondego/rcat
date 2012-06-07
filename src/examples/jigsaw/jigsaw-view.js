@@ -39,7 +39,7 @@ function View() {
     view.isMouseDown = true;
     var screenPos = getScreenPos(e);
     var pos = toBoardPos(screenPos); // screen to model coords
-    model.getCollidedPiece(pos.x, pos.y);
+    model.selectPieceAt(pos.x, pos.y);
     // store dragging start position
     view.dragStart = {
       x : pos.x,

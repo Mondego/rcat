@@ -30,6 +30,7 @@ function Model() {
 
   this.BOARD = {}; // board = grid + empty space around the grid
   this.GRID = {}; // grid = where pieces can be dropped
+  this.myid = null; // the id given by the server to represent me
 
   // which part of the board is currently being viewed by the user
   this.frustum = {
@@ -42,10 +43,11 @@ function Model() {
 
   // Init board, grid, and frustum from server config.
   // Also create the pieces from server data.
-  this.startGame = function(board, grid, dfrus, piecesData) {
+  this.startGame = function(board, grid, dfrus, piecesData, myid) {
 
     this.BOARD = board;
     this.GRID = grid;
+    this.myid = myid;
 
     // Send back the frustum's w and h to the server,
     // as they are determined by the client's canvas size.
@@ -80,24 +82,25 @@ function Model() {
   // which loose piece is currently being dragged
   this.draggedPiece = null;
 
-  // Return a loose piece colliding with the given board coords.
-  // Return null if no loose piece collides.
+  // Select a piece that collides with the click coords.
+  // The piece must not be already owned by someone else.
   // TODO: index loose pieces spatially for faster collision detection
-  this.getCollidedPiece = function(x, y) {
-    // iterate over all pieces
+  this.selectPieceAt = function(x, y) {
     var p;
     var found = false;
+    // iterate over all pieces
     for ( var pid in this.loosePieces) {
       p = this.loosePieces[pid];
-      if (p.collides(x, y)) {
+      if (p.collides(x, y) && (p.owner == null || p.owner == this.myid)) {
         found = true;
         break;
       }
     }
-    if (found) {// at least one piece collides: prepare to drag it around
+    if (found) {// at least one free piece collides: prepare to drag it around
       this.draggedPiece = p;
     }
     // TODO: view draws a shiny border around the piece to show it's selected
+    // TODO: view indicates who's owning the piece
   };
 
   // fix the frustum if user scrolled past board edges
@@ -123,7 +126,7 @@ function Model() {
   // If no piece is being dragged, then slide the board.
   this.scrollRelative = function(dx, dy) {
     var p = this.draggedPiece;
-    if (p) { // drag a piece around
+    if (p) { // drag the piece around
       p.x += dx;
       p.y += dy;
       // fix eventual past-board-edges overflows
@@ -135,6 +138,7 @@ function Model() {
         p.y = 0;
       if (p.y + p.h > this.BOARD.h)
         p.y = this.BOARD.h - p.h;
+      nw.sendPieceMove(p.id, p.x, p.y);
       // TODO: if piece near the board edges, scroll the board too
     } else { // scroll board in opposite direction of the mouse movement
       this.frustum.x -= dx;
@@ -181,15 +185,16 @@ function Model() {
   this.release = function(x, y) {
     if (this.draggedPiece) { // stop dragging a piece
       var p = this.draggedPiece;
-      nw.sendPieceMove(p.id, p.x, p.y);
+      nw.sendPieceDrop(p.id, p.x, p.y); // TODO: send msg when dropped?
       this.draggedPiece = null;
       var cell = this.getCellFromPos(x, y);
       if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
         // magnet the piece
-        p.x = cell.x;
-        p.y = cell.y;
+        // TODO: this should happen on the server instead
+        // p.x = cell.x;
+        // p.y = cell.y;
         // bind the piece
-        this.bindPiece(p);
+        // this.bindPiece(p);
         if (this.gameIsOver()) {
           // TODO: should display an animation
           // this.startGame(); // TODO: should come from the server
@@ -211,22 +216,39 @@ function Model() {
     this.boundPieces[piece.id] = piece;
   }
 
-  // Move a piece to a given position.
-  this.movePiece = function(id, x, y) {
-    var p;
-    if (id in this.loosePieces) {
-      p = this.loosePieces[id];
-      p.x = x;
-      p.y = y;
-    } else if (id in this.boundPieces) {
-      // The piece was bound locally before the client received the pos update.
-      // this case is TODO
+  // Move a piece to a given position IF the lock owner is not me.
+  // We dont care about messages about me since my local version is more recent.
+  this.movePiece = function(id, x, y, owner) {
+    if (owner != this.myid) {
+      if (this.draggedPiece && this.draggedPiece.id == id) {
+        this.draggedPiece = null; // stop dragging
+        // TODO: display an effect?
+      } else {
+        var p = this.loosePieces[id];
+        p.x = x;
+        p.y = y;
+        p.owner = owner;
+      }
+      view.drawAll(); // TODO: redraw only if piece was or is in the frustum
     }
-    // cancel dragging if needed
-    if (this.draggedPiece && this.draggedPiece.id == id) {
-      this.draggedPiece = null;
+  }
+
+  // Drop a piece at a given position.
+  // If I was dragging the piece, but did not own it, then stop dragging it.
+  // We dont care about messages about me since my local version is more recent.
+  this.dropPiece = function(id, x, y, owner) {
+    if (owner != this.myid) {
+      if (this.draggedPiece && this.draggedPiece.id == id) {
+        this.draggedPiece = null; // stop dragging
+        // TODO: display an effect?
+      } else {
+        var p = this.loosePieces[id];
+        p.x = x;
+        p.y = y;
+        p.owner = null;
+      }
+      view.drawAll();
     }
-    view.drawAll(); // TODO: redraw only if the piece was or is in the frustum
   }
 
   // Return cell (grid col+row, board x+y) from board coords.
@@ -258,6 +280,7 @@ function Model() {
 function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
 
   this.id = id; // id
+  this.owner = null; // player currently dragging (and locking) the piece
 
   // whether the piece has been correctly placed or not
   this.bound = b;

@@ -51,10 +51,11 @@ class JigsawServerHandler(websocket.WebSocketHandler):
             newmsg = {}
             """
             Protocol: 
-            "P":  Piece movement message. Exchanged between server and clients.
+            "PM":  Piece Movement message. Exchanged between server and clients.
                 "x": The piece's new x
                 "y": The piece's new y
                 "id": the piece's uuid
+            "PD": Piece Drop message. Same attributes as PM.
             "RP": Frustum update message. From clients to server.
                 "V": client's frustum
             "c": config of the puzzle, sent when client connects
@@ -63,11 +64,11 @@ class JigsawServerHandler(websocket.WebSocketHandler):
                 "grid": stores x, y, ncols, nrows, cellw, cellh
                 "pieces": mapping of pid to {pid, x, y, c, r}
             """
-            if "P" in msg:
-                if "ID" in msg["P"]:
+            if "PM" in msg:
+                if "ID" in msg["PM"]:
                     newmsg["M"] = msg["P"]["NP"]
-                    insert_values = [msg["P"]["ID"], msg["P"]["NP"]]
-                    datacon.insert("jigsaw", insert_values, msg["P"]["ID"])
+                    insert_values = [msg["PM"]["ID"], msg["PM"]["NP"]]
+                    datacon.insert("jigsaw", insert_values, msg["PM"]["ID"])
                 else:
                     logging.error("[jigsaw]: No USERID passed.")
             elif "RP" in msg: # Request history from..?

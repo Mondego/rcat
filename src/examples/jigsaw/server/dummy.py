@@ -1,5 +1,4 @@
 from random import randint
-from time import sleep
 import json
 import logging.config
 import tornado.ioloop
@@ -17,10 +16,10 @@ board = {'w': 2000,
          }
 grid = {'x': 250,
         'y': 200,
-        'ncols': 16,
-        'nrows': 12,
-        'cellw': 25,
-        'cellh': 25
+        'ncols': 2,
+        'nrows': 2,
+        'cellw': 100,
+        'cellh': 75
         }
 # default frustum; w and h are determined by each client's canvas size
 dfrus = {'x': 0,
@@ -39,7 +38,8 @@ for r in range(grid['nrows']):
              'x': randint(0, board['w'] / 2),
              'y': randint(0, board['h'] / 2),
              'c': c,
-             'r': r
+             'r': r,
+             'l': None # lock = id of the player moving the piece
              }
         pieces[pid] = p
 
@@ -63,29 +63,50 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                'board': board,
                'grid': grid,
                'frus': dfrus,
-               'pieces': pieces
+               'pieces': pieces,
+               'myid': self.myid
                }
         msg = {'c': cfg}
         self.write_message(json.dumps(msg))
 
 
+
     def on_message(self, msg):
         """ """
         m = json.loads(msg)
+        global pieces
         if 'rp' in m: # frustum update
             self.frus = m['rp']['v']
-            # TODO: send pieces located in the new frustum 
-        elif 'p' in m: # piece movement
-            # update piece location on the server-side
-            pid = m['p']['id']
-            x, y = m['p']['x'], m['p']['y']
-            global pieces
-            pieces[pid]['x'] = x
-            pieces[pid]['y'] = y
-            # TODO: check if piece correctly placed, and eventually bound
-            # forward piece movement to everyone
-            for c in clients.values():
-                c.write_message(json.dumps(m))
+            # TODO: send pieces located in the new frustum
+        elif 'pm' in m: # piece movement
+            pid = m['pm']['id']
+            lockid = pieces[pid]['l']
+            if not lockid: # lock the piece if nobody owns it 
+                pieces[pid]['l'] = self.myid
+                log.debug('%s starts dragging piece %s' % (self.myid, pid))
+            if lockid == self.myid: # change location if I'm the owner
+                pieces[pid]['x'] = m['pm']['x']
+                pieces[pid]['y'] = m['pm']['y']
+                m['pm']['l'] = pieces[pid]['l'] # add the lock owner to the msg
+                self.bc_json(m) # forward piece movement to everyone
+        elif 'pd' in m: # piece drop
+            pid = m['pd']['id']
+            lockid = pieces[pid]['l']
+            if lockid and lockid == self.myid: # I was the owner
+                pieces[pid]['l'] = None
+                x, y = m['pd']['x'], m['pd']['y']
+                pieces[pid]['x'], pieces[pid]['y'] = x, y
+                log.debug('%s dropped piece %s at %d,%d'
+                          % (self.myid, pid, x, y))
+                m['pd']['l'] = pieces[pid]['l'] # add the lock owner to the msg
+                # TODO: check if piece correctly placed, and eventually bound
+                self.bc_json(m) # forward piece drop to everyone
+
+
+    def bc_json(self, msg):
+        """ convert msg into JSON and broadcast it """
+        for c in clients.values():
+            c.write_message(json.dumps(msg))
 
 
     def on_close(self):

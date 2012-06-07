@@ -10,6 +10,7 @@ function Network() {
 
   var host = "ws://localhost:9000/test";
   var socket = new WebSocket(host);
+  this.sendDelay = 50; // how often to send updates, in millis
 
   socket.onopen = function() {
     console.log('Socket opened; status = ' + socket.readyState);
@@ -26,11 +27,18 @@ function Network() {
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
       var pieces = m.c.pieces; // pieces
-      model.startGame(board, grid, dfrus, pieces);
-    } else if ('p' in m) { // Received piece movement
-      var id = m.p.id;
-      var x = m.p.x, y = m.p.y;
-      model.movePiece(id, x, y);
+      var myid = m.c.myid; // the id given by the server to represent me
+      model.startGame(board, grid, dfrus, pieces, myid);
+    } else if ('pm' in m) { // Received piece movement
+      var id = m.pm.id; // piece id
+      var x = m.pm.x, y = m.pm.y;
+      var owner = m.pm.l; // player currently moving the piece
+      model.movePiece(id, x, y, owner);
+    } else if ('pd' in m) { // Received piece drop
+      var id = m.pd.id; // piece id
+      var x = m.pd.x, y = m.pd.y;
+      var owner = m.pd.l; // player who dropped the piece
+      model.dropPiece(id, x, y, owner);
     }
   };
 
@@ -42,26 +50,80 @@ function Network() {
   };
 
   // Tell the server that the client's frustum changed.
+  this.frustumTimerMsg = null; // frustum msg to send when the timer ends
   this.sendFrustum = function(frustum) {
     var msg = {
       'rp' : {
         'v' : frustum
       }
     };
-    socket.send(JSON.stringify(msg));
+    if (this.frustumTimerMsg == null) {
+      setTimeout('nw.sendFrustumStopTimer()', this.sendDelay);
+    }
+    this.frustumTimerMsg = msg;
+    // sending is taken care of by the frustum timer
   };
+  // Send the frustum and reset the timer
+  this.sendFrustumStopTimer = function() {
+    var msg = this.frustumTimerMsg;
+    if (msg) { // just in case ...
+      socket.send(JSON.stringify(msg));
+    } else {
+      console.log("Warning: Frustum to send is null");
+    }
+    this.frustumTimerMsg = null;
+  }
 
   // Tell the server that the client moved a piece.
-  this.sendPieceMove = function(id, x, y) {
+  this.pieceTimers = {}; // timer to send each piece's coords
+  this.sendPieceMove = function(pid, x, y) {
     var msg = {
-      'p' : {
-        'id' : id,
+      'pm' : {
+        'id' : pid,
         'x' : x,
         'y' : y
       }
     };
+    // sending is taken care of by the frustum timer
+    if (pid in this.pieceTimers) {
+      this.pieceTimers[pid].msg = msg;
+    } else { // start the timeout sending the frustum
+      var funcCall = "nw.sendPieceStopTimer('" + pid + "')";
+      var tid = setTimeout(funcCall, this.sendDelay);
+      var pt = {
+        'tid' : tid,
+        'pid' : pid,
+        'msg' : msg
+      };
+      this.pieceTimers[pid] = pt;
+    }
+  };
+  // Send the piece and reset the timer
+  this.sendPieceStopTimer = function(pid) {
+    if (pid in this.pieceTimers) { // just in case ...
+      var msg = this.pieceTimers[pid].msg;
+      socket.send(JSON.stringify(msg));
+      delete this.pieceTimers[pid];
+    } else {
+      console.log("Warning: The timer for piece " + pid + " is missing.");
+    }
+  };
+
+  // Send the piece drop and cancel the piece move msg timer.
+  this.sendPieceDrop = function(pid, x, y) {
+    var msg = {
+      'pd' : {
+        'id' : pid,
+        'x' : x,
+        'y' : y
+      }
+    };
+    if (pid in this.pieceTimers) {
+      clearTimeout(this.pieceTimers[pid].tid); // stop the timer
+      delete this.pieceTimers[pid];
+    }
     socket.send(JSON.stringify(msg));
-  }
+  };
 
   // close connection from the server
   this.close = function() {
