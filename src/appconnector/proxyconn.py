@@ -109,12 +109,14 @@ class ProxyConnector():
         logger.debug("### Admin closed ###")
     
     def Admin_on_open(self,ws):
-        reg = {}
-        reg["REG"] = self.adm_id
+        logger.debug("### Admin opened ###")
+        msg = {}
+        msg["REG"] = self.adm_id
         if self.broadcasted == False:
             self.broadcasted = True
-            reg["REGBC"] = None
-        ws.send(reg)
+            msg["REGBC"] = None
+        json_msg = json.dumps(msg)
+        ws.send(json_msg)
     
     """
     App websocket events

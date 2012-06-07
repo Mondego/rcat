@@ -1,3 +1,4 @@
+import random
 from copy import deepcopy
 from tornado import websocket
 import tornado.ioloop
@@ -81,6 +82,7 @@ class JigsawServerHandler(websocket.WebSocketHandler):
             json_msg = json.dumps(newmsg)
             self.write_message(json_msg)
         except Exception as e:
+            newmsg = {}
             logging.error(e)
             newmsg["M"] = "ERROR: " + str(e)
             if user:
@@ -105,7 +107,8 @@ class JigsawServer():
             self.start_game()
 
     # Parses messages coming through admin channel of proxy
-    def admin_parser(self, msg):
+    def admin_parser(self, message):
+        msg = json.loads(message)
         if "FW" in msg:
             if "NEW" in msg["FW"]:
                 newgame_settings = msg["FW"]["NEW"]
@@ -120,13 +123,13 @@ class JigsawServer():
         json_message = ""
         mod_settings = deepcopy(settings)
         del mod_settings["start"]
-
-        for server in pc.admins:
-            mod_settings["PART"] = partitioning[server]
-            newmsg["FW"]["ID"] = server
+        for adm in pc.admins:
+            mod_settings["PART"] = partitioning[adm]
+            newmsg["FW"]["ID"] = adm
             newmsg["FW"]["NEW"] = mod_settings
             json_message = json.dumps(newmsg)
-            pc.appWS.write_message(json_message)
+            proxy_admin = random.choice(pc.admin_proxy.keys())
+            proxy_admin.send(json_message)
 
 
 

@@ -39,6 +39,8 @@ class SpacePartitioning():
         global piece_mapper
         global client_mapper
         
+        logging.debug("[spacepart]: Joining a game.")
+        
         bx,by = settings["board_size"].split(',')
         m_boardx,m_boardy = int(bx),int(by)
         bucket_size = int(settings["bucket_size"])
