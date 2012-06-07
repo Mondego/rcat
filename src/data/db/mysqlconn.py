@@ -18,7 +18,6 @@ cursors = []
 tables = {}
 object_list = {}
 logger = logging.getLogger()
-mylocation = ''
 mysqlconn = None
 pubsubs = None
 location = {}
@@ -26,13 +25,11 @@ db_updates = {}
 db_inserts = {}
 
 class MySQLConnector():
-    def __init__(self,myip,myport):
-        global mylocation
+    def __init__(self,datacon):
         global mysqlconn
         global obm
-        mylocation = myip + ':' + myport
-        self.mylocation = mylocation
-        logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + mylocation)
+        self.mylocation = datacon.mylocation
+        logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + self.mylocation)
         mysqlconn = self
 
     @ property
@@ -93,7 +90,7 @@ class MySQLConnector():
             if not row["__location__"]:
                 obm.set_object_owner(table,RID)
                 return deepcopy(tables[table][RID])
-            if (row["__location__"] != mylocation):
+            if (row["__location__"] != self.mylocation):
                 cur.connection.commit()
                 location[table][RID] = row["__location__"]
                 if update_values:

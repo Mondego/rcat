@@ -86,11 +86,11 @@ if __name__ == "__main__":
     logging.config.fileConfig("connector_logging.conf")
     logging.debug('[demoapp]: Starting app in ' + appip + ":" + appport)
     # TODO: Allow passing of options to determine which mapper and db to use. For now, hardcoded
-    db = MySQLConnector(appip, appport)
-    dm = ChatManager(db)
-    obm = ObjectManager(dm,handlers)
-    datacon = DataConn.DataConnector("ChatManagerByID",dm, db, obm)
-
+    datacon = DataConn.DataConnector("ChatManagerByID",appip + ":" + appport)
+    datacon.db = MySQLConnector(datacon)
+    datacon.mapper = ChatManager(datacon)
+    datacon.obm = ObjectManager(datacon,handlers)
+    
     application = tornado.web.Application(handlers)
     application.listen(appport)
     

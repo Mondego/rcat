@@ -1,3 +1,4 @@
+import random
 from copy import deepcopy
 from tornado import websocket
 import tornado.ioloop
@@ -16,6 +17,7 @@ import ConfigParser
 global db
 global pc
 global settings
+global datacon
 
 settings = None
 db = None
@@ -28,15 +30,13 @@ location = {}
 
 class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
-        global datacon
         logging.debug("Jigsaw App Websocket Open")
 
-        db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
+        datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         # TODO: "Game" should be the name of a particular game, set in options.
         tables['game'] = {}
         location['game'] = {}
 
-        #result = datacon.execute('SHOW TABLES')
         #db.create_table("jigsaw", "pid")
         #db.execute("delete from jigsaw")
 
@@ -82,6 +82,7 @@ class JigsawServerHandler(websocket.WebSocketHandler):
             json_msg = json.dumps(newmsg)
             self.write_message(json_msg)
         except Exception as e:
+            newmsg = {}
             logging.error(e)
             newmsg["M"] = "ERROR: " + str(e)
             if user:
@@ -110,24 +111,24 @@ class JigsawServer():
         if "FW" in msg:
             if "NEW" in msg["FW"]:
                 newgame_settings = msg["FW"]["NEW"]
-                dm.join(newgame_settings)
+                datacon.mapper.join(newgame_settings)
 
     def start_game(self):
         # Space partitioning mapper creates the data structure for the puzzle and assigns space to servers
         # partitioning is a dictionary of server uuid to board partition, represented as two tuples, x0-x1, y0-y1
-        partitioning = dm.create(settings, pc.admins)
+        partitioning = datacon.mapper.create(settings, pc.admins)
         newmsg = {}
         newmsg["FW"] = {}
         json_message = ""
         mod_settings = deepcopy(settings)
         del mod_settings["start"]
-
-        for server in pc.admins:
-            mod_settings["PART"] = partitioning[server]
-            newmsg["FW"]["ID"] = server
+        for adm in pc.admins:
+            mod_settings["PART"] = partitioning[adm]
+            newmsg["FW"]["ID"] = adm
             newmsg["FW"]["NEW"] = mod_settings
             json_message = json.dumps(newmsg)
-            pc.appWS.write_message(json_message)
+            proxy_admin = random.choice(pc.admin_proxy.keys())
+            proxy_admin.send(json_message)
 
 
 
@@ -145,10 +146,12 @@ def jigsaw_parser(config):
 
 if __name__ == "__main__":
     appip, appport, proxies = helper.parse_input('jigsawapp.cfg', jigsaw_parser)
-    db = MySQLConnector(appip, appport) # TODO: should grab arguments from dataconn  
-    dm = SpacePartitioning(db, 'first_puzzle')
-    obm = ObjectManager(dm, handlers)
-    datacon = DataConn.DataConnector("JigsawSpacePart", dm, db, obm)
+    
+    datacon = DataConn.DataConnector("JigsawSpacePart",appip+":"+appport)
+    datacon.db = MySQLConnector(datacon) # TODO: should grab arguments from dataconn  
+    datacon.mapper = SpacePartitioning(datacon,'first_puzzle')
+    datacon.obm = ObjectManager(datacon, handlers)
+    
     application = tornado.web.Application(handlers)
     application.listen(appport)
 

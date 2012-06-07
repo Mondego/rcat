@@ -26,9 +26,9 @@ class SpacePartitioning():
     tables = None
     location = None
     
-    def __init__(self,db,idname):
-        self.db = db
-        self.mylocation = db.mylocation
+    def __init__(self,datacon,idname):
+        self.db = datacon.db
+        self.mylocation = datacon.mylocation
         self.idname = idname
         self.tables = {}
         self.location = {}
@@ -38,6 +38,8 @@ class SpacePartitioning():
         global m_boardy
         global piece_mapper
         global client_mapper
+        
+        logging.debug("[spacepart]: Joining a game.")
         
         bx,by = settings["board_size"].split(',')
         m_boardx,m_boardy = int(bx),int(by)
@@ -59,7 +61,7 @@ class SpacePartitioning():
         # Partition the board across all existing servers
         part = {}
         for srv in servers:
-            part[srv] = boardx,boardy
+            part[srv] = ((0,0),(boardx,boardy))
         
         return part
         

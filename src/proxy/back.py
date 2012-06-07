@@ -64,6 +64,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         try:
             msg = json.loads(message)
+            logger.debug("[back]: Got admin message: " + str(msg))
             logger.debug(message)
             newmsg = {}
             
@@ -86,9 +87,8 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                 if "REGBC" in msg:
                     newmsg = {"NS":[self.admid]}
                     jsonmsg = json.dumps(newmsg)
-                    for adm in admins:
-                        if adm != self:
-                            adm.write_message(jsonmsg)
+                    for adm in admins.values():
+                        adm.write_message(jsonmsg)
                     
             # Developer customized messages
             ### Broadcast messages to all admins
@@ -96,6 +96,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                 proxyref.back.broadcast_admins(msg)
             # Forward message to specific server
             elif "FW" in msg:
+                logger.debug("[back]: Got admin FW message: " + str(msg))
                 aid = msg["FW"]["ID"]
                 msg["FW"] = msg["FW"]
                 msg["FW"]["ID"] = self.admid
