@@ -196,6 +196,17 @@ function View() {
     var dh = destBotRight.y - dest.y;
     ctx.save();
     ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dest.x, dest.y, dw, dh);
+    if (p.owner) { // piece is owned by another player
+      ctx.strokeStyle = "#00f"; // draw a blue border on top
+      var th = 7;// border thickness
+      ctx.lineWidth = th;
+      ctx.strokeRect(dest.x + th / 2, dest.y + th / 2, dw - th, dh - th);
+    } else if (p == model.draggedPiece) { // piece I'm currently dragging
+      ctx.strokeStyle = "#f00"; // draw a red border on top
+      var th = 5;// border thickness
+      ctx.lineWidth = th;
+      ctx.strokeRect(dest.x + th / 2, dest.y + th / 2, dw - th, dh - th);
+    }
     ctx.restore();
   }
 
