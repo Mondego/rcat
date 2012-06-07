@@ -26,9 +26,10 @@ class SpacePartitioning():
     tables = None
     location = None
     
-    def __init__(self,db,idname):
-        self.db = db
-        self.mylocation = db.mylocation
+    def __init__(self,datacon,idname):
+        datacon.mapper = self
+        self.db = datacon.db
+        self.mylocation = datacon.mylocation
         self.idname = idname
         self.tables = {}
         self.location = {}

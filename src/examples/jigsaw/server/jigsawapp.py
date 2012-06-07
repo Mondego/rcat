@@ -37,7 +37,6 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         tables['game'] = {}
         location['game'] = {}
 
-        #result = datacon.execute('SHOW TABLES')
         #db.create_table("jigsaw", "pid")
         #db.execute("delete from jigsaw")
 
@@ -146,10 +145,12 @@ def jigsaw_parser(config):
 
 if __name__ == "__main__":
     appip, appport, proxies = helper.parse_input('jigsawapp.cfg', jigsaw_parser)
-    db = MySQLConnector(appip, appport) # TODO: should grab arguments from dataconn  
-    dm = SpacePartitioning(db, 'first_puzzle')
-    obm = ObjectManager(dm, handlers)
-    datacon = DataConn.DataConnector("JigsawSpacePart", dm, db, obm)
+    
+    datacon = DataConn.DataConnector("JigsawSpacePart",appip+":"+appport)
+    db = MySQLConnector(datacon) # TODO: should grab arguments from dataconn  
+    dm = SpacePartitioning(datacon,'first_puzzle')
+    obm = ObjectManager(datacon, handlers)
+    #datacon = DataConn.DataConnector("JigsawSpacePart", dm, db, obm)
     application = tornado.web.Application(handlers)
     application.listen(appport)
 

@@ -24,8 +24,10 @@ class Mapper:
         pass
 
 class DataConnector():
-    def __init__(self,name,mapper=None,db=None,obm=None):
-        self.mapper = mapper
-        self.db = db
-        self.obm = obm
+    def __init__(self,name,mylocation):
         self.name = name
+        self.mylocation = mylocation
+        self.mapper = None
+        self.db = None
+        self.obm = None
+        
