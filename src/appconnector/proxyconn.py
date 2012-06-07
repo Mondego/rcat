@@ -98,7 +98,7 @@ class ProxyConnector():
         elif "NS" in msg:
             self.admins.update(set(msg["NS"]))
         elif self.admin_hook:
-            self.admin_hook(message)
+            self.admin_hook(msg)
                 
         logger.debug("List of users: " + str(self.client_location))
     

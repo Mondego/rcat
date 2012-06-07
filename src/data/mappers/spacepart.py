@@ -61,7 +61,7 @@ class SpacePartitioning():
         # Partition the board across all existing servers
         part = {}
         for srv in servers:
-            part[srv] = boardx,boardy
+            part[srv] = ((0,0),(boardx,boardy))
         
         return part
         

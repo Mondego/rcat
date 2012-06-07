@@ -107,8 +107,7 @@ class JigsawServer():
             self.start_game()
 
     # Parses messages coming through admin channel of proxy
-    def admin_parser(self, message):
-        msg = json.loads(message)
+    def admin_parser(self, msg):
         if "FW" in msg:
             if "NEW" in msg["FW"]:
                 newgame_settings = msg["FW"]["NEW"]
