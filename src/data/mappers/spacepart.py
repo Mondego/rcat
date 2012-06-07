@@ -27,7 +27,6 @@ class SpacePartitioning():
     location = None
     
     def __init__(self,datacon,idname):
-        datacon.mapper = self
         self.db = datacon.db
         self.mylocation = datacon.mylocation
         self.idname = idname

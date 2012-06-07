@@ -57,7 +57,6 @@ class OBMHandler(tornado.web.RequestHandler):
             
 class ObjectManager():
     def __init__(self,datacon,handlers):
-        datacon.obm = self
         global mylocation
         global tables
         global location

@@ -28,7 +28,6 @@ class MySQLConnector():
     def __init__(self,datacon):
         global mysqlconn
         global obm
-        datacon.db = self
         self.mylocation = datacon.mylocation
         logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + self.mylocation)
         mysqlconn = self
