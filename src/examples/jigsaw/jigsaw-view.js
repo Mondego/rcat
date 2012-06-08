@@ -10,7 +10,7 @@ function View() {
   // Takes into account board translation and zooming.
   // When zoomed-in by 2, a point at 100px from the left of the screen
   // is actually at 50 model-units from it.
-  function toBoardPos(pos) {
+  this.toBoardPos = function(pos) {
     var frus = model.frustum;
     var res = {
       x : (pos.x / frus.scale) + frus.x,
@@ -20,7 +20,7 @@ function View() {
   }
 
   // The reverse of above: convert board coords to screen coords.
-  function toScreenPos(x, y) {
+  this.toScreenPos = function(x, y) {
     var frus = model.frustum;
     var res = {
       x : (x - frus.x) * frus.scale,
@@ -30,11 +30,20 @@ function View() {
   }
 
   // Convert boards dimensions (height, width) into screen dimensions
-  function toScreenDims(w, h) {
+  this.toScreenDims = function(w, h) {
     var frus = model.frustum;
     var res = {
       w : w * frus.scale,
       h : h * frus.scale
+    };
+    return res;
+  }
+
+  this.toBoardDims = function(w, h) {
+    var frus = model.frustum;
+    var res = {
+      w : w / frus.scale,
+      h : h / frus.scale
     };
     return res;
   }
@@ -48,7 +57,7 @@ function View() {
     // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
     view.isMouseDown = true;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
+    var pos = view.toBoardPos(screenPos); // screen to model coords
     model.selectPieceAt(pos.x, pos.y);
     // store dragging start position
     view.dragStart = {
@@ -60,7 +69,7 @@ function View() {
   canvas.onmouseup = function(e) {
     view.isMouseDown = false;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
+    var pos = view.toBoardPos(screenPos); // screen to model coords
     // release the piece where the user mouse-upped
     model.release(pos.x, pos.y);
     view.dragStart = null;
@@ -72,12 +81,12 @@ function View() {
   canvas.onmousemove = function(e) {
     if (view.isMouseDown) {
       var screenPos = getScreenPos(e);
-      var pos = toBoardPos(screenPos); // screen to model coords
+      var pos = view.toBoardPos(screenPos); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
       model.scrollRelative(dx, dy); // shift the model's frustum
       // board moved => need to recompute mouse-to-board coords in new frustum
-      pos = toBoardPos(screenPos);
+      pos = view.toBoardPos(screenPos);
       view.dragStart = {
         x : pos.x,
         y : pos.y
@@ -88,7 +97,7 @@ function View() {
   canvas.onmouseout = function(e) {
     view.isMouseDown = false;
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
+    var pos = view.toBoardPos(screenPos); // screen to model coords
     model.release(pos.x, pos.y);
   };
 
@@ -100,7 +109,7 @@ function View() {
     var scroll = -e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
     var isZoomingOut = scroll > 0; // boolean
     var screenPos = getScreenPos(e);
-    var pos = toBoardPos(screenPos); // screen to model coords
+    var pos = view.toBoardPos(screenPos); // screen to model coords
     model.zoom(isZoomingOut, view.scaleStep);
     var frus = model.frustum;
     var newx = pos.x - screenPos.x / frus.scale;
@@ -142,30 +151,30 @@ function View() {
 
   // background image
   var BGIMG = new Image();
-  BGIMG.src = "img/wood004.jpg"; 
+  BGIMG.src = "img/wood004.jpg";
   // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
   // wooden background from http://www.grsites.com/terms/
-  // TODO: img.onload 
-  
-  // draw the background  
+  // TODO: img.onload
+
+  // draw the background
   function drawBoard() {
     ctx.save();
     var pattern = ctx.createPattern(BGIMG, 'repeat');
     ctx.fillStyle = pattern;
-    //ctx.fillStyle = '#def'; // light blue
-    var pos = toScreenPos(0, 0);
-    var dims = toScreenDims(model.BOARD.w, model.BOARD.h);
+    // ctx.fillStyle = '#def'; // light blue
+    var pos = view.toScreenPos(0, 0);
+    var dims = view.toScreenDims(model.BOARD.w, model.BOARD.h);
     ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
     ctx.restore();
   }
 
   // draw a gray grid showing where pieces can be dropped
   function drawGrid() {
-    var grid = model.GRID;
+    var g = model.GRID;
     ctx.save();
     // draw background image
-    var pos = toScreenPos(grid.x, grid.y);
-    var dims = toScreenDims(grid.cellw * grid.ncols, grid.cellh * grid.nrows);
+    var pos = view.toScreenPos(g.x, g.y);
+    var dims = view.toScreenDims(g.cellw * g.ncols, g.cellh * g.nrows);
     var w = dims.w, h = dims.h;
     ctx.fillStyle = '#fff';
     ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
@@ -178,21 +187,21 @@ function View() {
     ctx.beginPath();
     var screenPos;
     // draw vertical grid lines
-    var grid_bottom = grid.y + grid.nrows * grid.cellh;
-    for ( var c = 0; c <= grid.ncols; c++) {
-      var x = grid.x + c * grid.cellw;
-      screenPos = toScreenPos(x, grid.y);
+    var grid_bottom = g.y + g.nrows * g.cellh;
+    for ( var c = 0; c <= g.ncols; c++) {
+      var x = g.x + c * g.cellw;
+      screenPos = view.toScreenPos(x, g.y);
       ctx.moveTo(screenPos.x, screenPos.y);
-      screenPos = toScreenPos(x, grid_bottom);
+      screenPos = view.toScreenPos(x, grid_bottom);
       ctx.lineTo(screenPos.x, screenPos.y);
     }
     // draw horizontal grid lines
-    var grid_right = grid.x + grid.ncols * grid.cellw;
-    for ( var r = 0; r <= grid.nrows; r++) {
-      var y = grid.y + r * grid.cellh;
-      screenPos = toScreenPos(grid.x, y);
+    var grid_right = g.x + g.ncols * g.cellw;
+    for ( var r = 0; r <= g.nrows; r++) {
+      var y = g.y + r * g.cellh;
+      screenPos = view.toScreenPos(g.x, y);
       ctx.moveTo(screenPos.x, screenPos.y);
-      screenPos = toScreenPos(grid_right, y);
+      screenPos = view.toScreenPos(grid_right, y);
       ctx.lineTo(screenPos.x, screenPos.y);
     }
     ctx.closePath();
@@ -217,8 +226,8 @@ function View() {
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
     var grid = model.GRID;
-    var pos = toScreenPos(p.x, p.y);
-    var dims = toScreenDims(grid.cellw, grid.cellh);
+    var pos = view.toScreenPos(p.x, p.y);
+    var dims = view.toScreenDims(grid.cellw, grid.cellh);
     var dw = dims.w, dh = dims.h;
     ctx.save();
     ctx.drawImage(IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
@@ -228,7 +237,7 @@ function View() {
       ctx.globalAlpha = 0.5; // transparency
       var br = 1 / 15; // border ratio
       // screen thickness
-      var t = toScreenDims(grid.cellw * br, grid.cellh * br).w;
+      var t = view.toScreenDims(grid.cellw * br, grid.cellh * br).w;
       ctx.lineWidth = t;
       ctx.strokeRect(pos.x + t / 2, pos.y + t / 2, dw - t, dh - t);
     } else if (p == model.draggedPiece) { // piece I'm currently dragging
@@ -236,7 +245,7 @@ function View() {
       ctx.globalAlpha = 0.5; // transparency
       var br = 1 / 15; // border ratio, in terms of cell dimensions
       // screen thickness
-      var t = toScreenDims(grid.cellw * br, grid.cellh * br).w;
+      var t = view.toScreenDims(grid.cellw * br, grid.cellh * br).w;
       ctx.lineWidth = t;
       ctx.strokeRect(pos.x + t / 2, pos.y + t / 2, dw - t, dh - t);
     }

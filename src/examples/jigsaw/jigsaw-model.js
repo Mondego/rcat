@@ -66,8 +66,9 @@ function Model() {
     this.frustum.x = dfrus.x;
     this.frustum.y = dfrus.y;
     this.frustum.scale = dfrus.scale;
-    this.frustum.w = canvas.width / dfrus.scale;
-    this.frustum.h = canvas.height / dfrus.scale;
+    var dims = view.toBoardDims(canvas.width, canvas.height);
+    this.frustum.w = dims.w;
+    this.frustum.h = dims.h;
     nw.sendFrustum(this.frustum);
 
     // piece creations
@@ -77,9 +78,9 @@ function Model() {
     var sx, sy; // dimensions of the slice from the original image
     var w = grid.cellw;
     var h = grid.cellh;
-    // each piece contains a pc_w x pc_h slice of the original image
-    var sw = IMG.width / this.GRID.ncols;
-    var sh = IMG.height / this.GRID.nrows;
+    // each piece contains a sw x sh slice of the original image
+    var sw = IMG.width / grid.ncols;
+    var sh = IMG.height / grid.nrows;
     var pdata, p, sx, sy;
     for ( var id in piecesData) {
       pd = piecesData[id];
@@ -103,7 +104,7 @@ function Model() {
     // iterate over all pieces
     for ( var pid in this.loosePieces) {
       p = this.loosePieces[pid];
-      if (p.collides(x, y) && (p.owner == null || p.owner == this.myid)) {
+      if (p.collides(x, y) && (!p.isLocked())) {
         found = true;
         break;
       }
@@ -111,27 +112,27 @@ function Model() {
     if (found) {// at least one free piece collides: prepare to drag it around
       this.draggedPiece = p;
     }
-    // TODO: view draws a shiny border around the piece to show it's selected
-    // TODO: view indicates who's owning the piece
   };
 
   // fix the frustum if user scrolled past board edges
   this.keepFrustumOnBoard = function() {
-    // horizontally
     var fru = this.frustum;
-    var tooHigh = fru.x < 0;
-    var tooLow = fru.x + fru.w > this.BOARD.w
-    if (tooHigh && !tooLow)
-      this.frustum.x = 0;
-    else if (tooLow && !tooHigh)
-      this.frustum.x = this.BOARD.w - canvas.width / fru.scale;
-    // vertically
-    var tooLeft = fru.y < 0;
-    var tooRight = fru.y + fru.h > this.BOARD.h;
+    // canvas dimensions in board coords
+    var cdims = view.toBoardDims(canvas.width, canvas.height);
+    // horizontally
+    var tooLeft = fru.x < 0;
+    var tooRight = fru.x + fru.w > this.BOARD.w;
     if (tooLeft && !tooRight)
-      this.frustum.y = 0;
+      this.frustum.x = 0;
     else if (tooRight && !tooLeft)
-      this.frustum.y = this.BOARD.h - canvas.height / fru.scale;
+      this.frustum.x = this.BOARD.w - cdims.w;
+    // vertically
+    var tooHigh = fru.y < 0;
+    var tooLow = fru.y + fru.h > this.BOARD.h;
+    if (tooHigh && !tooLow)
+      this.frustum.y = 0;
+    else if (tooLow && !tooHigh)
+      this.frustum.y = this.BOARD.h - cdims.h;
   };
 
   // Pieces are moved as they are dragged (not just when they are dropped)
@@ -139,18 +140,7 @@ function Model() {
   this.scrollRelative = function(dx, dy) {
     var p = this.draggedPiece;
     if (p) { // drag the piece around
-      p.x += dx;
-      p.y += dy;
-      // fix eventual past-board-edges overflows
-      if (p.x < 0)
-        p.x = 0;
-      if (p.x + p.w > this.BOARD.w)
-        p.x = this.BOARD.w - p.w;
-      if (p.y < 0)
-        p.y = 0;
-      if (p.y + p.h > this.BOARD.h)
-        p.y = this.BOARD.h - p.h;
-      nw.sendPieceMove(p.id, p.x, p.y);
+      p.moveRelative(dx, dy);
       // TODO: if piece near the board edges, scroll the board too
     } else { // scroll board in opposite direction of the mouse movement
       this.frustum.x -= dx;
@@ -170,15 +160,13 @@ function Model() {
     view.drawAll();
   };
 
-  // Zoom in or out
+  // Cap zoom-in and zoom-out
   this.zoom = function(isZoomingOut, scaleStep) {
-    var scale = this.frustum.scale;
-    // cap zoom-in and zoom-out
-    if (isZoomingOut && scale > this.BOARD.minScale) {
+    if (isZoomingOut && this.frustum.scale > this.BOARD.minScale) {
       this.frustum.scale /= scaleStep;
       this.frustum.w *= scaleStep;
       this.frustum.h *= scaleStep;
-    } else if (!isZoomingOut && scale < this.BOARD.maxScale) {
+    } else if (!isZoomingOut && this.frustum.scale < this.BOARD.maxScale) {
       this.frustum.scale *= scaleStep;
       this.frustum.w /= scaleStep;
       this.frustum.h /= scaleStep;
@@ -318,4 +306,25 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
     return x >= this.x && x <= this.x + this.w && y >= this.y
         && y <= this.y + this.h
   };
+
+  // return whether the piece is currently being dragged by someone else
+  this.isLocked = function() {
+    return (this.owner && this.owner == model.myid);
+  }
+
+  // drag a piece to the given coords, making sure it stays on the board
+  this.moveRelative = function(dx, dy) {
+    this.x += dx;
+    this.y += dy;
+    // fix eventual past-board-edges overflows
+    if (this.x < 0)
+      this.x = 0;
+    if (this.x + this.w > model.BOARD.w)
+      this.x = model.BOARD.w - this.w;
+    if (this.y < 0)
+      this.y = 0;
+    if (this.y + this.h > model.BOARD.h)
+      this.y = model.BOARD.h - this.h;
+    nw.sendPieceMove(this.id, this.x, this.y);
+  }
 }
