@@ -204,20 +204,20 @@ function Model() {
     nw.sendPieceDrop(p.id, p.x, p.y);
     this.draggedPiece = null;
     view.drawAll();
-    // var cell = this.getCellFromPos(x, y);
-    // if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
-    // magnet the piece
-    // TODO: this should happen on the server instead
-    // p.x = cell.x;
-    // p.y = cell.y;
-    // bind piece
-    // delete this.loosePieces[p.id];
-    // this.boundPieces[p.id] = p;
-    // if (this.gameIsOver()) {
-    // TODO: should display an animation
-    // this.startGame(); // TODO: should come from the server
-    // }
-    // }
+    var cell = this.getCellFromPos(x, y); // or p.x + p.w/2 instead? or both?
+    if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
+      // magnet the piece
+      // TODO: this should happen on the server too
+      p.x = cell.x;
+      p.y = cell.y;
+      // bind piece
+      delete this.loosePieces[p.id];
+      this.boundPieces[p.id] = p;
+      // if (this.gameIsOver()) {
+      // TODO: should display an animation
+      // this.startGame(); // TODO: should come from the server
+      // }
+    }
   };
 
   // Return cell (grid col+row, board x+y) from board coords.
@@ -239,7 +239,7 @@ function Model() {
     }
     return res;
   };
-  
+
   // The game is over when all the pieces are dropped on their correct cell.
   this.gameIsOver = function() {
     return this.loosePieces == {};
@@ -255,7 +255,7 @@ function Model() {
       if (this.draggedPiece && this.draggedPiece.id == id) {
         this.draggedPiece = null; // stop dragging
         // TODO: display an effect?
-      } else {
+      } else if (id in this.loosePieces) {
         var p = this.loosePieces[id];
         p.x = x;
         p.y = y;
