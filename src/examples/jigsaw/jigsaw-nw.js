@@ -33,12 +33,12 @@ function Network() {
       var id = m.pm.id; // piece id
       var x = m.pm.x, y = m.pm.y;
       var owner = m.pm.l; // player currently moving the piece
-      model.movePiece(id, x, y, owner);
+      model.moveRemotePiece(id, x, y, owner);
     } else if ('pd' in m) { // Received piece drop
       var id = m.pd.id; // piece id
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
-      model.dropPieceRemote(id, x, y, owner);
+      model.dropRemotePiece(id, x, y, owner);
     }
   };
 
@@ -57,20 +57,18 @@ function Network() {
         'v' : frustum
       }
     };
-    if (this.frustumTimerMsg == null) {
+    if (this.frustumTimerMsg == null)
       setTimeout('nw.sendFrustumStopTimer()', this.sendDelay);
-    }
     this.frustumTimerMsg = msg;
     // sending is taken care of by the frustum timer
   };
   // Send the frustum and reset the timer
   this.sendFrustumStopTimer = function() {
     var msg = this.frustumTimerMsg;
-    if (msg) { // just in case ...
+    if (msg) // just in case ...
       socket.send(JSON.stringify(msg));
-    } else {
+    else
       console.log("Warning: Frustum to send is null");
-    }
     this.frustumTimerMsg = null;
   }
 
@@ -104,9 +102,8 @@ function Network() {
       var msg = this.pieceTimers[pid].msg;
       socket.send(JSON.stringify(msg));
       delete this.pieceTimers[pid];
-    } else {
+    } else
       console.log("Warning: The timer for piece " + pid + " is missing.");
-    }
   };
 
   // Send the piece drop and cancel the piece move msg timer.
@@ -125,7 +122,7 @@ function Network() {
     socket.send(JSON.stringify(msg));
   };
 
-  // close connection from the server
+  // close connection to the server
   this.close = function() {
     socket.close();
   };

@@ -53,6 +53,59 @@ function Model() {
     h : null
   };
 
+  // Frustum primitive.
+  // Fix the frustum if user scrolled past board edges
+  this.keepFrustumOnBoard = function() {
+    var fru = this.frustum;
+    // canvas dimensions in board coords
+    var cdims = view.toBoardDims(canvas.width, canvas.height);
+    // horizontally
+    var tooLeft = fru.x < 0;
+    var tooRight = fru.x + fru.w > this.BOARD.w;
+    if (tooLeft && !tooRight)
+      this.frustum.x = 0;
+    else if (tooRight && !tooLeft)
+      this.frustum.x = this.BOARD.w - cdims.w;
+    // vertically
+    var tooHigh = fru.y < 0;
+    var tooLow = fru.y + fru.h > this.BOARD.h;
+    if (tooHigh && !tooLow)
+      this.frustum.y = 0;
+    else if (tooLow && !tooHigh)
+      this.frustum.y = this.BOARD.h - cdims.h;
+  };
+
+  // A frustum primitive.
+  // Shift the frustum's topleft by the given offset.
+  this.scrollRelative = function(dx, dy) {
+    this.frustum.x -= dx;
+    this.frustum.y -= dy;
+    this.keepFrustumOnBoard();
+  };
+
+  // A frustum primitive.
+  // Position the frustum's topleft at the given board coords.
+  this.scrollAbsolute = function(x, y) {
+    this.frustum.x = x;
+    this.frustum.y = y;
+    this.keepFrustumOnBoard();
+  };
+
+  // A frustum primitive. Zoom in/out by the given factor.
+  // Maintain zoom within the board's min/max zooming scales.
+  // Return true if a zoom was actually performed.
+  this.zoom = function(isZoomingOut, factor) {
+    if (isZoomingOut && this.frustum.scale > this.BOARD.minScale) {
+      this.frustum.scale /= factor;
+      this.frustum.w *= factor;
+      this.frustum.h *= factor;
+    } else if (!isZoomingOut && this.frustum.scale < this.BOARD.maxScale) {
+      this.frustum.scale *= factor;
+      this.frustum.w /= factor;
+      this.frustum.h /= factor;
+    }
+  };
+
   // Init board, grid, and frustum from server config.
   // Also create the pieces from server data.
   this.startGame = function(board, grid, dfrus, piecesData, myid) {
@@ -92,6 +145,8 @@ function Model() {
     view.drawAll();
   };
 
+  // -------- COMMANDS ISSUED BY THE CONTROLLER --------------
+
   // which loose piece is currently being dragged
   this.draggedPiece = null;
 
@@ -107,38 +162,16 @@ function Model() {
       if (p.collides(x, y) && (!p.isLocked())) {
         found = true;
         break;
+        // TODO: get the piece that collides with highest z-index
       }
     }
-    if (found) {// at least one free piece collides: prepare to drag it around
+    if (found) // at least one free piece collides: prepare to drag it around
       this.draggedPiece = p;
-    }
-  };
-
-  // Frustum primitive.
-  // Fix the frustum if user scrolled past board edges
-  this.keepFrustumOnBoard = function() {
-    var fru = this.frustum;
-    // canvas dimensions in board coords
-    var cdims = view.toBoardDims(canvas.width, canvas.height);
-    // horizontally
-    var tooLeft = fru.x < 0;
-    var tooRight = fru.x + fru.w > this.BOARD.w;
-    if (tooLeft && !tooRight)
-      this.frustum.x = 0;
-    else if (tooRight && !tooLeft)
-      this.frustum.x = this.BOARD.w - cdims.w;
-    // vertically
-    var tooHigh = fru.y < 0;
-    var tooLow = fru.y + fru.h > this.BOARD.h;
-    if (tooHigh && !tooLow)
-      this.frustum.y = 0;
-    else if (tooLow && !tooHigh)
-      this.frustum.y = this.BOARD.h - cdims.h;
   };
 
   // Drag a piece locally, and send the move to the server.
   // TODO: if piece near the board edges, scroll the board too
-  this.movePieceRelative = function(dx, dy) {
+  this.dragMyPiece = function(dx, dy) {
     var p = this.draggedPiece;
     p.moveRelative(dx, dy);
     nw.sendPieceMove(p.id, p.x, p.y);
@@ -150,37 +183,6 @@ function Model() {
     this.scrollRelative(dx, dy);
     nw.sendFrustum(this.frustum);
     view.drawAll();
-  };
-
-  // A frustum primitive.
-  // Shift the frustum's topleft by the given offset.
-  this.scrollRelative = function(dx, dy) {
-    this.frustum.x -= dx;
-    this.frustum.y -= dy;
-    this.keepFrustumOnBoard();
-  };
-
-  // A frustum primitive.
-  // Position the frustum's topleft at the given board coords.
-  this.scrollAbsolute = function(x, y) {
-    this.frustum.x = x;
-    this.frustum.y = y;
-    this.keepFrustumOnBoard();
-  };
-
-  // A frustum primitive. Zoom in/out by the given factor.
-  // Maintain zoom within the board's min/max zooming scales.
-  // Return true if a zoom was actually performed.
-  this.zoom = function(isZoomingOut, factor) {
-    if (isZoomingOut && this.frustum.scale > this.BOARD.minScale) {
-      this.frustum.scale /= factor;
-      this.frustum.w *= factor;
-      this.frustum.h *= factor;
-    } else if (!isZoomingOut && this.frustum.scale < this.BOARD.maxScale) {
-      this.frustum.scale *= factor;
-      this.frustum.w /= factor;
-      this.frustum.h /= factor;
-    }
   };
 
   // Zoom in/out on the given screen coord.
@@ -197,71 +199,26 @@ function Model() {
   // If a piece is dropped on the correct cell, the grid "magnets" it,
   // and the piece becomes "bound": it can't be moved anymore.
   // TODO: should display an effect when the piece is magnetted.
-  this.dropPieceLocal = function(x, y) {
+  this.dropMyPiece = function(x, y) {
     var p = this.draggedPiece;
     nw.sendPieceDrop(p.id, p.x, p.y);
     this.draggedPiece = null;
     view.drawAll();
-    //var cell = this.getCellFromPos(x, y);
+    // var cell = this.getCellFromPos(x, y);
     // if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
     // magnet the piece
     // TODO: this should happen on the server instead
     // p.x = cell.x;
     // p.y = cell.y;
-    // this.bindPiece(p);
+    // bind piece
+    // delete this.loosePieces[p.id];
+    // this.boundPieces[p.id] = p;
     // if (this.gameIsOver()) {
     // TODO: should display an animation
     // this.startGame(); // TODO: should come from the server
     // }
     // }
-  }
-
-  // The game is over when all the pieces are dropped on their correct cell.
-  this.gameIsOver = function() {
-    return this.loosePieces == {};
-  }
-
-  // Bind piece: remove it from the loose pieces and add it to the bound pieces.
-  // TODO: should happen on the server side
-  this.bindPiece = function(piece) {
-    delete this.loosePieces[piece.id];
-    this.boundPieces[piece.id] = piece;
-  }
-
-  // Move a piece to a given position IF the lock owner is not me.
-  // We dont care about messages about me since my local version is more recent.
-  this.movePiece = function(id, x, y, owner) {
-    if (owner != this.myid) {
-      if (this.draggedPiece && this.draggedPiece.id == id) {
-        this.draggedPiece = null; // stop dragging
-        // TODO: display an effect?
-      } else {
-        var p = this.loosePieces[id];
-        p.x = x;
-        p.y = y;
-        p.owner = owner;
-      }
-      view.drawAll(); // TODO: redraw only if piece was or is in the frustum
-    }
-  }
-
-  // Drop a piece at a given position.
-  // If I was dragging the piece, but did not own it, then stop dragging it.
-  // We dont care about messages about me since my local version is more recent.
-  this.dropPieceRemote = function(id, x, y, owner) {
-    if (owner != this.myid) {
-      if (this.draggedPiece && this.draggedPiece.id == id) {
-        this.draggedPiece = null; // stop dragging
-        // TODO: display an effect?
-      } else {
-        var p = this.loosePieces[id];
-        p.x = x;
-        p.y = y;
-        p.owner = null;
-      }
-      view.drawAll();
-    }
-  }
+  };
 
   // Return cell (grid col+row, board x+y) from board coords.
   // Return null if out of grid.
@@ -281,6 +238,48 @@ function Model() {
       };
     }
     return res;
+  };
+  
+  // The game is over when all the pieces are dropped on their correct cell.
+  this.gameIsOver = function() {
+    return this.loosePieces == {};
+  };
+
+  // ------------- COMMANDS ISSUED BY THE NETWORK -----------
+
+  // Drop a piece at a given position.
+  // If I was dragging the piece, but did not own it, then stop dragging it.
+  // We dont care about messages about me since my local version is more recent.
+  this.dropRemotePiece = function(id, x, y, owner) {
+    if (owner != this.myid) {
+      if (this.draggedPiece && this.draggedPiece.id == id) {
+        this.draggedPiece = null; // stop dragging
+        // TODO: display an effect?
+      } else {
+        var p = this.loosePieces[id];
+        p.x = x;
+        p.y = y;
+        p.owner = null;
+      }
+      view.drawAll();
+    }
+  };
+
+  // Move a piece to a given position IF the lock owner is not me.
+  // We dont care about messages about me since my local version is more recent.
+  this.moveRemotePiece = function(id, x, y, owner) {
+    if (owner != this.myid) {
+      if (this.draggedPiece && this.draggedPiece.id == id) {
+        this.draggedPiece = null; // stop dragging
+        // TODO: display an effect?
+      } else {
+        var p = this.loosePieces[id];
+        p.x = x;
+        p.y = y;
+        p.owner = owner;
+      }
+      view.drawAll(); // TODO: redraw only if piece was or is in the frustum
+    }
   };
 
 } // end of model

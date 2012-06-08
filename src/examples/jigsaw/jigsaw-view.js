@@ -73,7 +73,7 @@ function View() {
     if (model.draggedPiece) {
       var sPos = getScreenPos(e);
       var bPos = view.toBoardPos(sPos);
-      model.dropPieceLocal(bPos.x, bPos.y); // drop the piece
+      model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
     view.dragStart = null; // stop dragging board or piece
   };
@@ -88,7 +88,7 @@ function View() {
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
       if (model.draggedPiece) // a piece is being dragged
-        model.movePieceRelative(dx, dy);
+        model.dragMyPiece(dx, dy);
       else
         model.moveBoardRelative(dx, dy); // shift the board
       // in both cases: the mouse moved => recompute the dragging origin
@@ -105,7 +105,7 @@ function View() {
     if (model.draggedPiece) {
       var sPos = getScreenPos(e);
       var bPos = view.toBoardPos(sPos);
-      model.dropPieceLocal(bPos.x, bPos.y); // drop the piece
+      model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
     view.dragStart = null; // stop dragging board or piece
   };
