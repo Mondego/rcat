@@ -140,13 +140,22 @@ function View() {
 
   var ctx = canvas.getContext('2d');
 
-  // draw a white board background
+  // background image
+  var BGIMG = new Image();
+  BGIMG.src = "img/wood004.jpg"; 
+  // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
+  // wooden background from http://www.grsites.com/terms/
+  // TODO: img.onload 
+  
+  // draw the background  
   function drawBoard() {
     ctx.save();
-    ctx.fillStyle = '#fff';
+    var pattern = ctx.createPattern(BGIMG, 'repeat');
+    ctx.fillStyle = pattern;
+    //ctx.fillStyle = '#def'; // light blue
     var pos = toScreenPos(0, 0);
     var dims = toScreenDims(model.BOARD.w, model.BOARD.h);
-    ctx.fillRect(pos.x, pos.y, dims.w, dims.h)
+    ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
     ctx.restore();
   }
 
@@ -158,6 +167,8 @@ function View() {
     var pos = toScreenPos(grid.x, grid.y);
     var dims = toScreenDims(grid.cellw * grid.ncols, grid.cellh * grid.nrows);
     var w = dims.w, h = dims.h;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
     ctx.globalAlpha = 0.2; // transparency
     ctx.drawImage(IMG, 0, 0, IMG.width, IMG.height, pos.x, pos.y, w, h);
     ctx.globalAlpha = 1;
