@@ -2,8 +2,8 @@
 
 // start by downloading the large image to be sliced for the puzzle
 // TODO: async image loading instead
-var img = new Image();
-img.onload = function() {
+var IMG = new Image();
+IMG.onload = function() {
   // console.log('image loaded');
   // TODO: time the image loading + async img load
 };
@@ -28,8 +28,20 @@ window.onload = function() {
 // stores game logic and data
 function Model() {
 
-  this.BOARD = {}; // board = grid + empty space around the grid
-  this.GRID = {}; // grid = where pieces can be dropped
+  this.BOARD = {// board = grid + empty space around the grid
+    w : null,
+    h : null,
+    maxScale : null,
+    minScale : null
+  };
+  this.GRID = { // grid = where pieces can be dropped
+    x : null,
+    y : null,
+    ncols : null,
+    nrows : null,
+    cellw : null,
+    cellh : null
+  };
   this.myid = null; // the id given by the server to represent me
 
   // which part of the board is currently being viewed by the user
@@ -66,8 +78,8 @@ function Model() {
     var w = grid.cellw;
     var h = grid.cellh;
     // each piece contains a pc_w x pc_h slice of the original image
-    var sw = img.width / this.GRID.ncols;
-    var sh = img.height / this.GRID.nrows;
+    var sw = IMG.width / this.GRID.ncols;
+    var sh = IMG.height / this.GRID.nrows;
     var pdata, p, sx, sy;
     for ( var id in piecesData) {
       pd = piecesData[id];

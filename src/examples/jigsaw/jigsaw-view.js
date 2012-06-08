@@ -29,6 +29,16 @@ function View() {
     return res;
   }
 
+  // Convert boards dimensions (height, width) into screen dimensions
+  function toScreenDims(w, h) {
+    var frus = model.frustum;
+    var res = {
+      w : w * frus.scale,
+      h : h * frus.scale
+    };
+    return res;
+  }
+
   this.isMouseDown = false;
   this.dragStart = null; // last position recorded when dragging the mouse
   var view = this; // in canvas callbacks, 'this' is the canvas, not the view
@@ -134,11 +144,9 @@ function View() {
   function drawBoard() {
     ctx.save();
     ctx.fillStyle = '#fff';
-    var scale = model.frustum.scale;
-    var topleft = toScreenPos(0, 0);
-    var w = model.BOARD.w * scale;
-    var h = model.BOARD.h * scale;
-    ctx.fillRect(topleft.x, topleft.y, w, h)
+    var pos = toScreenPos(0, 0);
+    var dims = toScreenDims(model.BOARD.w, model.BOARD.h);
+    ctx.fillRect(pos.x, pos.y, dims.w, dims.h)
     ctx.restore();
   }
 
@@ -146,6 +154,14 @@ function View() {
   function drawGrid() {
     var grid = model.GRID;
     ctx.save();
+    // draw background image
+    var pos = toScreenPos(grid.x, grid.y);
+    var dims = toScreenDims(grid.cellw * grid.ncols, grid.cellh * grid.nrows);
+    var w = dims.w, h = dims.h;
+    ctx.globalAlpha = 0.2; // transparency
+    ctx.drawImage(IMG, 0, 0, IMG.width, IMG.height, pos.x, pos.y, w, h);
+    ctx.globalAlpha = 1;
+    // draw grid lines
     ctx.strokeStyle = "#222"; // gray
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -190,22 +206,28 @@ function View() {
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
     var grid = model.GRID;
-    var dest = toScreenPos(p.x, p.y);
-    var destBotRight = toScreenPos(p.x + grid.cellw, p.y + grid.cellh);
-    var dw = destBotRight.x - dest.x;
-    var dh = destBotRight.y - dest.y;
+    var pos = toScreenPos(p.x, p.y);
+    var dims = toScreenDims(grid.cellw, grid.cellh);
+    var dw = dims.w, dh = dims.h;
     ctx.save();
-    ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, dest.x, dest.y, dw, dh);
+    ctx.drawImage(IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
+    // draw borders on top of pieces currently being dragged
     if (p.owner) { // piece is owned by another player
-      ctx.strokeStyle = "#00f"; // draw a blue border on top
-      var th = 7;// border thickness
-      ctx.lineWidth = th;
-      ctx.strokeRect(dest.x + th / 2, dest.y + th / 2, dw - th, dh - th);
+      ctx.strokeStyle = "#f0f"; // magenta
+      ctx.globalAlpha = 0.5; // transparency
+      var br = 1 / 15; // border ratio
+      // screen thickness
+      var t = toScreenDims(grid.cellw * br, grid.cellh * br).w;
+      ctx.lineWidth = t;
+      ctx.strokeRect(pos.x + t / 2, pos.y + t / 2, dw - t, dh - t);
     } else if (p == model.draggedPiece) { // piece I'm currently dragging
-      ctx.strokeStyle = "#f00"; // draw a red border on top
-      var th = 5;// border thickness
-      ctx.lineWidth = th;
-      ctx.strokeRect(dest.x + th / 2, dest.y + th / 2, dw - th, dh - th);
+      ctx.strokeStyle = "#0ff"; // cyan
+      ctx.globalAlpha = 0.5; // transparency
+      var br = 1 / 15; // border ratio, in terms of cell dimensions
+      // screen thickness
+      var t = toScreenDims(grid.cellw * br, grid.cellh * br).w;
+      ctx.lineWidth = t;
+      ctx.strokeRect(pos.x + t / 2, pos.y + t / 2, dw - t, dh - t);
     }
     ctx.restore();
   }

@@ -10,7 +10,7 @@ function Network() {
 
   var host = "ws://localhost:9000/test";
   var socket = new WebSocket(host);
-  this.sendDelay = 50; // how often to send updates, in millis
+  this.sendDelay = 100; // how often to send updates, in millis
 
   socket.onopen = function() {
     console.log('Socket opened; status = ' + socket.readyState);
@@ -22,7 +22,7 @@ function Network() {
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // Received init config
       var imgurl = m.c.imgurl; // puzzle image
-      img.src = imgurl;
+      IMG.src = imgurl;
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
