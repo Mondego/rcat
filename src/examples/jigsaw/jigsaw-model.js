@@ -114,7 +114,8 @@ function Model() {
     }
   };
 
-  // fix the frustum if user scrolled past board edges
+  // Frustum primitive.
+  // Fix the frustum if user scrolled past board edges
   this.keepFrustumOnBoard = function() {
     var fru = this.frustum;
     // canvas dimensions in board coords
@@ -135,20 +136,28 @@ function Model() {
       this.frustum.y = this.BOARD.h - cdims.h;
   };
 
-  // Pieces are moved as they are dragged (not just when they are dropped)
-  // If no piece is being dragged, then slide the board.
-  this.scrollRelative = function(dx, dy) {
+  // Drag a piece locally, and send the move to the server.
+  // TODO: if piece near the board edges, scroll the board too
+  this.movePieceRelative = function(dx, dy) {
     var p = this.draggedPiece;
-    if (p) { // drag the piece around
-      p.moveRelative(dx, dy);
-      // TODO: if piece near the board edges, scroll the board too
-    } else { // scroll board in opposite direction of the mouse movement
-      this.frustum.x -= dx;
-      this.frustum.y -= dy;
-      this.keepFrustumOnBoard();
-      nw.sendFrustum(this.frustum);
-    }
+    p.moveRelative(dx, dy);
+    nw.sendPieceMove(p.id, p.x, p.y);
     view.drawAll();
+  };
+
+  // Scroll the board in opposite direction of the mouse movement.
+  this.moveBoardRelative = function(dx, dy) {
+    this.scrollRelative(dx, dy);
+    nw.sendFrustum(this.frustum);
+    view.drawAll();
+  };
+
+  // A frustum primitive.
+  // Shift the frustum's topleft by the given offset.
+  this.scrollRelative = function(dx, dy) {
+    this.frustum.x -= dx;
+    this.frustum.y -= dy;
+    this.keepFrustumOnBoard();
   };
 
   // A frustum primitive.
@@ -161,6 +170,7 @@ function Model() {
 
   // A frustum primitive. Zoom in/out by the given factor.
   // Maintain zoom within the board's min/max zooming scales.
+  // Return true if a zoom was actually performed.
   this.zoom = function(isZoomingOut, factor) {
     if (isZoomingOut && this.frustum.scale > this.BOARD.minScale) {
       this.frustum.scale /= factor;
@@ -170,8 +180,6 @@ function Model() {
       this.frustum.scale *= factor;
       this.frustum.w /= factor;
       this.frustum.h /= factor;
-    } else { // reached max scale or min scale
-      return;
     }
   };
 
@@ -186,30 +194,26 @@ function Model() {
     view.drawAll();
   };
 
-  // If a piece is dropped on the correct cell,
-  // the grid "magnets" it, and the piece becomes "bound":
-  // it can't be moved anymore.
+  // If a piece is dropped on the correct cell, the grid "magnets" it,
+  // and the piece becomes "bound": it can't be moved anymore.
   // TODO: should display an effect when the piece is magnetted.
-  this.release = function(x, y) {
-    if (this.draggedPiece) { // stop dragging a piece
-      var p = this.draggedPiece;
-      nw.sendPieceDrop(p.id, p.x, p.y); // TODO: send msg when dropped?
-      this.draggedPiece = null;
-      var cell = this.getCellFromPos(x, y);
-      if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
-        // magnet the piece
-        // TODO: this should happen on the server instead
-        // p.x = cell.x;
-        // p.y = cell.y;
-        // bind the piece
-        // this.bindPiece(p);
-        if (this.gameIsOver()) {
-          // TODO: should display an animation
-          // this.startGame(); // TODO: should come from the server
-        }
-        view.drawAll();
-      }
-    }
+  this.dropPieceLocal = function(x, y) {
+    var p = this.draggedPiece;
+    nw.sendPieceDrop(p.id, p.x, p.y);
+    this.draggedPiece = null;
+    view.drawAll();
+    //var cell = this.getCellFromPos(x, y);
+    // if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
+    // magnet the piece
+    // TODO: this should happen on the server instead
+    // p.x = cell.x;
+    // p.y = cell.y;
+    // this.bindPiece(p);
+    // if (this.gameIsOver()) {
+    // TODO: should display an animation
+    // this.startGame(); // TODO: should come from the server
+    // }
+    // }
   }
 
   // The game is over when all the pieces are dropped on their correct cell.
@@ -244,7 +248,7 @@ function Model() {
   // Drop a piece at a given position.
   // If I was dragging the piece, but did not own it, then stop dragging it.
   // We dont care about messages about me since my local version is more recent.
-  this.dropPiece = function(id, x, y, owner) {
+  this.dropPieceRemote = function(id, x, y, owner) {
     if (owner != this.myid) {
       if (this.draggedPiece && this.draggedPiece.id == id) {
         this.draggedPiece = null; // stop dragging
@@ -333,6 +337,5 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
       this.y = 0;
     if (this.y + this.h > model.BOARD.h)
       this.y = model.BOARD.h - this.h;
-    nw.sendPieceMove(this.id, this.x, this.y);
-  }
+  };
 }

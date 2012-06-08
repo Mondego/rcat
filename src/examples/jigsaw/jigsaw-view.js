@@ -40,7 +40,7 @@ function View() {
   }
 
   this.toBoardDims = function(w, h) {
-    if (!h) // argument missing 
+    if (!h) // argument missing
       console.log('Warning: toBoardDims requires 2 arguments');
     var frus = model.frustum;
     var res = {
@@ -70,11 +70,12 @@ function View() {
 
   canvas.onmouseup = function(e) {
     view.isMouseDown = false;
-    var screenPos = getScreenPos(e);
-    var pos = view.toBoardPos(screenPos); // screen to model coords
-    // release the piece where the user mouse-upped
-    model.release(pos.x, pos.y);
-    view.dragStart = null;
+    if (model.draggedPiece) {
+      var sPos = getScreenPos(e);
+      var bPos = view.toBoardPos(sPos);
+      model.dropPieceLocal(bPos.x, bPos.y); // drop the piece
+    }
+    view.dragStart = null; // stop dragging board or piece
   };
 
   // Don't redraw the canvas if the mouse moved but was not down.
@@ -86,8 +87,11 @@ function View() {
       var pos = view.toBoardPos(screenPos); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
-      model.scrollRelative(dx, dy); // shift the model's frustum
-      // board moved => need to recompute mouse-to-board coords in new frustum
+      if (model.draggedPiece) // a piece is being dragged
+        model.movePieceRelative(dx, dy);
+      else
+        model.moveBoardRelative(dx, dy); // shift the board
+      // in both cases: the mouse moved => recompute the dragging origin
       pos = view.toBoardPos(screenPos);
       view.dragStart = {
         x : pos.x,
@@ -98,9 +102,12 @@ function View() {
 
   canvas.onmouseout = function(e) {
     view.isMouseDown = false;
-    var screenPos = getScreenPos(e);
-    var pos = view.toBoardPos(screenPos); // screen to model coords
-    model.release(pos.x, pos.y);
+    if (model.draggedPiece) {
+      var sPos = getScreenPos(e);
+      var bPos = view.toBoardPos(sPos);
+      model.dropPieceLocal(bPos.x, bPos.y); // drop the piece
+    }
+    view.dragStart = null; // stop dragging board or piece
   };
 
   this.scaleStep = 1.5; // how smooth is the zooming-in and out
@@ -109,7 +116,7 @@ function View() {
     e.preventDefault(); // dont scroll the window
     // detail for FF, wheelDelta for Chrome and IE
     var scroll = -e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
-    var isZoomingOut = scroll > 0; // boolean
+    var isZoomingOut = scroll > 0;
     var screenPos = getScreenPos(e);
     model.zoomOnScreenPoint(isZoomingOut, view.scaleStep, screenPos);
   }

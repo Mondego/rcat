@@ -38,7 +38,7 @@ function Network() {
       var id = m.pd.id; // piece id
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
-      model.dropPiece(id, x, y, owner);
+      model.dropPieceRemote(id, x, y, owner);
     }
   };
 
