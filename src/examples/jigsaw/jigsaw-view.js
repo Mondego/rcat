@@ -40,6 +40,8 @@ function View() {
   }
 
   this.toBoardDims = function(w, h) {
+    if (!h) // argument missing 
+      console.log('Warning: toBoardDims requires 2 arguments');
     var frus = model.frustum;
     var res = {
       w : w / frus.scale,
@@ -109,12 +111,7 @@ function View() {
     var scroll = -e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
     var isZoomingOut = scroll > 0; // boolean
     var screenPos = getScreenPos(e);
-    var pos = view.toBoardPos(screenPos); // screen to model coords
-    model.zoom(isZoomingOut, view.scaleStep);
-    var frus = model.frustum;
-    var newx = pos.x - screenPos.x / frus.scale;
-    var newy = pos.y - screenPos.y / frus.scale;
-    model.scrollAbsolute(newx, newy);
+    model.zoomOnScreenPoint(isZoomingOut, view.scaleStep, screenPos);
   }
   canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
   canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE

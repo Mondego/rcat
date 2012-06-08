@@ -151,30 +151,38 @@ function Model() {
     view.drawAll();
   };
 
-  // Scroll so that the given coordinates are at the top left of the frustum.
+  // A frustum primitive.
+  // Position the frustum's topleft at the given board coords.
   this.scrollAbsolute = function(x, y) {
     this.frustum.x = x;
     this.frustum.y = y;
     this.keepFrustumOnBoard();
-    nw.sendFrustum(this.frustum); // TODO: should happen in zoom
-    view.drawAll();
   };
 
-  // Cap zoom-in and zoom-out
-  this.zoom = function(isZoomingOut, scaleStep) {
+  // A frustum primitive. Zoom in/out by the given factor.
+  // Maintain zoom within the board's min/max zooming scales.
+  this.zoom = function(isZoomingOut, factor) {
     if (isZoomingOut && this.frustum.scale > this.BOARD.minScale) {
-      this.frustum.scale /= scaleStep;
-      this.frustum.w *= scaleStep;
-      this.frustum.h *= scaleStep;
+      this.frustum.scale /= factor;
+      this.frustum.w *= factor;
+      this.frustum.h *= factor;
     } else if (!isZoomingOut && this.frustum.scale < this.BOARD.maxScale) {
-      this.frustum.scale *= scaleStep;
-      this.frustum.w /= scaleStep;
-      this.frustum.h /= scaleStep;
+      this.frustum.scale *= factor;
+      this.frustum.w /= factor;
+      this.frustum.h /= factor;
     } else { // reached max scale or min scale
       return;
     }
-    // TODO: this is useless, since the controller will call the model again
-    // TODO: should ask to send frustum to server?
+  };
+
+  // Zoom in/out on the given screen coord.
+  // Called by the view (hence, it's NOT a frustum primitive).
+  this.zoomOnScreenPoint = function(isZoomingOut, factor, sPos) {
+    var bPos = view.toBoardPos(sPos);
+    this.zoom(isZoomingOut, factor);
+    var offset = view.toBoardDims(sPos.x, sPos.y);
+    model.scrollAbsolute(bPos.x - offset.w, bPos.y - offset.h);
+    nw.sendFrustum(this.frustum);
     view.drawAll();
   };
 
