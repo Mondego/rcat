@@ -82,6 +82,8 @@ class EchoWebSocket(websocket.WebSocketHandler):
                 # get the user id
                 userid = enc["NU"]
 
+                # TODO: the following lines seem to only pull the DB version
+                # of pieces, not the local (and up-to-date) version of pieces 
                 # TODO: mapper should provide "select * from jigsawPieces"
                 # these lines are a temporary hack to get data correctly formated 
                 pieces = datacon.mapper.tables["jigsawPieces"]
