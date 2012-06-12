@@ -89,8 +89,9 @@ class ProxyConnector():
         msg = json.loads(message)
         # New user
         if "NU" in msg:
-            for user in msg["LU"]:
+            for user in msg["NU"]:
                 self.client_location[user] = self.admin_proxy[ws]
+                self.appWS.send(message)
         # User disconnected
         elif "UD" in msg:
             if msg["UD"] in self.client_location:

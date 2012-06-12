@@ -19,34 +19,34 @@ server_ref = None
 proxyref = None
 logger = logging.getLogger("proxy")
 
-class ServerHandler(tornado.websocket.WebSocketHandler):    
+class ServerHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         global servers
         global server_cycle
 
         servers.append(self)
         server_cycle = itertools.cycle(servers)
-                
+
     def on_message(self, message):
         try:
             msg = json.loads(message)
             logger.debug(message)
             if "U" in msg:
                 users = msg["U"]
-                logger.debug("Sending message " + msg["M"] + " to users " + str(users))
-                proxyref.front.send_message_to_client(msg["M"],users)
+                logger.debug("Sending message " + str(msg["M"]) + " to users " + str(users))
+                proxyref.front.send_message_to_client(msg["M"], users)
             else:
                 proxyref.front.send_message_to_client(msg["M"])
         except Exception:
             logger.exception('[Back]: Error processing message on Back module:')
-            
+
     def on_close(self):
         global servers
         global server_cycle
-        
+
         servers.remove(self)
         server_cycle = itertools.cycle(servers)
-        
+
 class AdminHandler(tornado.websocket.WebSocketHandler):
     admid = None
     def open(self):
@@ -59,15 +59,15 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         for adm in admins:
             adm.write_message(jsonmsg)
         admins[self.admid] = self
-        """    
-        
+        """
+
     def on_message(self, message):
         try:
             msg = json.loads(message)
             logger.debug("[back]: Got admin message: " + str(msg))
             logger.debug(message)
             newmsg = {}
-            
+
             # Internal requests
             ### List of Users - Request
             if "LUR" in msg:
@@ -89,7 +89,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                     jsonmsg = json.dumps(newmsg)
                     for adm in admins.values():
                         adm.write_message(jsonmsg)
-                    
+
             # Developer customized messages
             ### Broadcast messages to all admins
             elif "BC" in msg:
@@ -102,35 +102,34 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                 msg["FW"]["ID"] = self.admid
                 json_newmsg = json.dumps(msg)
                 admins[aid].write_message(json_newmsg)
-                
+
         except Exception:
             logger.exception('[Back]: Error processing message on Back module:')
-            
+
     def on_close(self):
         try:
-            logger.debug("Admin Closed Connection")        
+            logger.debug("Admin Closed Connection")
             del admins[self.admid]
         except Exception:
             logger.warning("[back]: Problem deleting admin from dictionary. Maybe it's already gone?")
 
 class ServerLayer(proxy.AbstractBack):
-    def __init__(self,proxy,options):
+    def __init__(self, proxy, options):
         global proxyref
         global serverlayer
         serverlayer = self
         logging.debug("Starting ServerLayer")
         proxyref = proxy
-        
-    def send_message_to_server(self,message,server=None):
+
+    def send_message_to_server(self, message, server=None):
         if (server):
-            server.write_message(message)  
+            server.write_message(message)
         elif len(servers) > 0:
             server_cycle.next().write_message(message)
-            
+
     def sticky_server(self):
         return server_cycle.next()
-    
-    def broadcast_admins(self,message):
+
+    def broadcast_admins(self, message):
         for adm in admins.values():
             adm.write_message(message)
-        
