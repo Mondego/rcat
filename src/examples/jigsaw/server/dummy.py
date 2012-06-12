@@ -35,8 +35,8 @@ for r in range(grid['nrows']):
         pid = str(uuid.uuid4())
         p = {'id': pid,
              'b': False, # bound == correctly placed, can't be moved anymore
-             'x': randint(0, board['w'] / 2),
-             'y': randint(0, board['h'] / 2),
+             'x': randint(0, board['w'] / 3),
+             'y': randint(0, board['h'] / 3),
              'c': c,
              'r': r,
              'l': None # lock = id of the player moving the piece
@@ -75,9 +75,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         """ """
         m = json.loads(msg)
         global pieces
+
         if 'rp' in m: # frustum update
             self.frus = m['rp']['v']
             # TODO: send pieces located in the new frustum
+
         elif 'pm' in m: # piece movement
             pid = m['pm']['id']
             lockid = pieces[pid]['l']
@@ -89,10 +91,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                 pieces[pid]['y'] = m['pm']['y']
                 m['pm']['l'] = pieces[pid]['l'] # add the lock owner to the msg
                 self.bc_json(m) # forward piece movement to everyone
+
         elif 'pd' in m: # piece drop
             pid = m['pd']['id']
             lockid = pieces[pid]['l']
-            if lockid and lockid == self.myid: # I was the owner
+            if not lockid or lockid == self.myid: # I (or no one) was the owner
                 m['pd']['l'] = pieces[pid]['l'] # add the lock owner to the msg
                 pieces[pid]['l'] = None
                 x, y = m['pd']['x'], m['pd']['y']
@@ -104,7 +107,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                 else:
                     log.debug('%s dropped piece %s at %d,%d'
                               % (self.myid, pid, x, y))
-                    
+
                 self.bc_json(m) # forward piece drop to everyone
 
 

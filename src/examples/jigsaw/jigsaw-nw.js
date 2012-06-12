@@ -113,7 +113,7 @@ function Network() {
         'id' : pid,
         'x' : x,
         'y' : y,
-        'b': b
+        'b' : b
       }
     };
     if (pid in this.pieceTimers) {

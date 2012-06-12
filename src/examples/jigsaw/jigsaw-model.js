@@ -135,12 +135,12 @@ function Model() {
     var sw = IMG.width / grid.ncols;
     var sh = IMG.height / grid.nrows;
     var pdata, p, sx, sy;
-    for ( var id in piecesData) {
+    var id;
+    for (id in piecesData) {
       pd = piecesData[id];
       sx = pd.c * sw; // coords of image sliced from original
       sy = pd.r * sh;
       p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
-      this.loosePieces[id] = p;
     }
     view.drawAll();
   };
@@ -201,17 +201,14 @@ function Model() {
   // TODO: should display an effect when the piece is magnetted.
   this.dropMyPiece = function(x, y) {
     var p = this.draggedPiece;
-    var bound = false; // whether the piece becomes bound
     this.draggedPiece = null;
     var cell = this.getCellFromPos(x, y); // or p.x + p.w/2 instead? or both?
     if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
-      bound = true;
       p.x = cell.x; // magnet the piece
       p.y = cell.y;
-      delete this.loosePieces[p.id]; // bind piece
-      this.boundPieces[p.id] = p;
+      p.bind();
     }
-    nw.sendPieceDrop(p.id, p.x, p.y, bound);
+    nw.sendPieceDrop(p.id, p.x, p.y, p.bound);
     view.drawAll();
   };
 
@@ -235,11 +232,6 @@ function Model() {
     return res;
   };
 
-  // The game is over when all the pieces are dropped on their correct cell.
-  this.gameIsOver = function() {
-    return this.loosePieces == {};
-  };
-
   // ------------- COMMANDS ISSUED BY THE NETWORK -----------
 
   // Drop a piece at a given position.
@@ -255,6 +247,8 @@ function Model() {
         p.x = x;
         p.y = y;
         p.owner = null;
+        if (bound)
+          p.bind();
       }
       view.drawAll();
     }
@@ -286,10 +280,14 @@ function Model() {
 function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
 
   this.id = id; // id
-  this.owner = null; // player currently dragging (and locking) the piece
+  this.owner = null; // remote player currently dragging (+ locking) the piece
 
   // whether the piece has been correctly placed or not
   this.bound = b;
+  if (b)
+    model.boundPieces[id] = this;
+  else
+    model.loosePieces[id] = this;
 
   // grid coordinates, column and row
   this.c = c;
@@ -317,6 +315,16 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
   this.isLocked = function() {
     return (this.owner && this.owner == model.myid);
   }
+
+  // bind a piece: the piece has been correctly placed,
+  // it's not draggable naymore
+  this.bind = function() {
+    if (this.id in model.loosePieces) {
+      delete model.loosePieces[this.id];
+      model.boundPieces[this.id] = this;
+      this.bound = true;
+    }
+  };
 
   // drag a piece to the given coords, making sure it stays on the board
   this.moveRelative = function(dx, dy) {
