@@ -8,7 +8,7 @@ function Network() {
     return;
   }
 
-  var host = "ws://localhost:9000/test";
+  var host = "ws://chateau.ics.uci.edu:8888/client";
   var socket = new WebSocket(host);
   this.sendDelay = 100; // how often to send updates, in millis
 
@@ -35,10 +35,10 @@ function Network() {
       var owner = m.pm.l; // player currently moving the piece
       model.moveRemotePiece(id, x, y, owner);
     } else if ('pd' in m) { // Received piece drop
-      var id = m.pd.id; // piece id
+      var id = m.pd.id, bound = m.pd.b; // piece id and isBound
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
-      model.dropRemotePiece(id, x, y, owner);
+      model.dropRemotePiece(id, x, y, bound, owner);
     }
   };
 
@@ -107,12 +107,13 @@ function Network() {
   };
 
   // Send the piece drop and cancel the piece move msg timer.
-  this.sendPieceDrop = function(pid, x, y) {
+  this.sendPieceDrop = function(pid, x, y, b) {
     var msg = {
       'pd' : {
         'id' : pid,
         'x' : x,
-        'y' : y
+        'y' : y,
+        'b': b
       }
     };
     if (pid in this.pieceTimers) {

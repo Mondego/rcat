@@ -93,13 +93,18 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             pid = m['pd']['id']
             lockid = pieces[pid]['l']
             if lockid and lockid == self.myid: # I was the owner
+                m['pd']['l'] = pieces[pid]['l'] # add the lock owner to the msg
                 pieces[pid]['l'] = None
                 x, y = m['pd']['x'], m['pd']['y']
                 pieces[pid]['x'], pieces[pid]['y'] = x, y
-                log.debug('%s dropped piece %s at %d,%d'
-                          % (self.myid, pid, x, y))
-                m['pd']['l'] = pieces[pid]['l'] # add the lock owner to the msg
-                # TODO: check if piece correctly placed, and eventually bound
+                if m['pd']['b']:
+                    log.debug('%s bound piece %s at %d,%d'
+                              % (self.myid, pid, x, y))
+                    pieces[pid]['b'] = True
+                else:
+                    log.debug('%s dropped piece %s at %d,%d'
+                              % (self.myid, pid, x, y))
+                    
                 self.bc_json(m) # forward piece drop to everyone
 
 
@@ -118,13 +123,13 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
 
 
-handlers = (r'/test', WSHandler),
+handlers = (r'/client', WSHandler),
 app = tornado.web.Application(handlers)
 
 
 if __name__ == "__main__":
     logging.config.fileConfig("logging.conf")
-    app.listen(9000) # TODO: from config file instead 
-    log.info('server listens on 9000')
+    app.listen(8888) # TODO: from config file instead 
+    log.info('server listens on 8888')
     tornado.ioloop.IOLoop.instance().start()
 

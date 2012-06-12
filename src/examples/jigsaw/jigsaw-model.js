@@ -201,23 +201,18 @@ function Model() {
   // TODO: should display an effect when the piece is magnetted.
   this.dropMyPiece = function(x, y) {
     var p = this.draggedPiece;
-    nw.sendPieceDrop(p.id, p.x, p.y);
+    var bound = false; // whether the piece becomes bound
     this.draggedPiece = null;
-    view.drawAll();
     var cell = this.getCellFromPos(x, y); // or p.x + p.w/2 instead? or both?
     if (cell != null && cell.c == p.c && cell.r == p.r) { // correct cell
-      // magnet the piece
-      // TODO: this should happen on the server too
-      p.x = cell.x;
+      bound = true;
+      p.x = cell.x; // magnet the piece
       p.y = cell.y;
-      // bind piece
-      delete this.loosePieces[p.id];
+      delete this.loosePieces[p.id]; // bind piece
       this.boundPieces[p.id] = p;
-      // if (this.gameIsOver()) {
-      // TODO: should display an animation
-      // this.startGame(); // TODO: should come from the server
-      // }
     }
+    nw.sendPieceDrop(p.id, p.x, p.y, bound);
+    view.drawAll();
   };
 
   // Return cell (grid col+row, board x+y) from board coords.
@@ -250,12 +245,12 @@ function Model() {
   // Drop a piece at a given position.
   // If I was dragging the piece, but did not own it, then stop dragging it.
   // We dont care about messages about me since my local version is more recent.
-  this.dropRemotePiece = function(id, x, y, owner) {
+  this.dropRemotePiece = function(id, x, y, bound, owner) {
     if (owner != this.myid) {
       if (this.draggedPiece && this.draggedPiece.id == id) {
         this.draggedPiece = null; // stop dragging
         // TODO: display an effect?
-      } else if (id in this.loosePieces) {
+      } else {
         var p = this.loosePieces[id];
         p.x = x;
         p.y = y;
