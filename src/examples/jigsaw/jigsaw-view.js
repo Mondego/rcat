@@ -40,8 +40,6 @@ function View() {
   }
 
   this.toBoardDims = function(w, h) {
-    if (!h) // argument missing
-      console.log('Warning: toBoardDims requires 2 arguments');
     var frus = model.frustum;
     var res = {
       w : w / frus.scale,
@@ -68,10 +66,11 @@ function View() {
     };
   };
 
+  // mouseup = drop piece or stop dragging
   canvas.onmouseup = function(e) {
     view.isMouseDown = false;
+    var sPos = getScreenPos(e);
     if (model.draggedPiece) {
-      var sPos = getScreenPos(e);
       var bPos = view.toBoardPos(sPos);
       model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
@@ -82,8 +81,8 @@ function View() {
   // The modes "drag a piece" or "slide the board" are in the model logic;
   // For the view, it's only about mouse movement.
   canvas.onmousemove = function(e) {
+    var screenPos = getScreenPos(e);
     if (view.isMouseDown) {
-      var screenPos = getScreenPos(e);
       var pos = view.toBoardPos(screenPos); // screen to model coords
       var dx = pos.x - view.dragStart.x;
       var dy = pos.y - view.dragStart.y;
@@ -102,8 +101,8 @@ function View() {
 
   canvas.onmouseout = function(e) {
     view.isMouseDown = false;
+    var sPos = getScreenPos(e);
     if (model.draggedPiece) {
-      var sPos = getScreenPos(e);
       var bPos = view.toBoardPos(sPos);
       model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
@@ -122,6 +121,56 @@ function View() {
   }
   canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
   canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE
+
+  var keyScrollOffset = 50; // how many px of the screen to scroll when keydown
+  // Use arrows or WASD to scroll the board.
+  // For canvas.onkeydown, the canvas should get focus first.
+  // See http://stackoverflow.com/questions/10562092/gaining-focus-on-canvas
+  // keydown is repeatedly fired if user keeps pressing the key
+  document.onkeydown = function(e) {
+    // see http://stackoverflow.com/questions/1444477/keycode-and-charcode
+    e = e || window.event;
+    var keyCode = e.keyCode;
+    var dx = 0, dy = 0;
+    switch (keyCode) {
+    case (87): // w
+    case (38): // up arrow
+      dy = view.toBoardDims(0, keyScrollOffset).h
+      break;
+    case (65): // a
+    case (37): // left arrow
+      dx = view.toBoardDims(keyScrollOffset, 0).w
+      break;
+    case (83): // s
+    case (40): // down arrow
+      dy = -view.toBoardDims(0, keyScrollOffset).h
+      break;
+    case (68): // d
+    case (39): // right arrow
+      dx = -view.toBoardDims(keyScrollOffset, 0).w
+      break;
+    }
+    // Make the (eventual) piece being dragged follow the mouse
+    // only if the board actually scrolled.
+    // TODO: this needs debugging
+    /*
+    if (model.draggedPiece) {
+      var oldbPos = view.toBoardPos(view.mousePos);
+      model.moveBoardRelative(dx, dy);
+      var newbPos = view.toBoardPos(view.mousePos);
+      // pdx < dx if the frustum was near the side of the board
+      // pdx = 0 if the frustum was exactly on the side
+      var pdx = newbPos.x - oldbPos.x;
+      var pdy = newbPos.y - oldbPos.y;
+      model.dragMyPiece(pdx, pdy);
+    } else {
+      // no piece dragged: only scroll the board
+      model.moveBoardRelative(dx, dy);
+    }
+    */
+    model.moveBoardRelative(dx, dy);
+
+  }
 
   // get click position relative to the canvas's top left corner
   // adapted from http://www.quirksmode.org/js/events_properties.html
