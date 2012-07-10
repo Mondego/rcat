@@ -19,12 +19,10 @@ global pc
 global settings
 global datacon
 
-settings = None
+settings = {}
 db = None
 pc = None
 datacon = None
-appip = None
-appport = None
 tables = {}
 location = {}
 
@@ -33,12 +31,13 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         logging.debug("Jigsaw App Websocket Open")
 
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        # TODO: "Game" should be the name of a particular game, set in options.
-        tables['game'] = {}
+        tables['game'] = datacon.db.retrieve_table_meta("jigsaw", "pid")
         location['game'] = {}
-
-        #db.create_table("jigsaw", "pid")
-        #db.execute("delete from jigsaw")
+        
+        # DEBUG: Delete table at every start. Remove for deployment!
+        datacon.db.execute("delete from jigsaw")
+        
+        
 
     def on_message(self, message):
         try:
@@ -108,59 +107,72 @@ class JigsawServer():
 
     # Parses messages coming through admin channel of proxy
     def admin_parser(self, msg):
-        if "FW" in msg:
-            if "NEW" in msg["FW"]:
-                newgame_settings = msg["FW"]["NEW"]
+        if "BC" in msg:
+            if "NEW" in msg["BC"]:
+                newgame_settings = msg["BC"]["NEW"]
                 datacon.mapper.join(newgame_settings)
 
     def start_game(self):
         # Space partitioning mapper creates the data structure for the puzzle and assigns space to servers
+        """
         # partitioning is a dictionary of server uuid to board partition, represented as two tuples, x0-x1, y0-y1
-        partitioning = datacon.mapper.create(settings, pc.admins)
+        #
+        
+        partitioning = datacon.mapper.create(settings, pc.admins)        
         newmsg = {}
-        newmsg["FW"] = {}
+        newmsg["BC"] = {}
         json_message = ""
         mod_settings = deepcopy(settings)
         del mod_settings["start"]
         for adm in pc.admins:
             mod_settings["PART"] = partitioning[adm]
-            newmsg["FW"]["ID"] = adm
-            newmsg["FW"]["NEW"] = mod_settings
+            newmsg["BC"]["ID"] = adm
+            newmsg["BC"]["NEW"] = mod_settings
             json_message = json.dumps(newmsg)
             proxy_admin = random.choice(pc.admin_proxy.keys())
             proxy_admin.send(json_message)
-
-
+        """
+        # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
+        mod_settings = deepcopy(settings)
+        del mod_settings["start"]
+        mod_settings["ADMS"] = list(pc.admins)
+        newmsg = {"BC":{"NEW":mod_settings}}
+        json_message = json.dumps(newmsg)
+        proxy_admin = random.choice(pc.admin_proxy.keys())
+        proxy_admin.send(json_message)
 
 # Parses settings for Jigsaw server. Extends helper input parser
 def jigsaw_parser(config):
-    global settings
-    try:
-        parsed = config.items('Jigsaw')
-        settings = {}
-        for k, v in parsed:
-            settings[k] = v
-    except ConfigParser.NoSectionError:
-        settings = {}
-        settings["start"] = "false"
+    app_config = {}
+    if not config:
+        app_config["start"] = "false"
+    else:
+        try:
+            parsed = config.items('Jigsaw')
+            for k, v in parsed:
+                app_config[k] = v
+        except ConfigParser.NoSectionError:
+            app_config["start"] = "false"
+        return app_config
 
 if __name__ == "__main__":
-    appip, appport, proxies = helper.parse_input('jigsawapp.cfg', jigsaw_parser)
+    config = helper.parse_input('jigsawapp.cfg', jigsaw_parser)
+    settings = config["app"]
     
-    datacon = DataConn.DataConnector("JigsawSpacePart",appip+":"+appport)
-    datacon.db = MySQLConnector(datacon) # TODO: should grab arguments from dataconn  
-    datacon.mapper = SpacePartitioning(datacon,'first_puzzle')
+    datacon = DataConn.DataConnector("JigsawSpacePart",config["ip"]+":"+config["port"])
+    datacon.db = MySQLConnector(datacon)   
+    datacon.mapper = SpacePartitioning(datacon)
     datacon.obm = ObjectManager(datacon, handlers)
     
     application = tornado.web.Application(handlers)
-    application.listen(appport)
+    application.listen(config["port"])
 
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[jigsawapp]: Starting jigsaw app in ' + appip + appport)
+    logging.debug('[jigsawapp]: Starting jigsaw app in ' + config["ip"] + config["port"])
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
-    pc = ProxyConnector(proxies,
-                        "ws://" + appip + ':' + appport) # server
+    pc = ProxyConnector(config["proxies"],
+                        "ws://" + config["ip"] + ':' + config["port"]) # server
     jigsaw = JigsawServer(settings)
     helper.terminal()

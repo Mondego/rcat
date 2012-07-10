@@ -76,7 +76,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                 self.write_message(json_newmsg)
             # Request list of servers
             elif "LSR" in msg:
-                newmsg["LS"] = admins.keys()
+                newmsg["NS"] = admins.keys()
                 json_newmsg = json.dumps(newmsg)
                 print json_newmsg
                 self.write_message(json_newmsg)
@@ -84,11 +84,10 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
             elif "REG" in msg:
                 self.admid = msg["REG"]
                 admins[self.admid] = self
-                if "REGBC" in msg:
-                    newmsg = {"NS":[self.admid]}
-                    jsonmsg = json.dumps(newmsg)
-                    for adm in admins.values():
-                        adm.write_message(jsonmsg)
+                newmsg = {"NS":admins.keys()}
+                jsonmsg = json.dumps(newmsg)
+                for adm in admins.values():
+                    adm.write_message(jsonmsg)
 
             # Developer customized messages
             ### Broadcast messages to all admins

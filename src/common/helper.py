@@ -30,12 +30,16 @@ def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
     parser.add_argument('-p', help='port', default='9999')
     parser.add_argument('-ip', help='host')
     parser.add_argument('-c', help='configuration file', default=cfg)
+    parser.add_argument('-prx', help='list of proxies', default='["ws://localhost:8888"]')
 
+    settings = {}
     args = vars(parser.parse_args()) # returns a namespace converted to a dict)
+    config = None
 
     if args['ip'] and args['p']:
             myip = args['ip']
             myport = args['p']
+            proxies = json.loads(args['prx'])
     else:
         if 'c' in args:
             cfg = args['c']
@@ -51,18 +55,22 @@ def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
                 myip = config.get('Main', 'apphost')
                 myport = config.get('Main', 'appport')
                 proxies = json.loads(config.get('Main', 'proxies'))
-                if cfg_file_hook:
-                    cfg_file_hook(config)
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ", e)
                 myip = get_ip_address('eth0')
         else:
-            return False
-
+            return {}
+        
+    if cfg_file_hook:
+        settings["app"] = cfg_file_hook(config)
+        
     if myip and myport:
-        return myip, myport, proxies
+        settings['ip'] = myip
+        settings['port'] = myport
+        settings['proxies'] = proxies
+        return settings
     else:
-        return False
+        return {}
 
 def printc(msg, color):
     print ansi_codes[color] + msg + ansi_codes["endc"]

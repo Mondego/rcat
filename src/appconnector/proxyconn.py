@@ -111,11 +111,9 @@ class ProxyConnector():
     
     def Admin_on_open(self,ws):
         logger.debug("### Admin opened ###")
+        # Register Admin channel with the proxy
         msg = {}
         msg["REG"] = self.adm_id
-        if self.broadcasted == False:
-            self.broadcasted = True
-            msg["REGBC"] = None
         json_msg = json.dumps(msg)
         ws.send(json_msg)
     
@@ -131,8 +129,8 @@ class ProxyConnector():
                 logger.debug("Sending message " + message + " to client " + client)
                 self.client_location[client].send(message)
         else:
-            for server in self.proxies:
-                server.send(message)
+            for proxy in self.proxies:
+                proxy.send(message)
    
     def App_on_error(self,ws, error):
         logger.debug(error)

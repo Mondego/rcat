@@ -191,6 +191,6 @@ if __name__ == "__main__":
     t = Thread(target=tornado.ioloop.IOLoop.instance().start)
     t.daemon = True
     t.start()
-    pc = ProxyConnector(["ws://chateau.ics.uci.edu:8888"], "ws://" + appip + ':' + appport)
+    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"], "ws://" + appip + ':' + appport)
     helper.terminal()
 

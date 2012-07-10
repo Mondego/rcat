@@ -8,7 +8,7 @@ function Network() {
     return;
   }
 
-  var host = "ws://chateau.ics.uci.edu:8888/client";
+  var host = "ws://opensim.ics.uci.edu:8888/client";
   var socket = new WebSocket(host);
   this.sendDelay = 100; // how often to send updates, in millis
 

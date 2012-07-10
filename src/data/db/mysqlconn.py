@@ -6,11 +6,12 @@ Created on March 21, 2012
 mysqlconn.py: Used as an API between application layer and a MYSQL database. Uses python-mysqldb
 '''
 
+from copy import deepcopy
 import MySQLdb as mdb
 import itertools
 import json
 import logging
-from copy import deepcopy
+from collections import defaultdict
 
 obm = None
 conns = []
@@ -59,6 +60,16 @@ class MySQLConnector():
         cur.connection.commit()
         return cur.fetchall()
     
+    
+    def retrieve_table_meta(self, name, rid_name):
+        table = defaultdict(list)
+        table["__ridname__"] = rid_name
+        
+        metadata, fields = self.retrieve_column_names(name)
+        table["__metadata__"] = metadata
+        table["__columns__"] = fields
+        
+        return table
     
     """
     __retrieve_column_names(self,table): Retrieves column names from the database
