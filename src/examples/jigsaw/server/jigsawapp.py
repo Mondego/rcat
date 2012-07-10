@@ -101,7 +101,6 @@ class JigsawServer():
     def __init__(self, settings):
         # Hook to the proxy connector admin messages. Needed to request data about other data servers
         pc.admin_hook = self.admin_parser
-
         if settings["start"] == "true":
             self.start_game()
 
@@ -144,6 +143,7 @@ class JigsawServer():
 # Parses settings for Jigsaw server. Extends helper input parser
 def jigsaw_parser(config):
     app_config = {}
+
     if not config:
         app_config["start"] = "false"
     else:
@@ -153,7 +153,7 @@ def jigsaw_parser(config):
                 app_config[k] = v
         except ConfigParser.NoSectionError:
             app_config["start"] = "false"
-        return app_config
+    return app_config
 
 if __name__ == "__main__":
     config = helper.parse_input('jigsawapp.cfg', jigsaw_parser)

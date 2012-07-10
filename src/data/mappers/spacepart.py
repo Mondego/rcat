@@ -6,6 +6,7 @@ Created on May 18, 2012
 from copy import deepcopy
 import logging
 import math
+from collections import deque
 
 piece_mapper = []
 client_mapper = []
@@ -18,40 +19,6 @@ cur_boardx = None
 cur_boardy = None
 quadtree = None
 
-def BuildQuadTree(node,adms):
-    if adms:
-        adms.append(node.adm)
-        node.adm = None
-    else:
-        return
-    
-    tladm = adms.pop()
-    tlsplit = (node.spl[0]/2,node.spl[1]/2)
-    node.tl = Node(tlsplit,tladm)
-        
-    if adms:
-        tradm = adms.pop()
-        trsplit = (node.spl[0]/2 + node.spl[0],node.spl[1]/2)
-        node.tr = Node(trsplit,tradm)
-    
-    if adms:
-        bladm = adms.pop()
-        blsplit = (node.spl[0]/2,node.spl[1]/2 + node.spl[1])
-        node.bl = Node(blsplit,bladm)
-    
-    if adms:
-        bradm = adms.pop()
-        brsplit = (node.spl[0]/2 + node.spl[0],node.spl[1]/2 + node.spl[1])
-        node.br = Node(brsplit,bradm)
-        
-    if not adms:
-        return 
-    
-    BuildQuadTree(node.tr,adms)
-    BuildQuadTree(node.tl,adms)
-    BuildQuadTree(node.bl,adms)
-    BuildQuadTree(node.br,adms)
-   
 class Node():
     tl,tr,bl,br,spl,adm = None, None, None, None, None, None
     
@@ -59,9 +26,45 @@ class Node():
         self.spl = spl
         self.adm = adm
         
-    def insert(self):
-        raise
-    
+    def InsertInNode(self,adm):
+        # Leaf node
+        if self.adm != None:
+            tlsplit = (self.spl[0]/2,self.spl[1]/2)
+            trsplit = (self.spl[0]/2 + self.spl[0],self.spl[1]/2)
+            self.tl = Node(tlsplit,self.adm)
+            self.tr = Node(trsplit,adm)
+            self.adm = None
+        else:
+            # 
+            if not self.tl:
+                tlsplit = (self.spl[0]/2,self.spl[1]/2)
+                self.tl = Node(tlsplit,adm)
+            elif not self.tr:
+                trsplit = (self.spl[0]/2 + self.spl[0],self.spl[1]/2)
+                self.tr = Node(trsplit,adm)
+            elif not self.bl:
+                blsplit = (self.spl[0]/2,self.spl[1]/2 + self.spl[1])
+                self.bl = Node(blsplit,adm)
+            elif not self.br:
+                brsplit = (self.spl[0]/2 + self.spl[0],self.spl[1]/2 + self.spl[1])
+                self.br = Node(brsplit,adm)
+            else:
+                raise
+            
+    def FindAndInsert(self,adm):
+        q = deque()
+        q.append(self)
+        while q:
+            curnode = q.popleft()
+            if (curnode.tl and curnode.tr and curnode.bl and curnode.br):
+                q.append(curnode.tl)
+                q.append(curnode.tr)
+                q.append(curnode.bl)
+                q.append(curnode.br)
+            else:
+                curnode.InsertInNode(adm)
+                return
+
     def find_owner(self,point):
         if self.adm:
             return self.adm
@@ -93,43 +96,6 @@ class Node():
                 else:
                     return self.tl.adm
 
-"""
-class Node():
-    tl,tr,bl,br,split,adm = None, None, None, None, None, None
-    
-    def __init__(self,spl,adms,adm):
-        self.split = spl
-        if adms:
-            adms.append(adm)
-            self.adm = None
-        else:
-            self.adm = adm
-            return
-        
-        tladm = adms.pop()
-        tlsplit = (spl[0]/2,spl[1]/2)
-        if adms:
-            tradm = adms.pop()
-            trsplit = (spl[0]/2 + spl[0],spl[1]/2)
-        
-        if adms:
-            bladm = adms.pop()
-            blsplit = (spl[0]/2,spl[1]/2 + spl[1])
-        
-        if adms:
-            bradm = adms.pop()
-            brsplit = (spl[0]/2 + spl[0],spl[1]/2 + spl[1])
-        
-        self.tl = Node(tlsplit,adms,tladm)
-        if tradm:
-            self.tr = Node(trsplit,adms,tradm)
-        if bladm:
-            self.bl = Node(blsplit,adms,bladm)
-        if bradm:
-            self.br = Node(brsplit,adms,bradm)
-"""
-        
-    
 class SpacePartitioning():
     '''
     classdocs
@@ -166,8 +132,17 @@ class SpacePartitioning():
             client_mapper.append(deepcopy(line))
             
         adms = set(settings["ADMS"])
+        print adms
         first = adms.pop()
-        quadtree = Node((m_boardx/2,m_boardy/2),adms,first)
+        quadtree = Node((m_boardx/2,m_boardy/2),first)
+        for adm in adms:
+            print "Inserting in quadtree..."
+            quadtree.FindAndInsert(adm)
+        print quadtree.tl.adm
+        print str(quadtree.tl.spl)
+        print quadtree.tr.adm
+        print str(quadtree.tr.spl)
+
         # Build data structure to lookup server responsible for each area. Using Quadtree for now
         
     
@@ -230,5 +205,12 @@ class SpacePartitioning():
                     result.add(piece_mapper[i][j])
         return deepcopy(result)
     """
-        
+if __name__ == "__main__":
+    adms = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+    rootnode = Node((500,500),0)
+    for adm in adms:
+        rootnode.FindAndInsert(adm)
+    
+    print str(rootnode)
+    
                 
