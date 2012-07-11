@@ -67,6 +67,9 @@ class ObjectManager():
         location = datacon.mapper.location
         handlers.append((r"/obm", OBMHandler, dict(mapper=datacon.mapper)))
 
+    def register(self,adm):
+        pass
+
     """
     __relocate(self,table,rid,newowner): Relocates data to another app
     """

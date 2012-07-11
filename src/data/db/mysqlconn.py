@@ -23,7 +23,6 @@ object_list = {}
 logger = logging.getLogger()
 mysqlconn = None
 pubsubs = {}
-location = {}
 db_updates = {}
 db_inserts = {}
 
@@ -73,7 +72,7 @@ class MySQLConnector():
         tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = data.plugins.pubsub.PubSubUpdateSender(name)
-        location[name] = {}
+        #location[name] = {}
         db_updates[name] = set()
         db_inserts[name] = []
         if (cols):
@@ -109,36 +108,11 @@ class MySQLConnector():
             cur.execute(mystr)
             allrows = cur.fetchall()
             
-            if len (allrows) > 0:
-                row = allrows[0]
-            else:
+            if len (allrows) == 0:
                 return False
-            if not row["__location__"]:
-                obm.set_object_owner(table,RID)
-                return deepcopy(tables[table][RID])
-            if (row["__location__"] != self.mylocation):
-                cur.connection.commit()
-                location[table][RID] = row["__location__"]
-                if update_values:
-                    op = "update"
-                else:
-                    op = "select"
-                result = obm.send_request_owner(row["__location__"],table,RID,op,names,update_values)
-                # True or false for update; object for select
-                if not update_values:
-                    if result:
-                        tables[table][RID] = json.loads(result)
-                        ret_copy = deepcopy(tables[table][RID])
-                        return ret_copy
-                    else:
-                        logger.error("[mysqlconn]: Did not receive remote object")
-                        return "ERROR"
-                else:
-                    return result
-            else:
-                # TODO: Delete location information from each row!
-                tables[table][RID] = allrows
-                return deepcopy(tables[table][RID])
+
+            tables[table][RID] = allrows
+            return deepcopy(tables[table][RID])
         except mdb.cursors.Error,e:
             logger.error(e)
             return False
@@ -157,16 +131,15 @@ class MySQLConnector():
                     itemvalues = tblvalues[rid]
                     if not str(rid).startswith("__"):
                         for row in itemvalues:
-                            if location[tblnames][rid] == self.mylocation:
-                                try:
-                                    mystr = ("UPDATE %s SET " % tblnames)
-                                    mystr += ','.join([' = '.join([`key`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
-                                    mystr += " WHERE %s = '%s'" % (tblvalues["__ridname__"], rid)
-                                    logger.debug("[mysqlconn]: Dumping to database: " + mystr)
-                                    cur.execute(mystr)
-                                    cur.connection.commit()
-                                except mdb.cursors.Error, e:
-                                    print e
+                            try:
+                                mystr = ("UPDATE %s SET " % tblnames)
+                                mystr += ','.join([' = '.join([`key`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
+                                mystr += " WHERE %s = '%s'" % (tblvalues["__ridname__"], rid)
+                                logger.debug("[mysqlconn]: Dumping to database: " + mystr)
+                                cur.execute(mystr)
+                                cur.connection.commit()
+                            except mdb.cursors.Error, e:
+                                print e
                 # perform the inserts
                 loc_inserts = db_inserts[tblnames]
                 db_inserts[tblnames] = []
@@ -188,21 +161,16 @@ class MySQLConnector():
         result = None
         if table in tables:
             if RID in tables[table]:
-                if location[table][RID] != self.mylocation:
-                    jsonobj = obm.send_request_owner_request_owner(location[table][RID], table, RID, "select", names)
-                    result = json.loads(jsonobj)
-                    return result
+                if not names:
+                    return deepcopy(tables[table][RID])
                 else:
-                    if not names:
-                        return deepcopy(tables[table][RID])
-                    else:
-                        result = []
-                        for item in tables[table][RID]:
-                            newobj = {}
-                            for name in names:
-                                newobj[name] = item[name]
-                            result.append(newobj)
-                    return result
+                    result = []
+                    for item in tables[table][RID]:
+                        newobj = {}
+                        for name in names:
+                            newobj[name] = item[name]
+                        result.append(newobj)
+                return result
             else:
                 result = self.retrieve_object_from_db(table, RID, names, None)
                 return result
@@ -237,8 +205,6 @@ class MySQLConnector():
     """
     def insert(self, table, values, RID):
         cur = self.cur
-        # metadata: mylocation stores the IP where the authoritative object is
-        values.append(self.mylocation)
         if table in tables:
             newobj = {}
             for name, idx in tables[table]["__columns__"].items():
@@ -255,7 +221,6 @@ class MySQLConnector():
                     return False;
             else:
                 db_inserts[table].append(mystr)
-            location[table][RID] = self.mylocation
             tables[table][RID].append(newobj)
             pubsubs[table].send(RID, newobj)
         else:

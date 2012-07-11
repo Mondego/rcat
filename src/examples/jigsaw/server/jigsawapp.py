@@ -153,6 +153,7 @@ class JigsawServer():
     def __init__(self, settings):
         # Hook to the proxy connector admin messages. Needed to request data about other data servers
         pc.admin_hook = self.admin_parser
+        datacon.obm.register(pc.adm_id)
         if settings["main"]["start"] == "true":
             self.start_game()
 
