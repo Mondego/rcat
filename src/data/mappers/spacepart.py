@@ -120,40 +120,27 @@ class SpacePartitioning():
         
         logging.debug("[spacepart]: Joining a game.")
         
-        bx,by = settings["board_size"].split(',')
-        m_boardx,m_boardy = int(bx),int(by)
-        bucket_size = int(settings["bucket_size"])
+        bw,bh = settings["board"]["w"],settings["board"]["h"]
+        m_boardw,m_boardh = int(bw),int(bh)
+        bucket_size = int(settings["main"]["bucket_size"])
         
         # Build the bucket matrix for pieces and clients
-        line = [ set() for _ in range(0,m_boardx/bucket_size)]
-        for _ in range(0,m_boardy/bucket_size):
+        line = [ set() for _ in range(0,m_boardw/bucket_size)]
+        for _ in range(0,m_boardh/bucket_size):
             piece_mapper.append(deepcopy(line))
-        for _ in range(0,m_boardy/bucket_size):
+        for _ in range(0,m_boardh/bucket_size):
             client_mapper.append(deepcopy(line))
             
         adms = set(settings["ADMS"])
         print adms
         first = adms.pop()
-        quadtree = Node((m_boardx/2,m_boardy/2),first)
+        quadtree = Node((m_boardw/2,m_boardh/2),first)
         for adm in adms:
             print "Inserting in quadtree..."
             quadtree.FindAndInsert(adm)
-        print quadtree.tl.adm
-        print str(quadtree.tl.spl)
-        print quadtree.tr.adm
-        print str(quadtree.tr.spl)
 
         # Build data structure to lookup server responsible for each area. Using Quadtree for now
         
-    
-        
-    def create(self,settings,servers):
-        # Needs a better algorithm, but for now, attempts to break the board into a squared division
-        bx,by = settings["board_size"].split(',')
-        boardx,boardy = int(bx),int(by)
-        
-        logging.debug("[spacepart]: Starting a new game.")
-    
     # Return range
     def __rr__(self,x,y,width,height):
         if x + width > m_boardx:
