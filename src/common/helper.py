@@ -49,6 +49,7 @@ def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
         elif os.path.isfile(os.getenv("HOME") + '/.rcat/' + cfg):
             fp = open(os.getenv("HOME") + '/.rcat/' + cfg)
         config = ConfigParser.ConfigParser()
+        config.optionxform = str
         if fp:
             try:
                 config.readfp(fp)

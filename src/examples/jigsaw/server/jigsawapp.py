@@ -58,100 +58,89 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         location['game'] = {}
         
         # DEBUG: Delete table at every start. Remove for deployment!
-        
-        
-        
 
     def on_message(self, message):
-        # TODO: Make it use the mapper instead of the DB
-        #try:
-        enc = json.loads(message)
-
-        # send the config when the user joins
-        if "NU" in enc:
-            # get the user id
-            userid = enc["NU"]
-
-            pieces = {}
-            dbresult = datacon.db.execute("select * from jigsaw")
-            for item in dbresult:
-                pieces[item["pid"]] = item
+        try:
+            enc = json.loads(message)
+    
+            # send the config when the user joins
+            if "NU" in enc:
+                # get the user id
+                userid = enc["NU"]
+    
+                pieces = {}
+                dbresult = datacon.db.execute("select * from jigsaw")
+                for item in dbresult:
+                    pieces[item["pid"]] = item
+                    
                 
-            
-            # send the board config
-            cfg = {'imgurl':img_url,
-                   'board': board,
-                   'grid': grid,
-                   'frus': dfrus,
-                   'pieces': pieces,
-                   'myid': userid
-                   }
-            response = {'M': {'c': cfg}, 'U': userid}
-            self.write_message(json.dumps(response))
-
-        else:
-            # usual message
-            logging.debug(enc["M"])
-            m = json.loads(enc["M"])
-            userid = enc["U"][0]
-
-            if 'rp' in m: # frustum update
-                #self.frus = m['rp']['v']
-                pass # TODO: update frustum table
-                # TODO: send pieces located in the new frustum
-
-            elif 'pm' in m: # piece movement
-                pid = m['pm']['id']
-                piece = datacon.db.select('jigsaw', pid)[0]
-                #piece = datacon.db.retrieve_object_from_db('jigsaw', pid)[0]
-                lockid = piece['l']
-                if not lockid: # lock the piece if nobody owns it
-                    datacon.db.update('jigsaw', [('l', userid)], pid)
-                    #datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('l',userid)])
-                    logging.debug('%s starts dragging piece %s' % (userid, pid))
-                if lockid == userid: # change location if I'm the owner
-                    # update piece coords
-                    x = m['pm']['x']
-                    datacon.db.update('jigsaw', [('x', x)], pid)
-                    #datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('x',x)])
-                    y = m['pm']['y']
-                    datacon.db.update('jigsaw', [('y', y)], pid)
-                    # datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('y',y)])
-                    # add lock owner to msg to broadcast
-                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
-                    # broadcast
-                    self.write_message(json.dumps(response))
-
-            elif 'pd' in m: # piece drop
-                pid = m['pd']['id']
-                piece = datacon.db.select('jigsaw', pid)[0]
-                #piece = datacon.db.retrieve_object_from_db('jigsaw', pid)[0]
-                lockid = piece['l']
-                if lockid and lockid == userid: # I was the owner
-                    # unlock piece
-                    datacon.db.update('jigsaw', [('l', 0)], pid)
-                    # datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('l',0)])
-                    # update piece coords
-                    x = m['pd']['x']
-                    datacon.db.update('jigsaw', [('x', x)], pid)
-                    # datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('x',x)])
-                    y = m['pd']['y']
-                    datacon.db.update('jigsaw', [('y', y)], pid)
-                    # datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('y',y)])
-
-                    # eventually bind piece 
-                    bound = m['pd']['b']
-                    if bound:
-                        logging.debug('%s bound piece %s at %d,%d'
-                                  % (userid, pid, x, y))
-                        datacon.db.update('jigsaw', [('b', 1)], pid)
-                        #datacon.db.retrieve_object_from_db('jigsaw',pid,None,[('b',1)])
-                    else:
-                        logging.debug('%s dropped piece %s at %d,%d'
-                                  % (userid, pid, x, y))
-                    # add lock owner to msg to broadcast
-                    response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
-                    self.write_message(json.dumps(response))
+                # send the board config
+                cfg = {'imgurl':img_url,
+                       'board': board,
+                       'grid': grid,
+                       'frus': dfrus,
+                       'pieces': pieces,
+                       'myid': userid
+                       }
+                response = {'M': {'c': cfg}, 'U': userid}
+                self.write_message(json.dumps(response))
+    
+            else:
+                # usual message
+                logging.debug(enc["M"])
+                m = json.loads(enc["M"])
+                userid = enc["U"][0]
+    
+                if 'rp' in m: # frustum update
+                    #self.frus = m['rp']['v']
+                    pass # TODO: update frustum table
+                    # TODO: send pieces located in the new frustum
+    
+                elif 'pm' in m: # piece movement
+                    pid = m['pm']['id']
+                    piece = datacon.db.select('jigsaw', pid)[0]
+                    lockid = piece['l']
+                    if not lockid: # lock the piece if nobody owns it
+                        datacon.db.update('jigsaw', [('l', userid)], pid)
+                        logging.debug('%s starts dragging piece %s' % (userid, pid))
+                    if lockid == userid: # change location if I'm the owner
+                        # update piece coords
+                        x = m['pm']['x']
+                        datacon.db.update('jigsaw', [('x', x)], pid)
+                        y = m['pm']['y']
+                        datacon.db.update('jigsaw', [('y', y)], pid)
+                        # add lock owner to msg to broadcast
+                        response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
+                        # broadcast
+                        self.write_message(json.dumps(response))
+    
+                elif 'pd' in m: # piece drop
+                    pid = m['pd']['id']
+                    piece = datacon.db.select('jigsaw', pid)[0]
+                    lockid = piece['l']
+                    if lockid and lockid == userid: # I was the owner
+                        # unlock piece
+                        datacon.db.update('jigsaw', [('l', 0)], pid)
+                        # update piece coords
+                        x = m['pd']['x']
+                        datacon.db.update('jigsaw', [('x', x)], pid)
+                        y = m['pd']['y']
+                        datacon.db.update('jigsaw', [('y', y)], pid)
+    
+                        # eventually bind piece 
+                        bound = m['pd']['b']
+                        if bound:
+                            logging.debug('%s bound piece %s at %d,%d'
+                                      % (userid, pid, x, y))
+                            datacon.db.update('jigsaw', [('b', 1)], pid)
+                        else:
+                            logging.debug('%s dropped piece %s at %d,%d'
+                                      % (userid, pid, x, y))
+                        # add lock owner to msg to broadcast
+                        response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
+                        self.write_message(json.dumps(response))
+        except Exception, err:
+            logging.exception("[jigsawapp]: Exception in message handling from client:")
 
     def on_close(self):
         logging.debug("App WebSocket closed")
@@ -202,8 +191,6 @@ class JigsawServer():
                 values = [pid, b, x, y, c, r, l]
                 
                 datacon.db.insert('jigsaw', values, pid)
-                # mystr = "INSERT INTO jigsaw VALUES(" + ','.join([`str(val)` for val in values]) + ")"
-                # datacon.db.execute(mystr)
 
         # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
         mod_settings = deepcopy(settings)
