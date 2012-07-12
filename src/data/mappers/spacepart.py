@@ -107,7 +107,7 @@ class SpacePartitioning():
     
     def __init__(self,datacon):
         self.db = datacon.db
-        self.mylocation = datacon.mylocation
+        self.myid = datacon.myid
         self.tables = {}
         self.location = {}
         

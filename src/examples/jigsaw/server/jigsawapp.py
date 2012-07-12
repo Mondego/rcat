@@ -1,22 +1,18 @@
 import random
 from copy import deepcopy
 from tornado import websocket
-import tornado.ioloop
-import tornado.web
-from threading import Thread
-from appconnector.proxyconn import ProxyConnector
 import logging.config
 import json
 import common.helper as helper
 from data.plugins.obm import ObjectManager
 from data.mappers.spacepart import SpacePartitioning
 from data.db.mysqlconn import MySQLConnector
-import data.dataconn as DataConn
 import ConfigParser
 import uuid
 from random import randint
 import time
 from threading import Timer
+from rcat import RCAT
 
 global db
 global pc
@@ -27,6 +23,7 @@ settings = {}
 db = None
 pc = None
 datacon = None
+rcat = None
 tables = {}
 location = {}
 
@@ -50,7 +47,6 @@ clients = {}
 class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
         logging.debug("Jigsaw App Websocket Open")
-
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         datacon.db.execute("delete from jigsaw")
         tables['game'] = datacon.db.retrieve_table_meta("jigsaw", "pid")
@@ -150,12 +146,35 @@ handlers = [
 ]
 
 class JigsawServer():
-    def __init__(self, settings):
-        # Hook to the proxy connector admin messages. Needed to request data about other data servers
-        pc.admin_hook = self.admin_parser
-        datacon.obm.register(pc.adm_id)
+    def __init__(self):
+        global settings
+        config = helper.open_configuration('jigsawapp.cfg')
+        settings = self.jigsaw_parser(config)
+        helper.close_configuration('jigsawapp.cfg')
         if settings["main"]["start"] == "true":
             self.start_game()
+
+    def jigsaw_parser(self,config):
+        app_config = {"main":{"start":"false"}}
+        
+        if config:
+            try:
+                set_main = {}
+                set_board = {}
+                set_grid = {}
+                for k,v in config.items('Jigsaw_Main'):
+                    set_main[k] = v
+                for k,v in config.items('Jigsaw_Board'):
+                    set_board[k] = float(v)
+                for k,v in config.items('Jigsaw_Grid'):
+                    set_grid[k] = int(v)
+                app_config["main"] = set_main
+                app_config["board"] = set_board
+                app_config["grid"] = set_grid
+            except ConfigParser.NoSectionError:
+                logging.warn("[jigsawpp]: No Section exception. Might be OK!")
+        return app_config
+
 
     # Parses messages coming through admin channel of proxy
     def admin_parser(self, msg):
@@ -196,53 +215,20 @@ class JigsawServer():
         # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
         mod_settings = deepcopy(settings)
         del mod_settings["main"]["start"]
-        mod_settings["ADMS"] = list(pc.admins)
+        mod_settings["ADMS"] = list(rcat.pc.admins)
         newmsg = {"BC":{"NEW":mod_settings}}
         json_message = json.dumps(newmsg)
-        proxy_admin = random.choice(pc.admin_proxy.keys())
+        proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
         proxy_admin.send(json_message)
 
-# Parses settings for Jigsaw server. Extends helper input parser
-def jigsaw_parser(config):
-    app_config = {"main":{"start":"false"}}
-    
-    if config:
-        try:
-            set_main = {}
-            set_board = {}
-            set_grid = {}
-            for k,v in config.items('Jigsaw_Main'):
-                set_main[k] = v
-            for k,v in config.items('Jigsaw_Board'):
-                set_board[k] = float(v)
-            for k,v in config.items('Jigsaw_Grid'):
-                set_grid[k] = int(v)
-            app_config["main"] = set_main
-            app_config["board"] = set_board
-            app_config["grid"] = set_grid
-        except ConfigParser.NoSectionError:
-            logging.warn("[jigsawpp]: No Section exception. Might be OK!")
-    return app_config
 
 if __name__ == "__main__":
-    config = helper.parse_input('jigsawapp.cfg', jigsaw_parser)
-    settings = config["app"]
-    
-    datacon = DataConn.DataConnector("JigsawSpacePart",config["ip"]+":"+config["port"])
-    datacon.db = MySQLConnector(datacon)   
-    datacon.mapper = SpacePartitioning(datacon)
-    datacon.obm = ObjectManager(datacon, handlers)
-    
-    application = tornado.web.Application(handlers)
-    application.listen(config["port"])
-
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[jigsawapp]: Starting jigsaw app in ' + config["ip"] + config["port"])
-    t = Thread(target=tornado.ioloop.IOLoop.instance().start)
-    t.daemon = True
-    t.start()
-    pc = ProxyConnector(config["proxies"],
-                        "ws://" + config["ip"] + ':' + config["port"]) # server
+    rcat = RCAT(JigsawServerHandler,MySQLConnector,SpacePartitioning,ObjectManager)
+    datacon = rcat.datacon
+    logging.debug('[jigsawapp]: Starting jigsaw..')
+    
     time.sleep(3)
-    jigsaw = JigsawServer(settings)
+    
+    jigsaw = JigsawServer()
     helper.terminal()

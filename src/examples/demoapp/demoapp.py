@@ -2,6 +2,7 @@ from tornado import websocket
 import tornado.ioloop
 from threading import Thread
 from appconnector.proxyconn import ProxyConnector
+from rcat import RCAT
 import logging.config
 import json
 import data.dataconn as DataConn
@@ -11,23 +12,21 @@ from data.mappers.chatmapper import ChatManager
 from data.db.mysqlconn import MySQLConnector
 
 global db
-global dm
 global obm
 
 pc = None
 db = None
 obm = None
-dm = None
-appip = None
-appport = None
+ip = None
+port = None
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
-        global dm
         logging.debug("App Websocket Open")
         db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         result = db.execute('SHOW TABLES')
-        dm.create_table("chat","rid")
+        datacon.mapper.retrieve_table_meta("chat","rid")
+        
         db.execute("delete from chat")
         print result
 
@@ -42,7 +41,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
             newmsg = {}
             if "H" in msg: # Request history from..?
                 if "ID" in msg["H"]:
-                    history = dm.select("chat", msg["H"]["ID"])
+                    history = datacon.mapper.select(msg["H"]["ID"])
                     newmsg["M"] = str(history)
                     newmsg["U"] = user
                 else:
@@ -50,7 +49,7 @@ class EchoWebSocket(websocket.WebSocketHandler):
             elif "C" in msg: # Chat
                 newmsg["M"] = msg["C"]["M"]
                 insert_values = [msg["C"]["ID"],msg["C"]["M"]]
-                dm.insert("chat",insert_values,msg["C"]["ID"])
+                datacon.mapper.insert(msg["C"]["ID"],insert_values)
             json_msg = json.dumps(newmsg)
             self.write_message(json_msg)
         except Exception as e:
@@ -77,26 +76,13 @@ class EchoWebSocket(websocket.WebSocketHandler):
         logging.debug("App WebSocket closed")
   
 
-handlers = [
-    (r"/", EchoWebSocket)
-]
+#handlers = [
+    #(r"/", EchoWebSocket)
+#]
       
 if __name__ == "__main__":
-    appip,appport = helper.parse_input('demoapp.cfg')    
     logging.config.fileConfig("connector_logging.conf")
-    logging.debug('[demoapp]: Starting app in ' + appip + ":" + appport)
-    # TODO: Allow passing of options to determine which mapper and db to use. For now, hardcoded
-    datacon = DataConn.DataConnector("ChatManagerByID",appip + ":" + appport)
-    datacon.db = MySQLConnector(datacon)
-    datacon.mapper = ChatManager(datacon)
-    datacon.obm = ObjectManager(datacon,handlers)
-    
-    application = tornado.web.Application(handlers)
-    application.listen(appport)
-    
-    t = Thread(target=tornado.ioloop.IOLoop.instance().start)
-    t.daemon = True
-    t.start()
-    pc = ProxyConnector(["ws://opensim.ics.uci.edu:8888"],"ws://" + appip + ':' + appport)
+    rcat = RCAT(EchoWebSocket,MySQLConnector,ChatManager,ObjectManager)
+    datacon = rcat.datacon
     helper.terminal()
     

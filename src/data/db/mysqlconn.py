@@ -30,8 +30,7 @@ class MySQLConnector():
     def __init__(self,datacon):
         global mysqlconn
         global obm
-        self.mylocation = datacon.mylocation
-        logger.debug("[mysqlconn]: Starting MySQL Connector. My location is " + self.mylocation)
+        logger.debug("[mysqlconn]: Starting MySQL Connector.")
         mysqlconn = self
 
     @ property
@@ -72,7 +71,6 @@ class MySQLConnector():
         tables[name] = defaultdict(list)
         tables[name]["__ridname__"] = rid_name
         pubsubs[name] = data.plugins.pubsub.PubSubUpdateSender(name)
-        #location[name] = {}
         db_updates[name] = set()
         db_inserts[name] = []
         if (cols):
@@ -184,8 +182,6 @@ class MySQLConnector():
     def update(self, table, update_tuples, RID, row=0):
         if table in tables:
             if RID in tables[table]:
-                #obm.send_request_owner is not needed when there's only 1 server
-                #obm.send_request_owner(location[table][RID],table,RID,"update",None,update_tuples)
                 # TODO: Remove unneeded headers from dictionary. For now, makes our lives easier
                 tuples_dic = {}
                 for item in update_tuples:
@@ -208,8 +204,7 @@ class MySQLConnector():
         if table in tables:
             newobj = {}
             for name, idx in tables[table]["__columns__"].items():
-                if not str(name).startswith('__location'):
-                    newobj[name] = values[idx]
+                newobj[name] = values[idx]
             mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
             if RID not in tables[table]:
                 try:

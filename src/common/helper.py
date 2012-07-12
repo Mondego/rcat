@@ -9,6 +9,8 @@ import struct
 import sys
 import time
 
+paths = {}
+
 ansi_codes = {
                "blue" : '\033[94m',
                "green" : '\033[92m',
@@ -24,7 +26,7 @@ def get_ip_address(ifname):
         struct.pack('256s', ifname[:15])
     )[20:24])
 
-def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
+def parse_input(cfg_file='app.cfg'):
     myip, myport, fp, cfg = None, None, None, cfg_file
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', help='port', default='9999')
@@ -62,9 +64,6 @@ def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
         else:
             return {}
         
-    if cfg_file_hook:
-        settings["app"] = cfg_file_hook(config)
-        
     if myip and myport:
         settings['ip'] = myip
         settings['port'] = myport
@@ -72,6 +71,24 @@ def parse_input(cfg_file='app.cfg', cfg_file_hook=None):
         return settings
     else:
         return {}
+    
+def open_configuration(path):
+    if (os.path.isfile(path)):
+        fp = open(path)
+    elif os.path.isfile(os.getenv("HOME") + '/.rcat/' + path):
+        fp = open(os.getenv("HOME") + '/.rcat/' + path)
+    else:
+        return None
+    config = ConfigParser.ConfigParser()
+    config.optionxform = str
+    config.readfp(fp)
+    paths[path] = fp
+    return config
+
+def close_configuration(path):
+    paths[path].close()
+    del paths[path]
+    return True
 
 def printc(msg, color):
     print ansi_codes[color] + msg + ansi_codes["endc"]

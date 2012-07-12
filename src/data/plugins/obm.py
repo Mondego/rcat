@@ -56,16 +56,17 @@ class OBMHandler(tornado.web.RequestHandler):
                 pubsubs[tbl].add_subscriber(loc,interests) 
             
 class ObjectManager():
-    def __init__(self,datacon,handlers):
+    def __init__(self,datacon):
         global mylocation
         global tables
         global location
         global obm
         obm = self
-        mylocation = datacon.mylocation
+        #mylocation = datacon.mylocation
+        # TODO:FIX!
+        mylocation = None
         tables = datacon.mapper.tables
         location = datacon.mapper.location
-        handlers.append((r"/obm", OBMHandler, dict(mapper=datacon.mapper)))
 
     def register(self,adm):
         pass
