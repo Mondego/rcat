@@ -50,10 +50,12 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         datacon.db.execute("delete from jigsaw")
         tables['game'] = datacon.db.retrieve_table_meta("jigsaw", "pid")
+        datacon.obm.register(rcat.pc.adm_id,"jigsaw")
         Timer(5.0, datacon.db.__dump_to_database__).start()
         location['game'] = {}
         
         # DEBUG: Delete table at every start. Remove for deployment!
+        datacon.db.execute("delete from jigsaw")
 
     def on_message(self, message):
         try:

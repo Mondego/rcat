@@ -2,43 +2,45 @@ from data.dataconn import Mapper
 import MySQLdb as mdb
 import logging
 from threading import Timer
+import warnings
 
 from collections import defaultdict
 
 logger = logging.getLogger()
 
 class ChatManager(Mapper):
-    db = None
-    obm = None
-    table = None
+    rooms = None
     ridname = None
-    myid = None
+    table = None
+    datacon = None
     def __init__(self, datacon):
-        global mylocation
-        """
-        Start the thread that dumps to database
-        """
-        self.db = datacon.db
-        self.obm = datacon.obm
-        self.myid = datacon.myid
-        #Timer(5.0, self.__dump_to_database__).start()
-    
-    def retrieve_table_meta(self,table,ridname):
-        self.table =  table
+        self.datacon = datacon
+        
+    def newroom(self,newroom):
+        self.rooms[newroom] = {}
+        
+    def create_table(self,table,ridname):
+        self.datacon.obm.clear(table)
+        cmd = "create table if not exists " + table + "(mid mediumint not null auto_increment,uid varchar(255) not null,message varchar(255), primary key(mid))"
+        self.datacon.db.execute(cmd)
+        self.datacon.db.retrieve_table_meta(table,ridname)
         self.ridname = ridname
-        self.db.retrieve_table_meta()
+        self.table = table
+        
+        self.datacon.obm.register_node(self.datacon.myid,table,ridname,"mediumint",0)
+        self.datacon.obm.create_index(table,"uid")
     
-    def insert(self,id,values):
-        owner = self.obm.owner(id)
-        if owner != 
-        self.db.insert(self.table,values,id)
-
+    def insert(self,values):
+        self.datacon.obm.insert(self.table,values)
     
-    def update(self,id,update_tuples):
-        pass
+    def update(self,rid,update_tuples):
+        return self.datacon.obm.update(self.table,rid)
     
-    def select(self,id):
-        pass
+    def select(self,rid):
+        return self.datacon.obm.select(self.table,rid)
+    
+    def select_per_user(self,uid):
+        return self.datacon.obm.select_diff_index(self.table,uid,'uid')
 
     @property
     def name(self):

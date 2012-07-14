@@ -11,11 +11,9 @@ from data.plugins.obm import ObjectManager
 from data.mappers.chatmapper import ChatManager
 from data.db.mysqlconn import MySQLConnector
 
-global db
-global obm
+global datacon
 
 pc = None
-db = None
 obm = None
 ip = None
 port = None
@@ -23,64 +21,42 @@ port = None
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         logging.debug("App Websocket Open")
-        db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        result = db.execute('SHOW TABLES')
-        datacon.mapper.retrieve_table_meta("chat","rid")
-        
-        db.execute("delete from chat")
-        print result
+        datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
+        datacon.mapper.create_table("chat","mid")
+        if len(rcat.pc.admins) == 1:
+            logging.debug("[demoapp]: First server up, resetting table..")
+            datacon.db.execute("truncate chat")
 
     def on_message(self, message):
         try:
             enc = json.loads(message)
-            logging.debug(enc["M"])
-            
-            msg = json.loads(enc["M"])
-            user = enc["U"]
-            
-            newmsg = {}
-            if "H" in msg: # Request history from..?
-                if "ID" in msg["H"]:
-                    history = datacon.mapper.select(msg["H"]["ID"])
-                    newmsg["M"] = str(history)
-                    newmsg["U"] = user
-                else:
-                    logging.error("[demoapp]: No USERID passed.")
-            elif "C" in msg: # Chat
-                newmsg["M"] = msg["C"]["M"]
-                insert_values = [msg["C"]["ID"],msg["C"]["M"]]
-                datacon.mapper.insert(msg["C"]["ID"],insert_values)
-            json_msg = json.dumps(newmsg)
-            self.write_message(json_msg)
+            if "M" in enc:
+                msg = json.loads(enc["M"])
+                user = enc["U"]
+                
+                newmsg = {}
+                if "H" in msg: # Request history from..?
+                    if "ID" in msg["H"]:
+                        history = datacon.mapper.select_per_user(msg["H"]["ID"])
+                        newmsg["M"] = str(history)
+                        newmsg["U"] = user
+                    else:
+                        logging.error("[demoapp]: No USERID passed.")
+                elif "C" in msg: # Chat
+                    newmsg["M"] = msg["C"]["M"]
+                    insert_values = [msg["C"]["ID"],msg["C"]["M"]]
+                    datacon.mapper.insert(insert_values)
+                json_msg = json.dumps(newmsg)
+                self.write_message(json_msg)
         except Exception as e:
-            logging.error(e)
-            newmsg["M"] = "ERROR"
-            if user:
-                newmsg["U"] = user
-            json_msg = json.dumps(newmsg)
-            self.write_message(json_msg)
+            logging.exception("[demoapp]: Exception when treating message")
             return False 
         
-        
-        # Append metadata here. For now just sending the user and the message.
-        """
-        newmsg["M"] = msg["M"].swapcase()
-        newmsg["U"] = msg["U"]
-        json_msg = json.dumps(newmsg)
-        dm.insert("users", [int(newmsg["M"]),0,1,2,3], newmsg["M"])
-        dm.update("users", [("top",3)], newmsg["M"])
-        
-        """
-
     def on_close(self):
         logging.debug("App WebSocket closed")
-  
-
-#handlers = [
-    #(r"/", EchoWebSocket)
-#]
       
 if __name__ == "__main__":
+    global datacon
     logging.config.fileConfig("connector_logging.conf")
     rcat = RCAT(EchoWebSocket,MySQLConnector,ChatManager,ObjectManager)
     datacon = rcat.datacon

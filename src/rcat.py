@@ -38,6 +38,7 @@ class RCAT():
         
         self.pc = ProxyConnector(proxies, "ws://" + ip + ':' + port) # app server
         self.datacon = DataConnector("ChatManagerByID",self.pc.adm_id)
+        self.datacon.host = ip+":"+port
         if db:
             self.datacon.db = db(self.datacon)
         if mapper:
