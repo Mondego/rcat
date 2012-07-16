@@ -11,6 +11,8 @@ import MySQLdb as mdb
 import itertools
 import logging
 import time
+from threading import Timer
+
 
 obm = None
 conns = []
@@ -52,6 +54,7 @@ class MySQLConnector():
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
+        Timer(5.0, self.__dump_to_database__).start()
         
     def execute(self,cmd):
         cur = self.cur
@@ -70,7 +73,8 @@ class MySQLConnector():
         self.tables_meta[table] = {}
         self.tables_meta[table]["ridname"] = ridname
         
-        self.db_updates[table] = set()
+        self.db_updates[table] = {}
+        self.db_inserts[table] = {}
         if (cols):
             self.tables_meta[table]["columns"] = cols
         else:
@@ -121,30 +125,31 @@ class MySQLConnector():
     def __dump_to_database__(self):
         while(1):
             cur = self.cur
-            for table in self.tables_meta.items():
-                loc_update = deepcopy(self.db_updates[table])
-                self.db_updates[table].clear()
-                while loc_update:
-                    rid,row = loc_update.pop()
-                    try:
-                        mystr = ("UPDATE %s SET " % table)
-                        mystr += ','.join([' = '.join([`key`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
-                        mystr += " WHERE %s = '%s'" % (self.tables_meta[table]["ridname"], rid)
-                        logger.debug("[mysqlconn]: Dumping to database: " + mystr)
-                        cur.execute(mystr)
-                        cur.connection.commit()
-                    except mdb.cursors.Error, e:
-                        print e
-                # perform the inserts
-                loc_inserts = self.db_inserts[table]
-                self.db_inserts[table] = []
-                for mystr in loc_inserts:
-                    try:
-                        logger.debug("[mysqlconn]: Inserting new values to database: " + mystr)
-                        cur.execute(mystr)
-                        cur.connection.commit()
-                    except mdb.cursors.Error, e:
-                        print e
+            for table in self.tables_meta.keys():
+                if self.db_updates[table]:
+                    loc_update = deepcopy(self.db_updates[table])
+                    self.db_updates[table].clear()
+                    while loc_update:
+                        rid,row = loc_update.popitem()
+                        try:
+                            mystr = ("UPDATE %s SET " % table)
+                            mystr += ','.join([' = '.join([`key`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
+                            mystr += " WHERE %s = '%s'" % (self.tables_meta[table]["ridname"], rid)
+                            logger.debug("[mysqlconn]: Dumping to database: " + mystr)
+                            cur.execute(mystr)
+                            cur.connection.commit()
+                        except mdb.cursors.Error, e:
+                            print e
+                    # perform the inserts
+                    loc_inserts = self.db_inserts[table]
+                    self.db_inserts[table] = []
+                    for mystr in loc_inserts:
+                        try:
+                            logger.debug("[mysqlconn]: Inserting new values to database: " + mystr)
+                            cur.execute(mystr)
+                            cur.connection.commit()
+                        except mdb.cursors.Error, e:
+                            print e
 
             time.sleep(5)
     
@@ -156,7 +161,7 @@ class MySQLConnector():
         return self.retrieve_object_from_db(table, RID, names)
 
     def schedule_update(self,table,rid,data):
-        self.db_updates[table].add((rid,data))
+        self.db_updates[table][rid] = data
         return True
 
     """

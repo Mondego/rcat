@@ -11,7 +11,6 @@ import ConfigParser
 import uuid
 from random import randint
 import time
-from threading import Timer
 from rcat import RCAT
 
 global db
@@ -48,14 +47,13 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
         logging.debug("Jigsaw App Websocket Open")
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        datacon.db.execute("delete from jigsaw")
-        tables['game'] = datacon.db.retrieve_table_meta("jigsaw", "pid")
-        datacon.obm.register(rcat.pc.adm_id,"jigsaw")
-        Timer(5.0, datacon.db.__dump_to_database__).start()
-        location['game'] = {}
+        datacon.mapper.create_table("jigsaw","pid")
+
+        # TODO: DEBUG ONLY: Delete for deployment
+        if len(rcat.pc.admins) == 1:
+            logging.debug("[jigsawapp]: First server up, resetting table..")
+            datacon.db.execute("truncate jigsaw")
         
-        # DEBUG: Delete table at every start. Remove for deployment!
-        datacon.db.execute("delete from jigsaw")
 
     def on_message(self, message):
         try:
@@ -96,17 +94,16 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
-                    piece = datacon.db.select('jigsaw', pid)[0]
+                    piece = datacon.mapper.select(pid)
                     lockid = piece['l']
+                    x = m['pm']['x']
+                    y = m['pm']['y']
                     if not lockid: # lock the piece if nobody owns it
-                        datacon.db.update('jigsaw', [('l', userid)], pid)
+                        datacon.mapper.update(x,y,[('l',userid)],pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
                     if lockid == userid: # change location if I'm the owner
                         # update piece coords
-                        x = m['pm']['x']
-                        datacon.db.update('jigsaw', [('x', x)], pid)
-                        y = m['pm']['y']
-                        datacon.db.update('jigsaw', [('y', y)], pid)
+                        datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
                         # add lock owner to msg to broadcast
                         response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
                         # broadcast
@@ -114,23 +111,22 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
-                    piece = datacon.db.select('jigsaw', pid)[0]
+                    piece = datacon.mapper.select(pid)
                     lockid = piece['l']
+                    x = m['pd']['x']
+                    y = m['pd']['y']
                     if lockid and lockid == userid: # I was the owner
                         # unlock piece
-                        datacon.db.update('jigsaw', [('l', 0)], pid)
+                        datacon.mapper.update(x,y,[('l',None)],pid)
                         # update piece coords
-                        x = m['pd']['x']
-                        datacon.db.update('jigsaw', [('x', x)], pid)
-                        y = m['pd']['y']
-                        datacon.db.update('jigsaw', [('y', y)], pid)
+                        datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
     
                         # eventually bind piece 
                         bound = m['pd']['b']
                         if bound:
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
-                            datacon.db.update('jigsaw', [('b', 1)], pid)
+                            datacon.mapper.update(x,y, [('b', 1)], pid)
                         else:
                             logging.debug('%s dropped piece %s at %d,%d'
                                       % (userid, pid, x, y))
@@ -150,6 +146,7 @@ handlers = [
 class JigsawServer():
     def __init__(self):
         global settings
+        rcat.pc.set_admin_handler(self.admin_parser)
         config = helper.open_configuration('jigsawapp.cfg')
         settings = self.jigsaw_parser(config)
         helper.close_configuration('jigsawapp.cfg')
@@ -191,11 +188,27 @@ class JigsawServer():
                 img_url = newgame_settings["main"]["img_url"]
                 grid = newgame_settings["grid"]
                 datacon.mapper.join(newgame_settings)
+                if settings["main"]["start"] == "true":
+                    # Prepares the pieces in the database
+                    for r in range(grid['nrows']):
+                        for  c in range(grid['ncols']):
+                            pid = str(uuid.uuid4()) # piece id
+                            b = 0 # bound == correctly placed, can't be moved anymore
+                            l = None# lock = id of the player moving the piece
+                            x = randint(0, board['w'] / 2)
+                            y = randint(0, board['h'] / 2)
+                            # Remove h later on!
+                            values = [pid, b, x, y, c, r, l]
+                            
+                            datacon.mapper.insert(values, pid)
+                
 
     def start_game(self):
+        """
         global board
         global img_url
         global grid
+        
         
         board = settings["board"]
         img_url = settings["main"]["img_url"]
@@ -212,7 +225,8 @@ class JigsawServer():
                 # Remove h later on!
                 values = [pid, b, x, y, c, r, l]
                 
-                datacon.db.insert('jigsaw', values, pid)
+                datacon.mapper.insert(values, pid)
+        """
 
         # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
         mod_settings = deepcopy(settings)

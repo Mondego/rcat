@@ -80,6 +80,9 @@ class ProxyConnector():
         self.events = Event()
         self.client_location = {}
     
+    def set_admin_handler(self,admin_handler):
+        self.admin_hook = admin_handler
+    
     """
     Admin websocket events
     """

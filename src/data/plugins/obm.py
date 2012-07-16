@@ -103,7 +103,9 @@ class ObjectManager():
             if not self.tables[table]:
                 self.tables[table] = {}
             self.datacon.db.insert(table+"_obm",[rid,owner])
-            self.tables[table][rid] = values
+            self.tables[table][rid] = {}
+            for name,idx in self.columns[table].items():
+                self.tables[table][rid][name] = values[idx]
             self.location[table][rid] = owner
         except Exception, e:
             logger.exception("[obm]: Failed to set owner in database.")
@@ -131,6 +133,14 @@ class ObjectManager():
                 self.indexes[table][idx][value].append(rid)
             else:
                 self.indexes[table][idx][value] = [rid]
+        
+    def insert_remote(self,table,admid,values,rid):
+        remotehost = self.gethost(table,admid)
+        self.send_request_owner(remotehost, table, rid, "insert",values)
+        
+    def update_Remote(self,table,admid,tuples,rid):
+        remotehost = self.gethost(table,admid)
+        self.send_request_owner(remotehost, table, rid, "update",tuples)
             
     
     def select(self,table,rid):
@@ -168,7 +178,7 @@ class ObjectManager():
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
         return self.datacon.db.execute_one(cmd)
     
-    def update(self,table,rid,update_tuples):
+    def update(self,table,update_tuples,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
             self.location[table][rid] = self.getlocation(table,rid)
@@ -200,10 +210,10 @@ class ObjectManager():
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def send_request_owner(self,obj_location,table,RID,op,names=None,update_tuples=None):
+    def send_request_owner(self,obj_location,table,RID,op,data=None,names=None):
         host,port = obj_location.split(':')
         if op == "update":
-            cmd = "&op=update&tuples=" + urllib.quote(json.dumps(update_tuples))
+            cmd = "&op=update&tuples=" + urllib.quote(json.dumps(data))
         elif op == "select":
             cmd = "&op=select"
             if names:
@@ -213,7 +223,7 @@ class ObjectManager():
         conn = httplib.HTTPConnection(host,port)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
-        if update_tuples:
+        if data:
             if resp.status.startswith("200"):
                 if resp.read() == "OK":
                     return True

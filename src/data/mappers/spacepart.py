@@ -102,14 +102,46 @@ class SpacePartitioning():
     '''
     db = None
     mylocation = None
-    tables = None
     location = None
+    datacon = None
+    quadtree = None
+    table = None
     
     def __init__(self,datacon):
         self.db = datacon.db
         self.myid = datacon.myid
         self.tables = {}
         self.location = {}
+        self.datacon = datacon
+        
+    def create_table(self,table,ridname):
+        self.datacon.obm.clear(table)
+        cmd = "create table if not exists " + table + "(mid mediumint not null auto_increment,uid varchar(255) not null,message varchar(255), primary key(mid))"
+        self.datacon.db.execute(cmd)
+        self.datacon.db.retrieve_table_meta(table,ridname)
+        self.ridname = ridname
+        self.table = table
+        
+        self.datacon.obm.register_node(self.datacon.myid,table,ridname)
+        #self.datacon.obm.create_index(table,"uid")
+        
+    def insert(self,values,pid):
+        owner = self.quadtree.find_owner((values[2],values[3]))
+        if owner == self.myid:
+            self.datacon.obm.insert(self.table,values,pid)
+        else:
+            self.datacon.obm.insert_remote(self.table,owner,values,pid)            
+    
+    def update(self,x,y,tuples,pid):
+        owner = self.quadtree.find_owner((x,y))
+        if owner == self.myid:
+            self.datacon.obm.update(self.table,tuples,pid)
+        else:
+            # Relocate client there? Depends on what?
+            self.datacon.obm.update_remote(self.table,owner,tuples,pid)
+    
+    def select(self,pid):
+        return self.datacon.obm.select(self.table,pid)
         
     def join(self,settings):
         global m_boardx
@@ -131,15 +163,15 @@ class SpacePartitioning():
         for _ in range(0,m_boardh/bucket_size):
             client_mapper.append(deepcopy(line))
             
+        # Build data structure to lookup server responsible for each area. Using Quadtree for now
         adms = set(settings["ADMS"])
-        print adms
         first = adms.pop()
         quadtree = Node((m_boardw/2,m_boardh/2),first)
         for adm in adms:
             print "Inserting in quadtree..."
             quadtree.FindAndInsert(adm)
 
-        # Build data structure to lookup server responsible for each area. Using Quadtree for now
+        self.quadtree = quadtree
         
     # Return range
     def __rr__(self,x,y,width,height):
