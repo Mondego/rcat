@@ -47,13 +47,13 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
         logging.debug("Jigsaw App Websocket Open")
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        datacon.mapper.create_table("jigsaw","pid")
-
         # TODO: DEBUG ONLY: Delete for deployment
         if len(rcat.pc.admins) == 1:
+            datacon.mapper.create_table("jigsaw","pid",True)
             logging.debug("[jigsawapp]: First server up, resetting table..")
             datacon.db.execute("truncate jigsaw")
-        
+        else:
+            datacon.mapper.create_table("jigsaw","pid")
 
     def on_message(self, message):
         try:

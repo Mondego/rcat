@@ -66,35 +66,38 @@ class Node():
                 return
 
     def find_owner(self,point):
-        if self.adm:
-            return self.adm
-        
-        if (point[0] <= self.split[0] and point[1] >= self.split[0]):
-            if self.tl:
-                return self.tl.find_owner(point)
-        elif (point[0] >= self.split[0] and point[1] >= self.split[0]):
-            if self.tr:
-                return self.tl.find_owner(point)
-            else:
-                return self.tl.adm
-        elif (point[0] <= self.split[0] and point[1] <= self.split[0]):
-            if self.bl:
-                return self.bl.find_owner(point)
-            else:
+        try:
+            if self.adm:
+                return self.adm
+            
+            if (point[0] <= self.spl[0] and point[1] >= self.spl[0]):
+                if self.tl:
+                    return self.tl.find_owner(point)
+            elif (point[0] >= self.spl[0] and point[1] >= self.spl[0]):
                 if self.tr:
-                    return self.tr.adm
+                    return self.tl.find_owner(point)
                 else:
                     return self.tl.adm
-        elif (point[0] >= self.split[0] and point[1] <= self.split[0]):
-            if self.br:
-                return self.br.find_owner(point)
-            else:
+            elif (point[0] <= self.spl[0] and point[1] <= self.spl[0]):
                 if self.bl:
-                    return self.bl.adm
-                elif self.tr:
-                    return self.tr.adm
+                    return self.bl.find_owner(point)
                 else:
-                    return self.tl.adm
+                    if self.tr:
+                        return self.tr.adm
+                    else:
+                        return self.tl.adm
+            elif (point[0] >= self.spl[0] and point[1] <= self.spl[0]):
+                if self.br:
+                    return self.br.find_owner(point)
+                else:
+                    if self.bl:
+                        return self.bl.adm
+                    elif self.tr:
+                        return self.tr.adm
+                    else:
+                        return self.tl.adm
+        except Exception,e:
+            logging.exception("[spacepart]: Quadtree exception:")
 
 class SpacePartitioning():
     '''
@@ -114,8 +117,9 @@ class SpacePartitioning():
         self.location = {}
         self.datacon = datacon
         
-    def create_table(self,table,ridname):
-        self.datacon.obm.clear(table)
+    def create_table(self,table,ridname,clear=False):
+        if clear:
+            self.datacon.obm.clear("jigsaw")
         cmd = "create table if not exists " + table + "(mid mediumint not null auto_increment,uid varchar(255) not null,message varchar(255), primary key(mid))"
         self.datacon.db.execute(cmd)
         self.datacon.db.retrieve_table_meta(table,ridname)

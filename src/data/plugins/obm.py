@@ -176,7 +176,7 @@ class ObjectManager():
     
     def getlocation(self,table,rid):
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
-        return self.datacon.db.execute_one(cmd)
+        return self.datacon.db.execute_one(cmd)['host']
     
     def update(self,table,update_tuples,rid):
         # If I don't know where it is, find it in the database
@@ -211,6 +211,7 @@ class ObjectManager():
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
     def send_request_owner(self,obj_location,table,RID,op,data=None,names=None):
+        print "object location is: " + str(obj_location)
         host,port = obj_location.split(':')
         if op == "update":
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(data))
