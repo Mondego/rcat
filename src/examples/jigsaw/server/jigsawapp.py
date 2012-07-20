@@ -94,10 +94,11 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
-                    piece = datacon.mapper.select(pid)
-                    lockid = piece['l']
                     x = m['pm']['x']
                     y = m['pm']['y']
+                                        
+                    piece = datacon.mapper.select(x,y,pid)
+                    lockid = piece['l']
                     if not lockid: # lock the piece if nobody owns it
                         datacon.mapper.update(x,y,[('l',userid)],pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
@@ -111,10 +112,11 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
-                    piece = datacon.mapper.select(pid)
-                    lockid = piece['l']
                     x = m['pd']['x']
                     y = m['pd']['y']
+                                        
+                    piece = datacon.mapper.select(x,y,pid)
+                    lockid = piece['l']
                     if lockid and lockid == userid: # I was the owner
                         # unlock piece
                         datacon.mapper.update(x,y,[('l',None)],pid)

@@ -131,6 +131,7 @@ class SpacePartitioning():
         
     def insert(self,values,pid):
         owner = self.quadtree.find_owner((values[2],values[3]))
+        logging.debug("[spacepart]: Owner of " + str(values[2]) + ',' + str(values[3]) + " is " + owner)
         if owner == self.myid:
             self.datacon.obm.insert(self.table,values,pid)
         else:
@@ -138,14 +139,23 @@ class SpacePartitioning():
     
     def update(self,x,y,tuples,pid):
         owner = self.quadtree.find_owner((x,y))
+        logging.debug("[spacepart]: Owner of " + str(x) + ',' + str(y) + " is " + owner)
         if owner == self.myid:
+            logging.debug("[spacepart]: Owner is local " + owner)
             self.datacon.obm.update(self.table,tuples,pid)
         else:
-            # Relocate client there? Depends on what?
+            logging.debug("[spacepart]: Owner is remote " + owner)
             self.datacon.obm.update_remote(self.table,owner,tuples,pid)
     
-    def select(self,pid):
-        return self.datacon.obm.select(self.table,pid)
+    def select(self,x,y,pid):
+        owner = self.quadtree.find_owner((x,y))
+        logging.debug("[spacepart]: Owner of " + str(x) + ',' + str(y) + " is " + owner)
+        if owner == self.myid:
+            resp = self.datacon.obm.select(self.table,pid)
+        else:
+            resp = self.datacon.obm.select_remote(self.table,owner,pid)
+        return resp
+            
         
     def join(self,settings):
         global m_boardx

@@ -133,8 +133,8 @@ class MySQLConnector():
                         rid,row = loc_update.popitem()
                         try:
                             mystr = ("UPDATE %s SET " % table)
-                            mystr += ','.join([' = '.join([`key`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
-                            mystr += " WHERE %s = '%s'" % (self.tables_meta[table]["ridname"], rid)
+                            mystr += ','.join([' = '.join([`str(key)`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
+                            mystr += " WHERE %s = '%s'" % (str(self.tables_meta[table]["ridname"]), rid)
                             logger.debug("[mysqlconn]: Dumping to database: " + mystr)
                             cur.execute(mystr)
                             cur.connection.commit()

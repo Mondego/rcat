@@ -28,7 +28,7 @@ class ProxyConnector():
     adm_id = None
 
     def __init__(self,proxyURLs,appURL):
-        websocket.enableTrace(True)
+        websocket.enableTrace(False)
         self.admin_proxy = {}
         self.proxies = set()
         self.admins = set()
@@ -107,7 +107,7 @@ class ProxyConnector():
         logger.debug("List of users: " + str(self.client_location))
     
     def Admin_on_error(self,ws, error):
-        logger.debug(error)
+        raise
     
     def Admin_on_close(self,ws):
         logger.debug("### Admin closed ###")

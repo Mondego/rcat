@@ -13,25 +13,28 @@ obm = None
 logger = logging.getLogger()
 
 class OBMHandler(tornado.web.RequestHandler):
-    def initialize(self, datacon):
+    def initialize(self):
         global pubsubs
         pubsubs = {}
     
     def get(self):
-        # Constraint! RID is always an INT
-        rid = int(self.get_argument("rid",None))
+        rid = self.get_argument("rid",None)
         tbl = self.get_argument("tbl",None)
         op = self.get_argument("op",None)
         if op == "update":
             tuples = json.loads(self.get_argument("tuples"),None)
             obm.update(tbl,tuples,rid)
             self.write("OK")
+        elif op == "insert":
+            values = json.loads(self.get_argument("values"),None)
+            res = obm.insert(tbl,values,rid)
+            if res:
+                self.write("OK")
         elif op == "select":
-            jnames = None
-            names = self.get_argument("names",None)
-            if names:
-                jnames = json.loads(names)
-            obj = obm.select(tbl,rid,jnames)
+            #names = self.get_argument("names",None)
+            #if names:
+            #    jnames = json.loads(names)
+            obj = obm.select(tbl,rid)
             jsonmsg = json.dumps(obj)
             self.write(jsonmsg)
         elif op == "relocate":
@@ -60,7 +63,7 @@ class ObjectManager():
     
     def __init__(self,datacon,rid_type=None):
         global obm
-        self.obm = self
+        obm = self
         self.myid = datacon.myid
         self.myhost = datacon.host
         self.datacon = datacon
@@ -78,6 +81,9 @@ class ObjectManager():
         self.datacon.db.execute(cmd)
         cmd = "insert into " + table + "_reg values('" + adm + "','" + self.datacon.host + "')"
         self.datacon.db.execute(cmd)
+        self.datacon.db.retrieve_table_meta(table+"_obm", "rid")
+        self.datacon.db.retrieve_table_meta(table+"_reg", "admid")
+        
         self.tables[table] = {}
         self.location[table] = {}
         self.ridnames[table] = ridname
@@ -94,23 +100,35 @@ class ObjectManager():
     def create_index(self,table,idxname):
         self.indexes[table][idxname] = {}
             
-    def setowner(self,table,rid,values,owner=None):
+    def setowner(self,table,rid,values=None,owner=None,insert=None):
         if not owner:
             owner = self.myhost
-        else:
-            owner = self.gethost(table,owner)
+#        else:
+#            owner = self.gethost(table,owner)
         try:
             if not self.tables[table]:
                 self.tables[table] = {}
-            self.datacon.db.insert(table+"_obm",[rid,owner])
+            if not insert:
+                self.datacon.db.schedule_update(table+"_obm",rid,{'host':owner})
+                logging.info("[obm]: Scheduling an update for " + table + "_obm. New host for rid " + rid + ": " + owner)
+            else:
+                self.datacon.db.insert(table+"_obm",[rid,owner])
             self.tables[table][rid] = {}
-            for name,idx in self.columns[table].items():
-                self.tables[table][rid][name] = values[idx]
+            
+            if values:
+                if type(values) is dict:
+                    self.tables[table][rid] = values
+                else:
+                    for name,idx in self.columns[table].items():
+                        self.tables[table][rid][name] = values[idx]
             self.location[table][rid] = owner
         except Exception, e:
             logger.exception("[obm]: Failed to set owner in database.")
             return False
         
+    """
+    Local requests. When called, they will relocate objects locally if needed
+    """
     def insert(self,table,values,rid=None):
         if table in self.autoinc:
             values.insert(self.autoinc[table],'NULL')
@@ -124,7 +142,7 @@ class ObjectManager():
                 raise
             self.datacon.db.insert(table,values,False)
         
-        self.setowner(table,rid,values)
+        self.setowner(table,rid,values,None,True)
         
         # Updates secondary indexes
         for idx in self.indexes[table].keys():
@@ -133,31 +151,85 @@ class ObjectManager():
                 self.indexes[table][idx][value].append(rid)
             else:
                 self.indexes[table][idx][value] = [rid]
+        return True
+
+    def update(self,table,update_tuples,rid):
+        # If I don't know where it is, find it in the database
+        if rid not in self.location[table]:
+            self.location[table][rid] = self.getlocation(table,rid)
         
-    def insert_remote(self,table,admid,values,rid):
-        remotehost = self.gethost(table,admid)
-        self.send_request_owner(remotehost, table, rid, "insert",values)
-        
-    def update_Remote(self,table,admid,tuples,rid):
-        remotehost = self.gethost(table,admid)
-        self.send_request_owner(remotehost, table, rid, "update",tuples)
+        if not self.location[table][rid] == self.myhost:
+            # If I don't own it, but I should! Request relocation
+            result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
+            self.location[table][rid] = self.myhost
+            self.tables[table][rid] = result
+            return self.tables[table][rid]
             
+        # If I own it but I don't have it in memory, fetch from database
+        if not rid in self.tables[table]:
+            cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
+            # TODO: This will only return one result in every select! 
+            self.tables[table][rid] = self.datacon.db.execute_one(cmd)
+        
+        for item in update_tuples:
+            self.tables[table][rid][item[0]] = item[1]
+        
+        # Schedules update to be persisted.
+        self.datacon.db.schedule_update(table,rid,self.tables[table][rid])
+        
+        return self.tables[table][rid]
     
     def select(self,table,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
             self.location[table][rid] = self.getlocation(table,rid)
         
-        if self.location[table][rid] == self.myhost:
+        if not self.location[table][rid] == self.myhost:
+            # If I don't own it, but I should! Request relocation
+            result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
+            self.location[table][rid] = self.myhost
+            self.tables[table][rid] = json.loads(result)
+        else:
             # If I own it but I don't have it in memory, fetch from database
             if not rid in self.tables[table]:
                 cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
                 # TODO: This will only return one result in every select! 
                 self.tables[table][rid] = self.datacon.db.execute_one(cmd)
-            return self.tables[table][rid]
-        else:
-            # If I don't own it, ask the owner to select for me
-            self.send_request_owner(self.location[table][rid],table,rid,"select")
+
+        return self.tables[table][rid]
+
+    """
+    Remote requests
+    """
+        
+    def insert_remote(self,table,admid,values,rid):
+        remotehost = self.gethost(table,admid)
+        self.location[table][rid] = remotehost
+        self.send_request_owner(remotehost, table, rid, "insert",values)
+        logging.debug("[obm]: Inserting remotely at " + remotehost + " the values: " + str(values))
+        
+    def update_remote(self,table,admid,tuples,rid):
+        remotehost = self.gethost(table,admid)
+        if rid not in self.location[table]:
+            self.location[table][rid] = self.getlocation(table,rid)
+        if self.location[table][rid] == self.myhost:
+            self.setowner(table,rid,None,remotehost)
+        
+        self.location[table][rid] = remotehost
+        self.send_request_owner(remotehost, table, rid, "update",tuples)
+        logging.debug("[obm]: Remote update request.")
+            
+    def select_remote(self,table,admid,rid):
+        remotehost = self.gethost(table,admid)
+        if rid not in self.location[table]:
+            self.location[table][rid] = self.getlocation(table,rid)
+        if self.location[table][rid] == self.myhost:
+            self.setowner(table,rid,None,remotehost)
+            
+        resp = self.send_request_owner(remotehost,table,rid,"select")
+        logging.debug("[obm]: Response from select: " + str(resp))
+        self.tables[table][rid] = json.loads(resp)  
+        return self.tables[table][rid]
             
     def select_diff_index(self,table,value,idxname):
         if idxname in self.indexes[table]:
@@ -172,32 +244,26 @@ class ObjectManager():
 
     def gethost(self,table,admid):
         cmd = "select host from " + table + "_reg where `admid` = '" + admid + "'"
-        return self.datacon.db.execute_one(cmd)
+        return self.datacon.db.execute_one(cmd)['host']
     
     def getlocation(self,table,rid):
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
         return self.datacon.db.execute_one(cmd)['host']
     
-    def update(self,table,update_tuples,rid):
-        # If I don't know where it is, find it in the database
-        if rid not in self.location[table]:
+    def relocate(self,table,rid,newowner):
+        if not rid in self.location[table]:
             self.location[table][rid] = self.getlocation(table,rid)
-        
-        if self.location[table][rid] == self.myhost:
-            # If I own it but I don't have it in memory, fetch from database
+        if self.location[table][rid] != self.myhost:
+            logger.error("[obm]: Object is not here, sorry!")
+            return False
+        else:
             if not rid in self.tables[table]:
                 cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
                 # TODO: This will only return one result in every select! 
                 self.tables[table][rid] = self.datacon.db.execute_one(cmd)
-            for item in update_tuples:
-                self.tables[table][rid][item[0]] = item[1]
-            # Schedules update to be persisted.
-            self.datacon.db.schedule_update(table,rid,self.tables[table][rid])
+            self.setowner(table,rid,self.tables[table][rid],newowner)
             return self.tables[table][rid]
-        else:
-            # If I don't own it, ask the owner to select for me
-            self.send_request_owner(self.location[table][rid],table,rid,"select")
-        
+                
     """
     request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
     the client is currently making requests to.
@@ -221,17 +287,13 @@ class ObjectManager():
                 cmd += "&names=" + urllib.quote(json.dumps(names))
         elif op == "relocate":
             cmd = "&op=relocate&no=" + self.myhost
+        elif op == "insert":
+            cmd = "&op=insert&values=" + urllib.quote(json.dumps(data))
         conn = httplib.HTTPConnection(host,port)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
-        if data:
-            if resp.status.startswith("200"):
-                if resp.read() == "OK":
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        else:
+        if resp.status == 200:
             result = resp.read()
             return result
+        else:
+            logging.error("[obm]: Received a bad status from HTTP.")
