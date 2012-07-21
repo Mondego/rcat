@@ -126,6 +126,14 @@ class ObjectManager():
         self.datacon.db.execute(cmd)
         return True
     
+    def find_all(self,table):
+        # TODO: There is still possible inconsistency, current frustrum must be subscribing to updates
+        # maybe also we need timestamps..
+        pieces = {}
+        cmd = "select * from " + table + "_obm"
+        result = self.datacon.db.execute(cmd)
+        return result
+        
     def create_index(self,table,idxname):
         self.indexes[table][idxname] = {}
             

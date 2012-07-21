@@ -100,9 +100,6 @@ class Node():
             logging.exception("[spacepart]: Quadtree exception:")
 
 class SpacePartitioning():
-    '''
-    classdocs
-    '''
     db = None
     mylocation = None
     location = None
@@ -146,6 +143,18 @@ class SpacePartitioning():
             self.datacon.obm.update(self.table,tuples,pid)
         else:
             self.datacon.obm.update_remote(self.table,owner,tuples,pid)
+    
+    def select_all(self):
+        pieces = {}
+        objs = self.datacon.obm.find_all(self.table)
+        # Returns pairs of rid,host
+        for item in objs:
+            piece = self.datacon.obm.select(self.table,item["rid"])
+            pieces[item["rid"]] = piece
+        return pieces
+
+        for item in objs:
+            self.datacon.obm.select(self.table,item["pid"])
     
     def select(self,x,y,pid):
         owner = self.quadtree.find_owner((x,y))

@@ -53,7 +53,7 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         pchandler = self
         logging.debug("Jigsaw App Websocket Open")
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        # TODO: DEBUG ONLY: Delete for deployment
+        # DEBUG ONLY: Delete for deployment
         if len(rcat.pc.admins) == 1:
             datacon.mapper.create_table("jigsaw","pid",True)
             logging.debug("[jigsawapp]: First server up, resetting table..")
@@ -89,10 +89,10 @@ class JigsawRequestParser(Thread):
                 userid = enc["NU"]
     
                 pieces = {}
-                dbresult = datacon.db.execute("select * from jigsaw")
-                for item in dbresult:
-                    pieces[item["pid"]] = item
-                    
+                #dbresult = datacon.db.execute("select * from jigsaw")
+                #for item in dbresult:
+                #    pieces[item["pid"]] = item
+                pieces = datacon.mapper.select_all()
                 
                 # send the board config
                 cfg = {'imgurl':img_url,
@@ -123,10 +123,11 @@ class JigsawRequestParser(Thread):
                     y = m['pm']['y']
                                         
                     piece = datacon.mapper.select(x,y,pid)
-                    # TODO: It should be always a piece, but for debugging, lets look at it
+
                     lockid = piece['l']
-                    if not lockid: # lock the piece if nobody owns it
-                        datacon.mapper.update(x,y,[('l',userid)],pid)
+                    if not lockid or lockid == "None": # lock the piece if nobody owns it
+                        lockid = userid
+                        datacon.mapper.update(x,y,[('l',lockid)],pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
                     if lockid == userid: # change location if I'm the owner
                         # update piece coords
@@ -137,7 +138,7 @@ class JigsawRequestParser(Thread):
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
                     else:
-                        logging.debug("[jigsawapp]: Weird value for lockid: " + lockid)
+                        logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
@@ -145,7 +146,7 @@ class JigsawRequestParser(Thread):
                     y = m['pd']['y']
                                         
                     piece = datacon.mapper.select(x,y,pid)
-                    # TODO: It should be always a piece, but for debugging, lets look at it
+
                     if not 'l' in piece:
                         logging.warning("[jigsawapp]: Got something weird: " + str(piece))
                         return
