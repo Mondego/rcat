@@ -250,6 +250,22 @@ class ObjectManager():
 
         return self.tables[table][rid]
         
+    def delete(self,table,rid):
+        # If I don't know where it is, find it in the database
+        if rid not in self.location[table]:
+            self.location[table][rid] = self.getlocation(table,rid)
+        
+        if not self.location[table][rid] == self.myhost:
+            self.location[table][rid] = self.getlocation(table,rid)
+            if not self.location[table][rid] == self.myhost:
+                return "Failed"
+            else:
+                self.datacon.db.delete(table,rid)
+                del self.location[table][rid]
+                if rid in self.tables[table]:
+                    del self.tables[table][rid]
+                return True
+        
     """
     Remote requests
     """

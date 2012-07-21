@@ -159,6 +159,17 @@ class MySQLConnector():
     """
     def select(self, table, RID, names=None):
         return self.retrieve_object_from_db(table, RID, names)
+    
+    def delete(self,table,RID):
+        cur = self.cur
+        try:
+            mystr = "DELETE from %s WHERE `%s` = '%s'" % (table,self.tables_meta[table]["ridname"],RID)
+            cur.execute(mystr)
+            cur.connection.commit()
+            return True
+        except mdb.cursors.Error,e:
+            logger.error(e)
+            return False
 
     def schedule_update(self,table,rid,data):
         logger.debug("[mysqlconn]: Scheduling an update for " + table + ". Data is :" + str(data))
