@@ -123,6 +123,7 @@ class JigsawRequestParser(Thread):
                     y = m['pm']['y']
                                         
                     piece = datacon.mapper.select(x,y,pid)
+                    # TODO: It should be always a piece, but for debugging, lets look at it
                     lockid = piece['l']
                     if not lockid: # lock the piece if nobody owns it
                         datacon.mapper.update(x,y,[('l',userid)],pid)
@@ -135,6 +136,8 @@ class JigsawRequestParser(Thread):
                         # broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
+                    else:
+                        logging.debug("[jigsawapp]: Weird value for lockid: " + lockid)
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
@@ -142,6 +145,10 @@ class JigsawRequestParser(Thread):
                     y = m['pd']['y']
                                         
                     piece = datacon.mapper.select(x,y,pid)
+                    # TODO: It should be always a piece, but for debugging, lets look at it
+                    if not 'l' in piece:
+                        logging.warning("[jigsawapp]: Got something weird: " + str(piece))
+                        return
                     lockid = piece['l']
                     if lockid and lockid == userid: # I was the owner
                         # unlock piece

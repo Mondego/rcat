@@ -161,6 +161,7 @@ class MySQLConnector():
         return self.retrieve_object_from_db(table, RID, names)
 
     def schedule_update(self,table,rid,data):
+        logger.debug("[mysqlconn]: Scheduling an update for " + table + ". Data is :" + str(data))
         self.db_updates[table][rid] = data
         return True
 

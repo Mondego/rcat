@@ -46,6 +46,8 @@ class OBMParser(Thread):
             res = obm.insert(tbl,values,rid)
             if res:
                 IOLoop.instance().add_callback(self.reply("OK"))
+            else:
+                IOLoop.instance().add_callback(self.reply("FAIL"))
         elif op == "select":
             #names = self.get_argument("names",None)
             #if names:
@@ -70,6 +72,7 @@ class OBMParser(Thread):
         def _write():
             self.handler.write(message)
             self.handler.flush()
+            self.handler.finish()
         return _write
     
     def on_complete_all(self):
@@ -136,7 +139,6 @@ class ObjectManager():
                 self.tables[table] = {}
             if not insert:
                 self.datacon.db.schedule_update(table+"_obm",rid,{'host':owner})
-                logging.info("[obm]: Scheduling an update for " + table + "_obm. New host for rid " + rid + ": " + owner)
             else:
                 self.datacon.db.insert(table+"_obm",[rid,owner])
             self.tables[table][rid] = {}
@@ -186,10 +188,18 @@ class ObjectManager():
         
         if not self.location[table][rid] == self.myhost:
             # If I don't own it, but I should! Request relocation
-            result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
+            result = "Failed"
+            while (result == "Failed"):
+                self.location[table][rid] = self.getlocation(table,rid)
+                if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
+                    break
+                else:
+                    result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
             self.location[table][rid] = self.myhost
-            self.tables[table][rid] = result
-            return self.tables[table][rid]
+            
+            if result != "Failed":
+                # We got a reply! Lets decode it
+                self.tables[table][rid] = json.loads(result)
             
         # If I own it but I don't have it in memory, fetch from database
         if not rid in self.tables[table]:
@@ -212,18 +222,26 @@ class ObjectManager():
         
         if not self.location[table][rid] == self.myhost:
             # If I don't own it, but I should! Request relocation
-            result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
-            self.location[table][rid] = self.myhost
-            self.tables[table][rid] = json.loads(result)
-        else:
-            # If I own it but I don't have it in memory, fetch from database
-            if not rid in self.tables[table]:
-                cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
-                # TODO: This will only return one result in every select! 
-                self.tables[table][rid] = self.datacon.db.execute_one(cmd)
+            result = "Failed"
+            while (result == "Failed"):
+                self.location[table][rid] = self.getlocation(table,rid)
+                if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
+                    break
+                else:
+                    result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
+            self.location[table][rid] = self.myhost            
+            if result != "Failed":
+                # We got a reply! Lets decode it 
+                self.tables[table][rid] = json.loads(result)
+    
+        # If I own it but I don't have it in memory, fetch from database
+        if not rid in self.tables[table] or not self.tables[table][rid]:
+            cmd = "select * from " + table + " where `" + str(self.ridnames[table]) + "` = '" + rid + "'"
+            # TODO: This will only return one result in every select! 
+            self.tables[table][rid] = self.datacon.db.execute_one(cmd)
 
         return self.tables[table][rid]
-
+        
     """
     Remote requests
     """
@@ -280,14 +298,20 @@ class ObjectManager():
         if not rid in self.location[table]:
             self.location[table][rid] = self.getlocation(table,rid)
         if self.location[table][rid] != self.myhost:
-            logger.error("[obm]: Object is not here, sorry!")
-            return False
+            self.location[table][rid] = self.getlocation(table,rid)
+            # Update location just in case
+            if self.location[table][rid] != self.myhost:
+                logger.info("[obm]: Object is not here, sorry!")
+                return "Failed"
         else:
             if not rid in self.tables[table]:
                 cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
                 # TODO: This will only return one result in every select! 
                 self.tables[table][rid] = self.datacon.db.execute_one(cmd)
+            if not self.tables[table][rid]:
+                logging.warning("[obm/relocate]: Could not retrieve data")
             self.setowner(table,rid,self.tables[table][rid],newowner)
+
             return self.tables[table][rid]
                 
     """
@@ -303,7 +327,6 @@ class ObjectManager():
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
     def send_request_owner(self,obj_location,table,RID,op,data=None,names=None):
-        print "object location is: " + str(obj_location)
         host,port = obj_location.split(':')
         if op == "update":
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(data))
@@ -315,7 +338,8 @@ class ObjectManager():
             cmd = "&op=relocate&no=" + self.myhost
         elif op == "insert":
             cmd = "&op=insert&values=" + urllib.quote(json.dumps(data))
-        conn = httplib.HTTPConnection(host,port)
+        # TODO: catch exception on timeout
+        conn = httplib.HTTPConnection(host,port,timeout=4)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
         if resp.status == 200:
