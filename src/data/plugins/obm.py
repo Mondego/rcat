@@ -8,47 +8,73 @@ import tornado.web
 import urllib
 import httplib
 import logging
+from threading import Thread
+from tornado.ioloop import IOLoop
+from multiprocessing.pool import ThreadPool
+from tornado.web import asynchronous
 
 obm = None
 logger = logging.getLogger()
 
 class OBMHandler(tornado.web.RequestHandler):
+    
     def initialize(self):
         global pubsubs
         pubsubs = {}
-    
+        
+    @asynchronous
     def get(self):
-        rid = self.get_argument("rid",None)
-        tbl = self.get_argument("tbl",None)
-        op = self.get_argument("op",None)
+        # TODO: Worker threads to save hassle of starting threads
+        OBMParser(self).start()
+        
+
+class OBMParser(Thread):
+    def __init__(self,handler):
+        Thread.__init__(self)
+        self.handler = handler
+                
+    def run(self):
+        rid = self.handler.get_argument("rid",None)
+        tbl = self.handler.get_argument("tbl",None)
+        op = self.handler.get_argument("op",None)
         if op == "update":
-            tuples = json.loads(self.get_argument("tuples"),None)
+            tuples = json.loads(self.handler.get_argument("tuples"),None)
             obm.update(tbl,tuples,rid)
-            self.write("OK")
+            IOLoop.instance().add_callback(self.reply("OK"))
         elif op == "insert":
-            values = json.loads(self.get_argument("values"),None)
+            values = json.loads(self.handler.get_argument("values"),None)
             res = obm.insert(tbl,values,rid)
             if res:
-                self.write("OK")
+                IOLoop.instance().add_callback(self.reply("OK"))
         elif op == "select":
             #names = self.get_argument("names",None)
             #if names:
             #    jnames = json.loads(names)
             obj = obm.select(tbl,rid)
             jsonmsg = json.dumps(obj)
-            self.write(jsonmsg)
+            IOLoop.instance().add_callback(self.reply(jsonmsg))
         elif op == "relocate":
-            newowner = self.get_argument("no",None)
+            newowner = self.handler.get_argument("no",None)
             obj = obm.relocate(tbl,rid,newowner)
             jsonmsg = json.dumps(obj)
-            self.write(jsonmsg)
+            IOLoop.instance().add_callback(self.reply(jsonmsg))
         elif op == "subscribe":
-            ip =  self.request.remote_ip
-            port = self.get_argument("port",None)
-            interests = json.loads(self.get_argument("interests",None))
+            ip =  self.handler.request.remote_ip
+            port = self.handler.get_argument("port",None)
+            interests = json.loads(self.handler.get_argument("interests",None))
             loc = (ip,port)
             if pubsubs:
                 pubsubs[tbl].add_subscriber(loc,interests) 
+    
+    def reply(self,message):
+        def _write():
+            self.handler.write(message)
+            self.handler.flush()
+        return _write
+    
+    def on_complete_all(self):
+        self.handler.finish()
+        
             
 class ObjectManager():
     datacon = None

@@ -1,6 +1,7 @@
 import random
 from copy import deepcopy
 from tornado import websocket
+from tornado.ioloop import IOLoop
 import logging.config
 import json
 import common.helper as helper
@@ -12,6 +13,8 @@ import uuid
 from random import randint
 import time
 from rcat import RCAT
+from threading import Thread
+import threading
 
 global db
 global pc
@@ -25,6 +28,7 @@ datacon = None
 rcat = None
 tables = {}
 location = {}
+pchandler = None
 
 img_url = ''
 board = {}
@@ -45,6 +49,8 @@ clients = {}
 
 class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
+        global pchandler
+        pchandler = self
         logging.debug("Jigsaw App Websocket Open")
         datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
         # TODO: DEBUG ONLY: Delete for deployment
@@ -56,8 +62,26 @@ class JigsawServerHandler(websocket.WebSocketHandler):
             datacon.mapper.create_table("jigsaw","pid")
 
     def on_message(self, message):
+        JigsawRequestParser(self,message).start()
+
+    def on_close(self):
+        logging.debug("App WebSocket closed")
+
+handlers = [
+    (r"/", JigsawServerHandler)
+]
+
+class JigsawRequestParser(Thread):
+    def __init__(self,handler,message):
+        Thread.__init__(self)
+        self.handler = handler
+        self.sched = IOLoop.instance().add_callback
+        self.message = message
+        self.evt = None
+    
+    def run(self):
         try:
-            enc = json.loads(message)
+            enc = json.loads(self.message)
     
             # send the config when the user joins
             if "NU" in enc:
@@ -79,7 +103,8 @@ class JigsawServerHandler(websocket.WebSocketHandler):
                        'myid': userid
                        }
                 response = {'M': {'c': cfg}, 'U': userid}
-                self.write_message(json.dumps(response))
+                jsonmsg = json.dumps(response)
+                self.handler.write_message(jsonmsg)
     
             else:
                 # usual message
@@ -108,7 +133,8 @@ class JigsawServerHandler(websocket.WebSocketHandler):
                         # add lock owner to msg to broadcast
                         response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
                         # broadcast
-                        self.write_message(json.dumps(response))
+                        jsonmsg = json.dumps(response)
+                        self.handler.write_message(jsonmsg)
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
@@ -134,16 +160,13 @@ class JigsawServerHandler(websocket.WebSocketHandler):
                                       % (userid, pid, x, y))
                         # add lock owner to msg to broadcast
                         response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
-                        self.write_message(json.dumps(response))
+                        jsonmsg = json.dumps(response)
+                        self.handler.write_message(jsonmsg)
+                
         except Exception, err:
             logging.exception("[jigsawapp]: Exception in message handling from client:")
-
-    def on_close(self):
-        logging.debug("App WebSocket closed")
-
-handlers = [
-    (r"/", JigsawServerHandler)
-]
+            
+        
 
 class JigsawServer():
     def __init__(self):
