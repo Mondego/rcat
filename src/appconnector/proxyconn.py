@@ -18,12 +18,13 @@ logger = logging.getLogger()
 class ProxyConnector():
     # admin_hook: Used for applications and data connectors to access proxies
     admin_hook = None
-    appWS = None
+    app = None
     proxies = None
     admins = None
     events = None
     manager = None
-    client_location = None
+    client_proxy = None
+    client_admin = None
     admin_proxy = None
     adm_id = None
 
@@ -63,7 +64,7 @@ class ProxyConnector():
             aws.start()
             logger.debug("[ProxyConnector]: Admin Connected!")
         
-        self.appWS = websocket.WebSocketApp(appURL,
+        self.app = websocket.WebSocketApp(appURL,
                                     on_open = self.App_on_open,
                                     on_message = self.App_on_message,
                                     on_error = self.App_on_error,
@@ -71,17 +72,25 @@ class ProxyConnector():
         # TODO: Fix this sleep, looks so bad :(
         time.sleep(1)
         logger.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
-        t = Thread(target=self.appWS.run_forever)
+        t = Thread(target=self.app.run_forever)
         t.daemon = True
         t.start()
         logger.debug("[ProxyConnector]: App Server Connected!")
         
         self.manager = RMUVE_Manager()
         self.events = Event()
-        self.client_location = {}
+        self.client_proxy = {}
+        self.client_admin = {}
     
     def set_admin_handler(self,admin_handler):
         self.admin_hook = admin_handler
+        
+    def move_user(self,user,newserver):
+        msg = {"MU":{"NS":newserver,"U":user}}
+        jsonmsg = json.dumps(msg)
+        self.client_admin[user].send(jsonmsg)
+        logger.debug("[proxyconn]: Moving user " + user + " to admin server id " + newserver)
+        
     
     """
     Admin websocket events
@@ -93,18 +102,23 @@ class ProxyConnector():
         # New user
         if "NU" in msg:
             for user in msg["NU"]:
-                self.client_location[user] = self.admin_proxy[ws]
-                self.appWS.send(message)
+                self.client_proxy[user] = self.admin_proxy[ws]
+                self.client_admin[user] = ws
+                self.app.send(message)
         # User disconnected
         elif "UD" in msg:
-            if msg["UD"] in self.client_location:
-                del self.client_location[msg["UD"]]
+            if msg["UD"] in self.client_proxy:
+                del self.client_proxy[msg["UD"]]
+            if msg["UD"] in self.client_admin:
+                del self.client_admin[msg["UD"]]
         elif "NS" in msg:
             self.admins.update(set(msg["NS"]))
+        elif "Failed" in msg:
+            logger.error("[proxyconn]: Admin request failed! Request was " + str(msg["Failed"]))
         elif self.admin_hook:
             self.admin_hook(msg)
                 
-        logger.debug("List of users: " + str(self.client_location))
+        logger.debug("List of users: " + str(self.client_proxy))
     
     def Admin_on_error(self,ws, error):
         raise
@@ -118,7 +132,10 @@ class ProxyConnector():
         msg = {}
         msg["REG"] = self.adm_id
         json_msg = json.dumps(msg)
+        # Register admid with the Proxy's admin channel
         ws.send(json_msg)
+        # Register admid with the Proxy message channel
+        self.admin_proxy[ws].send(json_msg)
     
     """
     App websocket events
@@ -130,7 +147,7 @@ class ProxyConnector():
         if "U" in msg:
             for client in msg["U"]:
                 logger.debug("Sending message " + message + " to client " + client)
-                self.client_location[client].send(message)
+                self.client_proxy[client].send(message)
         else:
             for proxy in self.proxies:
                 proxy.send(message)
@@ -152,7 +169,7 @@ class ProxyConnector():
         TODO: Assuming websocket only for now. The proxy should inform the type of data it received from the client in
         in the message
         """
-        self.appWS.send(message)
+        self.app.send(message)
     
     def Proxy_on_error(self,ws, error):
         logger.debug(error)

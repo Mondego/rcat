@@ -131,7 +131,9 @@ class JigsawRequestParser(Thread):
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
                     if lockid == userid: # change location if I'm the owner
                         # update piece coords
-                        datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
+                        loc = datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
+                        if loc != "LOCAL":
+                            rcat.pc.move_user(userid,loc)
                         # add lock owner to msg to broadcast
                         response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
                         # broadcast

@@ -275,6 +275,7 @@ class ObjectManager():
         self.location[table][rid] = remotehost
         self.send_request_owner(remotehost, table, rid, "insert",values)
         logging.debug("[obm]: Inserting remotely at " + remotehost + " the values: " + str(values))
+        return True
         
     def update_remote(self,table,admid,tuples,rid):
         remotehost = self.gethost(table,admid)

@@ -141,8 +141,10 @@ class SpacePartitioning():
         owner = self.quadtree.find_owner((x,y))
         if owner == self.myid:
             self.datacon.obm.update(self.table,tuples,pid)
+            return "LOCAL"
         else:
             self.datacon.obm.update_remote(self.table,owner,tuples,pid)
+            return owner
     
     def select_all(self):
         pieces = {}

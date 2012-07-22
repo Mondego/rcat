@@ -17,6 +17,7 @@ sticky_client = {}
 server_cycle = None
 server_ref = None
 proxyref = None
+admin_proxy = {}
 logger = logging.getLogger("proxy")
 
 class ServerHandler(tornado.websocket.WebSocketHandler):
@@ -35,6 +36,10 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
                 users = msg["U"]
                 logger.debug("Sending message " + str(msg["M"]) + " to users " + str(users))
                 proxyref.front.send_message_to_client(msg["M"], users)
+            # App connector is registering its admid with this connection
+            elif "REG" in msg:
+                admid = msg["REG"]
+                admin_proxy[admid] = self
             else:
                 proxyref.front.send_message_to_client(msg["M"])
         except Exception:
@@ -88,6 +93,16 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
                 jsonmsg = json.dumps(newmsg)
                 for adm in admins.values():
                     adm.write_message(jsonmsg)
+            # App Server requesting to move user
+            elif "MU" in msg:
+                ns = msg["MU"]["NS"]
+                user = str(msg["MU"]["U"])
+                newserver = admin_proxy[ns]
+                res = proxyref.front.move_client(user,newserver)
+                if not res:
+                    newmsg = {"Failed":msg}
+                    jsonmsg = json.dumps(newmsg) 
+                    self.write_message(jsonmsg)
 
             # Developer customized messages
             ### Broadcast messages to all admins

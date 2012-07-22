@@ -100,6 +100,14 @@ class ClientLayer(proxy.AbstractFront):
             del clients[client]
             remove_clients = []
     
+    def move_client(self,user,adm):
+        if user in clients:
+            clients[user].sticky_server = adm
+            return True
+        else:
+            logger.warning("[front]: User " + str(user) + " is not connected here. Aborting...")
+            return False
+    
     def authorize_client(self, authclient, cuuid):
         clients[authclient] = temp_users[cuuid]
         
