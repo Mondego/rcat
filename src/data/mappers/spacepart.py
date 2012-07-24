@@ -70,15 +70,15 @@ class Node():
             if self.adm:
                 return self.adm
             
-            if (point[0] <= self.spl[0] and point[1] >= self.spl[0]):
+            if (point[0] <= self.spl[0] and point[1] <= self.spl[1]):
                 if self.tl:
                     return self.tl.find_owner(point)
-            elif (point[0] >= self.spl[0] and point[1] >= self.spl[0]):
+            elif (point[0] >= self.spl[0] and point[1] <= self.spl[1]):
                 if self.tr:
-                    return self.tl.find_owner(point)
+                    return self.tr.find_owner(point)
                 else:
                     return self.tl.adm
-            elif (point[0] <= self.spl[0] and point[1] <= self.spl[0]):
+            elif (point[0] <= self.spl[0] and point[1] >= self.spl[1]):
                 if self.bl:
                     return self.bl.find_owner(point)
                 else:
@@ -86,7 +86,7 @@ class Node():
                         return self.tr.adm
                     else:
                         return self.tl.adm
-            elif (point[0] >= self.spl[0] and point[1] <= self.spl[0]):
+            elif (point[0] >= self.spl[0] and point[1] >= self.spl[1]):
                 if self.br:
                     return self.br.find_owner(point)
                 else:
@@ -139,6 +139,7 @@ class SpacePartitioning():
     
     def update(self,x,y,tuples,pid):
         owner = self.quadtree.find_owner((x,y))
+        self.position_object(x, y, pid)
         if owner == self.myid:
             self.datacon.obm.update(self.table,tuples,pid)
             return "LOCAL"
