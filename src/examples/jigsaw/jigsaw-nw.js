@@ -1,6 +1,6 @@
 // ----------------------- NETWORK --------------- 
 
-function Network() {
+function Network(h) {
 
   if (!window.WebSocket) {
     console.log('Websocket not supported.');
@@ -8,7 +8,8 @@ function Network() {
     return;
   }
 
-  var host = "ws://opensim.ics.uci.edu:8888/client";
+//  var host = "ws://opensim.ics.uci.edu:8888/client";
+  var host = h;
   var socket = new WebSocket(host);
   this.sendDelay = 100; // how often to send updates, in millis
 

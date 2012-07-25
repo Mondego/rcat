@@ -1,9 +1,27 @@
 // ------------------------- GLOBAL --------------------
 
+// ------------------------ BINDERS ----------------
+
+$('#disconnect').bind('click', function(e) {
+	//e.preventDefault();
+	$('#disconnect').hide();
+	$('#connect').show();
+	disconnect_server();
+});
+
+$('#connect').bind('click', function(e) {
+	//e.preventDefault();
+	$('#connect').hide();
+	$('#disconnect').show();
+	connect_server();
+});
+
 // start by downloading the large image to be sliced for the puzzle
 // TODO: async image loading instead
 var IMG = new Image();
+var BIMGLOADED = false
 IMG.onload = function() {
+  BIMGLOADED = true
   // console.log('image loaded');
   // TODO: time the image loading + async img load
 };
@@ -16,11 +34,15 @@ IMG.onload = function() {
 var model, view, nw;
 var canvas;
 
-window.onload = function() {
+function connect_server(){
+  var host = $('#serverUrl').val();
   canvas = document.getElementById("jigsaw");
   model = new Model();
   view = new View();
-  nw = new Network();
+  nw = new Network(host);
+}
+
+function disconnect_server(){
 }
 
 // ------------------------ MODEL --------------------------

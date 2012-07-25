@@ -278,11 +278,15 @@ function View() {
 
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
+    console.log(p);
     var grid = model.GRID;
     var pos = view.toScreenPos(p.x, p.y);
     var dims = view.toScreenDims(grid.cellw, grid.cellh);
     var dw = dims.w, dh = dims.h;
     ctx.save();
+    if (BIMGLOADED == false) {
+      setTimeout(drawPiece, 50);
+    }
     ctx.drawImage(IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
     // draw borders on top of pieces currently being dragged
     if (p.owner) { // piece is owned by another player
