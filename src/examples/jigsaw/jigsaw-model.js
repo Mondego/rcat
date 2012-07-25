@@ -19,10 +19,10 @@ $('#connect').bind('click', function(e) {
 // start by downloading the large image to be sliced for the puzzle
 // TODO: async image loading instead
 var IMG = new Image();
-var BIMGLOADED = false
+var IMGLOADED = false
 IMG.onload = function() {
-  BIMGLOADED = true
-  // console.log('image loaded');
+  IMGLOADED = true
+  console.log('image loaded');
   // TODO: time the image loading + async img load
 };
 // img.src = "img/BugsLife.jpg"; // 800 x 600

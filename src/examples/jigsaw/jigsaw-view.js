@@ -205,6 +205,12 @@ function View() {
   // background image
   var BGIMG = new Image();
   BGIMG.src = "img/wood004.jpg";
+
+  var BGIMGLOADED = false
+  BGIMG.onload = function() {
+    BGIMGLOADED = true
+    console.log('bgimage loaded');
+  };
   // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
   // wooden background from http://www.grsites.com/terms/
   // TODO: img.onload
@@ -278,15 +284,17 @@ function View() {
 
   // Draw a piece, whether loose or bound
   function drawPiece(p) {
-    console.log(p);
     var grid = model.GRID;
     var pos = view.toScreenPos(p.x, p.y);
     var dims = view.toScreenDims(grid.cellw, grid.cellh);
     var dw = dims.w, dh = dims.h;
     ctx.save();
-    if (BIMGLOADED == false) {
-      setTimeout(drawPiece, 50);
+    while (IMGLOADED == false || BGIMGLOADED == false) {
+      waiting = setTimeout(function() { drawPiece(p); }, 500);
+      console.log("Not loaded yet..");
+      return;
     }
+    clearTimeout(waiting);
     ctx.drawImage(IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
     // draw borders on top of pieces currently being dragged
     if (p.owner) { // piece is owned by another player
