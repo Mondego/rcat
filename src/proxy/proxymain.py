@@ -21,7 +21,7 @@ define("port", default=8888, help="run on the given port", type=int)
 
 if __name__ == "__main__":
     # Clients and servers connect to the Proxy through different URLs
-    logging.config.fileConfig("logging.conf")    
+    logging.config.fileConfig("proxy_logging.conf")    
     """ 
     TODO: As new options are available, parse them and standardize the options dictionary.
     Current options are:

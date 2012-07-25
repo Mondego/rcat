@@ -1,6 +1,7 @@
 import ConfigParser
 import argparse
 import os
+import time
 import sys
 import subprocess
 from tempfile import mkstemp
@@ -103,5 +104,20 @@ s = readlines(args['f'])
 configure_servers(s)
 listp = start_proxies(s)
 start_apps(s)
+
+def launch_proxies(servers):
+    for tuples in servers:
+        if tuples[1]:
+            print "Starting proxy in " + tuples[0]
+            cmd = "ssh " + tuples[0] + " \'screen -d -m ./rcat/test/runproxy.sh\'"
+            os.system(cmd)
+
+time.sleep(2)
+
+def launch_apps(servers):
+    pass
+
+launch_proxies(s)
+launch_apps(s)
 # Now setup config files for proxy and app! .......
 
