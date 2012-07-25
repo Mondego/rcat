@@ -11,6 +11,7 @@ RCAT_ROOT = "../../"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='config_hosts')
+parser.add_argument('-a', help='application to be deployed', default='jigsaw')
 
 args = vars(parser.parse_args()) # returns a namespace converted to a dict)
 
@@ -63,7 +64,7 @@ def start_proxies(servers):
     proxy_list = proxy_list.rstrip(',') + ']'
     print proxy_list
 
-    f = open("./configs/rcat_template.cfg")
+    f = open("./configs/rcat.cfg.temp")
     newf = open('/tmp/rcat.cfg','w')
 
     for line in f:
@@ -115,7 +116,13 @@ def launch_proxies(servers):
 time.sleep(2)
 
 def launch_apps(servers):
-    pass
+    appname = args['a']
+    for tuples in servers:
+        if tuples[2]:
+            print "Starting app in " + tuples[0]
+            os.system("ssh " + tuples[0] + " \'cp ~/rcat/test/deploy/configs/" + appname + ".cfg\'")       
+            cmd = "ssh " + tuples[0] + " \'screen -d -m ./rcat/test/run" + appname + ".sh\'"
+            os.system(cmd)
 
 launch_proxies(s)
 launch_apps(s)
