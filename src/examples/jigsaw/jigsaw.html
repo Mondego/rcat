@@ -9,7 +9,18 @@
 <script src="jigsaw-nw.js"></script>
 </head>
 
+
 <body>
-    <canvas id="jigsaw" width='800' height='600'></canvas>
+<div id="connectAndLogBoxes">
+	<div id="connectBox">
+		Server: <input id="serverUrl" value="ws://opensim.ics.uci.edu:8888/client"/>
+		<button id="connect">Connect</button>
+		<button id="disconnect" style="display:none">Disconnect</button>
+		<span id="numPlayersBox">0</span> players connected
+	</div>
+	<div id="jigsawLog"></div>
+</div>
+
+<canvas id="jigsaw" width='800' height='600'></canvas>
 </body>
 </html>
