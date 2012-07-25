@@ -182,9 +182,9 @@ class JigsawServer():
     def __init__(self):
         global settings
         rcat.pc.set_admin_handler(self.admin_parser)
-        config = helper.open_configuration('jigsawapp.cfg')
+        config = helper.open_configuration('jigsaw.cfg')
         settings = self.jigsaw_parser(config)
-        helper.close_configuration('jigsawapp.cfg')
+        helper.close_configuration('jigsaw.cfg')
         if settings["main"]["start"] == "true":
             self.start_game()
 
