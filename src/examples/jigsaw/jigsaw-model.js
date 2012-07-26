@@ -22,7 +22,7 @@ var IMG = new Image();
 var IMGLOADED = false
 IMG.onload = function() {
   IMGLOADED = true
-  console.log('image loaded');
+  console.log('Image loaded');
   // TODO: time the image loading + async img load
 };
 // img.src = "img/BugsLife.jpg"; // 800 x 600
@@ -131,7 +131,12 @@ function Model() {
   // Init board, grid, and frustum from server config.
   // Also create the pieces from server data.
   this.startGame = function(board, grid, dfrus, piecesData, myid) {
-
+    // TODO: model.startGame? model is in jigsaw-nw, where this is being called from. I HATE javascript "this" conventions.. bah.. 
+    while (IMGLOADED == false) {
+      waiting = setTimeout(function() { model.startGame(board, grid, dfrus, piecesData, myid); }, 500);
+      console.log("Model: Image not loaded yet..");
+      return;
+    }
     this.BOARD = board;
     this.GRID = grid;
     this.myid = myid;

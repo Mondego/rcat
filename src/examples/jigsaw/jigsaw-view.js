@@ -289,9 +289,9 @@ function View() {
     var dims = view.toScreenDims(grid.cellw, grid.cellh);
     var dw = dims.w, dh = dims.h;
     ctx.save();
-    while (IMGLOADED == false || BGIMGLOADED == false) {
+    while (IMGLOADED == false) {
       waiting = setTimeout(function() { drawPiece(p); }, 500);
-      console.log("Not loaded yet..");
+      console.log("View: Image not loaded yet..");
       return;
     }
     clearTimeout(waiting);
