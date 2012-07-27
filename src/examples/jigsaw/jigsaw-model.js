@@ -43,6 +43,7 @@ function connect_server(){
 }
 
 function disconnect_server(){
+  window.location.reload()
 }
 
 // ------------------------ MODEL --------------------------

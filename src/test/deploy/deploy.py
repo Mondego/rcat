@@ -81,13 +81,15 @@ def start_proxies(servers):
     
 def start_apps(servers):
     template_file = open("/tmp/rcat.cfg")
+    template_lines = template_file.readlines()
+    template_file.close()
     for tuples in servers:
         if tuples[2]:
             apphost,appport = tuples[2].split(':')
             fh, abs_path = mkstemp()
             new_file = open(abs_path,'w')
             
-            for line in template_file:
+            for line in template_lines:
                 if line.count('!!!'):
                     new_file.write(line.replace('!!!',apphost))
                 elif line.count('@@@'):
@@ -97,13 +99,11 @@ def start_apps(servers):
             print abs_path
             new_file.close()
             os.system("scp " + abs_path + " " + tuples[0] + ":~/rcat/test/rcat.cfg")            
-            
-    template_file.close()
 
 s = readlines(args['f']) 
     
 configure_servers(s)
-listp = start_proxies(s)
+start_proxies(s)
 start_apps(s)
 
 def launch_proxies(servers):
@@ -113,8 +113,6 @@ def launch_proxies(servers):
             cmd = "ssh " + tuples[0] + " \'screen -d -m ./rcat/test/runproxy.sh\'"
             os.system(cmd)
 
-time.sleep(2)
-
 def launch_apps(servers):
     appname = args['a']
     for tuples in servers:
@@ -122,11 +120,12 @@ def launch_apps(servers):
             print "Starting app in " + tuples[0]
             cmd = "ssh " + tuples[0] + " \'cp ~/rcat/test/deploy/configs/" + appname + ".cfg.temp ~/rcat/test/" + appname + ".cfg\'"
             os.system(cmd)
-            cmd = "ssh " + tuples[0] + " \'screen -d -m ./rcat/test/run" + appname + ".sh\'"
+            cmd = "ssh " + tuples[0] + " \'cd ~/rcat/test; screen -d -m ./run" + appname + ".sh\'"
             print cmd
             os.system(cmd)
 
 launch_proxies(s)
+time.sleep(2)
 launch_apps(s)
 # Now setup config files for proxy and app! .......
 

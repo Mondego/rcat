@@ -365,6 +365,7 @@ class ObjectManager():
             cmd = "&op=insert&values=" + urllib.quote(json.dumps(data))
         # TODO: catch exception on timeout
         conn = httplib.HTTPConnection(host,port,timeout=4)
+        logging.debug("[obm]: Sending request to " + obj_location)
         conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
         resp = conn.getresponse()
         if resp.status == 200:
