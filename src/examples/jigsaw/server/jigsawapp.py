@@ -138,6 +138,7 @@ class JigsawRequestParser(Thread):
                         response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
                         # broadcast
                         jsonmsg = json.dumps(response)
+                        # TODO: Only send updates to concerned users
                         self.handler.write_message(jsonmsg)
                     else:
                         logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))

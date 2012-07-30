@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import ConfigParser
 import argparse
 import os
@@ -10,7 +12,7 @@ VERSION = 0
 RCAT_ROOT = "../../"
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='config_hosts')
+parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
 parser.add_argument('-a', help='application to be deployed', default='jigsaw')
 
 args = vars(parser.parse_args()) # returns a namespace converted to a dict)
@@ -45,9 +47,10 @@ def readlines(path):
         listservers = fpp.read().splitlines()
         servers = []
         for item in listservers:
-            data = item.split(',')
-            if data[0]:
-                servers.append(data)
+            if not item.startswith('#'):
+                data = item.split(',')
+                if data[0]:
+                    servers.append(data)
         
         fpp.close()
         return servers

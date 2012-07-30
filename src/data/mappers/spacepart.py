@@ -139,7 +139,7 @@ class SpacePartitioning():
     
     def update(self,x,y,tuples,pid):
         owner = self.quadtree.find_owner((x,y))
-        self.position_object(x, y, pid)
+        #self.position_object(x, y, pid)
         if owner == self.myid:
             self.datacon.obm.update(self.table,tuples,pid)
             return "LOCAL"
