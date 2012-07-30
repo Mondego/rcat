@@ -121,7 +121,6 @@ class JigsawRequestParser(Thread):
                     pid = m['pm']['id']
                     x = m['pm']['x']
                     y = m['pm']['y']
-                                        
                     piece = datacon.mapper.select(x,y,pid)
 
                     lockid = piece['l']
