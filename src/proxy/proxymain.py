@@ -34,12 +34,12 @@ if __name__ == "__main__":
     proxy_options = {}
     proxy_options["DISTRIBUTION"] = PROXY_DISTRIBUTION.STICKY
 
-    logging.debug("Proxy Starting")
+    logging.debug("[proxy]: Loading proxy, please wait..")
     
     proxy.front = front.ClientLayer(proxy, proxy_options)
     proxy.back = back.ServerLayer(proxy, proxy_options)
 
-    logging.debug("Proxy Started")
+    logging.info("[proxy]: Proxy Started!")
     
     application = tornado.web.Application([
     (r"/", front.HTTPHandler),

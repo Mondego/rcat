@@ -1,7 +1,10 @@
-mondego@akan.ics.uci.edu,akan.ics.uci.edu:8888,akan.ics.uci.edu:9999
-mondego@ganges.ics.uci.edu,ganges.ics.uci.edu:8888,ganges.ics.uci.edu:9999
-#mondego@rhine.ics.uci.edu,rhine.ics.uci.edu:8888,rhine.ics.uci.edu:9999
-#mondego@parana.ics.uci.edu,parana.ics.uci.edu:8888,parana.ics.uci.edu:9999
-#mondego@yangtze.ics.uci.edu,yangtze.ics.uci.edu:8888,yangtze.ics.uci.edu:9999
-#mondego@hudson.ics.uci.edu,hudson.ics.uci.edu:8888,hudson.ics.uci.edu:9999
-#mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999
+#mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@parana.ics.uci.edu,parana.ics.uci.edu:8888,parana.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@rhine.ics.uci.edu,rhine.ics.uci.edu:8888,rhine.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@parana.ics.uci.edu,parana.ics.uci.edu:8888,parana.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@yangtze.ics.uci.edu,yangtze.ics.uci.edu:8888,yangtze.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@hudson.ics.uci.edu,hudson.ics.uci.edu:8888,hudson.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+#mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.node.cfg
+
+
+mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.main.cfg

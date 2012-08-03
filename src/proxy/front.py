@@ -94,6 +94,8 @@ class ClientLayer(proxy.AbstractFront):
                     clients[client].write_message(message)
                 except IOError:
                     remove_clients.append(client)
+                except AttributeError:
+                    remove_clients.append(client)
             else:
                 logger.warn("[Front]: Client " + client + " is not registered in this proxy.")
         for client in remove_clients:

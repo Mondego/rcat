@@ -52,14 +52,7 @@ class JigsawServerHandler(websocket.WebSocketHandler):
         global pchandler
         pchandler = self
         logging.debug("Jigsaw App Websocket Open")
-        datacon.db.open_connections('opensim.ics.uci.edu', 'rcat', 'isnotamused', 'rcat')
-        # DEBUG ONLY: Delete for deployment
-        if len(rcat.pc.admins) == 1:
-            datacon.mapper.create_table("jigsaw","pid",True)
-            logging.debug("[jigsawapp]: First server up, resetting table..")
-            datacon.db.execute("truncate jigsaw")
-        else:
-            datacon.mapper.create_table("jigsaw","pid")
+        
 
     def on_message(self, message):
         JigsawRequestParser(self,message).start()
@@ -185,6 +178,21 @@ class JigsawServer():
         config = helper.open_configuration('jigsaw.cfg')
         settings = self.jigsaw_parser(config)
         helper.close_configuration('jigsaw.cfg')
+        
+        user = settings["db"]["user"]
+        password = settings["db"]["password"]
+        address = settings["db"]["address"]
+        database = settings["db"]["user"]
+        
+        datacon.db.open_connections(address, user, password, database)
+        # DEBUG ONLY: Delete for deployment
+        if len(rcat.pc.admins) == 1:
+            datacon.mapper.create_table("jigsaw","pid",True)
+            logging.debug("[jigsawapp]: First server up, resetting table..")
+            datacon.db.execute("truncate jigsaw")
+        else:
+            datacon.mapper.create_table("jigsaw","pid")
+        
         if settings["main"]["start"] == "true":
             self.start_game()
 
@@ -196,19 +204,23 @@ class JigsawServer():
                 set_main = {}
                 set_board = {}
                 set_grid = {}
+                set_db = {}
                 for k,v in config.items('Jigsaw_Main'):
                     set_main[k] = v
+                app_config["main"] = set_main    
+                for k,v in config.items('Jigsaw_DB'):
+                    set_db[k] = v
+                app_config["db"] = set_db    
                 for k,v in config.items('Jigsaw_Board'):
                     set_board[k] = float(v)
+                app_config["board"] = set_board    
                 for k,v in config.items('Jigsaw_Grid'):
                     set_grid[k] = int(v)
-                app_config["main"] = set_main
-                app_config["board"] = set_board
                 app_config["grid"] = set_grid
+                
             except ConfigParser.NoSectionError:
                 logging.warn("[jigsawpp]: No Section exception. Might be OK!")
         return app_config
-
 
     # Parses messages coming through admin channel of proxy
     def admin_parser(self, msg):
@@ -224,6 +236,7 @@ class JigsawServer():
                 grid = newgame_settings["grid"]
                 datacon.mapper.join(newgame_settings)
                 if settings["main"]["start"] == "true":
+                    logging.info("[jigsawapp]: Starting game, please wait...")
                     # Prepares the pieces in the database
                     for r in range(grid['nrows']):
                         for  c in range(grid['ncols']):
@@ -236,6 +249,8 @@ class JigsawServer():
                             values = [pid, b, x, y, c, r, l]
                             
                             datacon.mapper.insert(values, pid)
+                            
+                    logging.info("[jigsawapp]: Game has loaded. Have fun!")
                 
 
     def start_game(self):

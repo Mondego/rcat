@@ -1,0 +1,16 @@
+
+body, html {
+   margin: 0;
+   height: 100%;
+}
+
+#playground {
+   background-color: #eee;
+   width: 100%;
+   height: 100%;
+   margin: 0;
+}
+
+#jigsaw {
+   border: solid black 2px;
+}

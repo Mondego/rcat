@@ -1,2 +1,8 @@
 [Jigsaw_Main]
 start=false
+
+[Jigsaw_DB]
+address=
+db=
+user=
+password=

@@ -155,9 +155,6 @@ class SpacePartitioning():
             piece = self.datacon.obm.select(self.table,item["rid"])
             pieces[item["rid"]] = piece
         return pieces
-
-        for item in objs:
-            self.datacon.obm.select(self.table,item["pid"])
     
     def select(self,x,y,pid):
         owner = self.quadtree.find_owner((x,y))
@@ -180,14 +177,15 @@ class SpacePartitioning():
         bw,bh = settings["board"]["w"],settings["board"]["h"]
         m_boardw,m_boardh = int(bw),int(bh)
         bucket_size = int(settings["main"]["bucket_size"])
-        
+        """
+        TODO: Implement frustrum partitioning
         # Build the bucket matrix for pieces and clients
         line = [ set() for _ in range(0,m_boardw/bucket_size)]
         for _ in range(0,m_boardh/bucket_size):
             piece_mapper.append(deepcopy(line))
         for _ in range(0,m_boardh/bucket_size):
             client_mapper.append(deepcopy(line))
-            
+        """ 
         # Build data structure to lookup server responsible for each area. Using Quadtree for now
         adms = set(settings["ADMS"])
         first = adms.pop()

@@ -12,7 +12,13 @@ minScale=0.5
 [Jigsaw_Grid]
 x=250
 y=200
-ncols=2
-nrows=2
+ncols=5
+nrows=5
 cellw=100
 cellh=75
+
+[Jigsaw_DB]
+address=
+db=
+user=
+password=

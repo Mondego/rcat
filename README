@@ -8,3 +8,13 @@ Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
 
 NetGames paper:
   http://www.ics.uci.edu/~tdebeauv/files/debeauvais_Netgames_RCAT.pdf
+
+Quick Start Instructions for Jigsaw:
+After installing all the required libraries, follow these 3 steps to start the server
+
+1. cd into bin directory
+2. Copy rcat.cfg.example and jigsaw.cfg.example to rcat.cfg and jigsaw.cfg respectively. Configure both files with host name and mysql credentials (default: localhost)
+3. run ./runproxy.sh
+4. run ./runjigsaw.sh
+
+Now open bin/client/jigsaw.html in your browser and click Connect!
