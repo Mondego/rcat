@@ -117,7 +117,7 @@ class SpacePartitioning():
     def create_table(self,table,ridname,clear=False):
         if clear:
             self.datacon.obm.clear("jigsaw")
-        cmd = "create table if not exists " + table + "(mid mediumint not null auto_increment,uid varchar(255) not null,message varchar(255), primary key(mid))"
+        cmd = "create table if not exists " + table + "(pid varchar(255) not null, b boolean, x int,y int, c int, r int, l varchar(255),primary key(pid))"
         self.datacon.db.execute(cmd)
         self.datacon.db.retrieve_table_meta(table,ridname)
         self.ridname = ridname
@@ -127,6 +127,8 @@ class SpacePartitioning():
         #self.datacon.obm.create_index(table,"uid")
         
     def insert(self,values,pid):
+        if type(values) is dict:
+            values = self.datacon.db.insert_dict_to_list(self.table,values)
         owner = self.quadtree.find_owner((values[2],values[3]))
         if owner == self.myid:
             res = self.datacon.obm.insert(self.table,values,pid)

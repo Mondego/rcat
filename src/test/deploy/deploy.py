@@ -121,7 +121,7 @@ def launch_apps(servers):
     for tuples in servers:
         if tuples[2]:
             print "Starting app in " + tuples[0]
-            cmd = "ssh " + tuples[0] + " \'cp ~/rcat/test/deploy/configs/" + appname + ".cfg.temp ~/rcat/test/" + appname + ".cfg\'"
+            cmd = "ssh " + tuples[0] + " \'cp ~/rcat/test/deploy/configs/" + tuples[3] + " ~/rcat/test/" + appname + ".cfg\'"
             os.system(cmd)
             cmd = "ssh " + tuples[0] + " \'cd ~/rcat/test; screen -d -m ./run" + appname + ".sh\'"
             print cmd

@@ -68,6 +68,12 @@ class MySQLConnector():
         cur.connection.commit()
         return cur.fetchone()
     
+    def count(self,table):
+        cur = self.cur
+        cur.execute("select count(*) from " + table)
+        res = cur.fetchone()
+        return int(res['count(*)'])
+    
     
     def retrieve_table_meta(self, table, ridname,cols=None):
         self.tables_meta[table] = {}
@@ -197,3 +203,13 @@ class MySQLConnector():
         except mdb.cursors.Error, e:
                 logger.error(e)
                 return False;
+
+
+    def insert_dict_to_list(self,table,dic):
+        cols = self.tables_meta[table]["columns"]
+        insert_list = [None] * len(cols)
+        for item in cols.keys():
+            insert_list[cols[item]] =  dic[item]
+        return insert_list
+        
+        

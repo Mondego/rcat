@@ -182,14 +182,14 @@ class JigsawServer():
         user = settings["db"]["user"]
         password = settings["db"]["password"]
         address = settings["db"]["address"]
-        database = settings["db"]["user"]
+        database = settings["db"]["db"]
         
         datacon.db.open_connections(address, user, password, database)
         # DEBUG ONLY: Delete for deployment
         if len(rcat.pc.admins) == 1:
             datacon.mapper.create_table("jigsaw","pid",True)
             logging.debug("[jigsawapp]: First server up, resetting table..")
-            datacon.db.execute("truncate jigsaw")
+            #datacon.db.execute("truncate jigsaw")
         else:
             datacon.mapper.create_table("jigsaw","pid")
         
@@ -237,19 +237,26 @@ class JigsawServer():
                 datacon.mapper.join(newgame_settings)
                 if settings["main"]["start"] == "true":
                     logging.info("[jigsawapp]: Starting game, please wait...")
-                    # Prepares the pieces in the database
-                    for r in range(grid['nrows']):
-                        for  c in range(grid['ncols']):
-                            pid = str(uuid.uuid4()) # piece id
-                            b = 0 # bound == correctly placed, can't be moved anymore
-                            l = None# lock = id of the player moving the piece
-                            x = randint(0, board['w'] / 2)
-                            y = randint(0, board['h'] / 2)
-                            # Remove h later on!
-                            values = [pid, b, x, y, c, r, l]
-                            
-                            datacon.mapper.insert(values, pid)
-                            
+                    count = datacon.db.count("jigsaw")
+                    if count > 0:
+                        allobjs = datacon.db.execute("select * from jigsaw")
+                        datacon.db.execute("delete from jigsaw")
+                        for obj in allobjs:
+                            datacon.mapper.insert(obj,obj["pid"])
+                    else:
+                        # Prepares the pieces in the database
+                        for r in range(grid['nrows']):
+                            for  c in range(grid['ncols']):
+                                pid = str(uuid.uuid4()) # piece id
+                                b = 0 # bound == correctly placed, can't be moved anymore
+                                l = None# lock = id of the player moving the piece
+                                x = randint(0, board['w'] / 2)
+                                y = randint(0, board['h'] / 2)
+                                # Remove h later on!
+                                values = [pid, b, x, y, c, r, l]
+                                
+                                datacon.mapper.insert(values, pid)
+                                
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")
                 
 
