@@ -55,6 +55,20 @@ class MySQLConnector():
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
         Timer(5.0, self.__dump_to_database__).start()
+        self.keepalive()
+        Timer(18000.0, self.keepalive).start()
+        
+    def keepalive(self):
+        logger.debug("[mysqlconn]: Keeping connection alive..")
+        cur = self.cur
+        cur.execute("show tables")
+        firstcur = cur
+        cur = self.cur
+        while(cur != firstcur):
+            cur.execute("show tables")
+            cur = self.cur
+        logger.debug("[mysqlconn]: All cursors updated.")
+        
         
     def execute(self,cmd):
         cur = self.cur
