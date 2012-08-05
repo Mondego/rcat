@@ -40,7 +40,7 @@ function Network(h) {
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
-    }
+    } 
   };
 
   // TODO: try to get back the connection every 5-10 seconds
@@ -48,6 +48,10 @@ function Network(h) {
   // (keeping a journal of the local changes is overkilling it)
   socket.onclose = function() {
     console.log('Socket closed; status = ' + socket.readyState);
+    alert("Lost connection to server");
+    $('#disconnect').hide();
+    $('#connect').show();
+    $('#numPlayersBox').html('_');
   };
 
   // Tell the server that the client's frustum changed.
@@ -129,4 +133,11 @@ function Network(h) {
     socket.close();
   };
 
+}
+
+function writeToScreen(element, message) { 
+    var pre = document.getElementById(element); 
+    pre.style.wordWrap = "break-word"; 
+    pre.innerHTML = message; 
+    output.appendChild(pre); 
 }

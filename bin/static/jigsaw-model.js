@@ -13,6 +13,7 @@ $('#connect').bind('click', function(e) {
 	//e.preventDefault();
 	$('#connect').hide();
 	$('#disconnect').show();
+        $('#numPlayersBox').html("Waiting...");
 	connect_server();
 });
 
