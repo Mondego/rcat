@@ -17,4 +17,4 @@ After installing all the required libraries, follow these 3 steps to start the s
 3. run ./runproxy.sh
 4. run ./runjigsaw.sh
 
-Now open bin/client/jigsaw.html in your browser and click Connect!
+Now point your browser at <host>:8888/static/jigsaw.html, change the host name and click Connect!
