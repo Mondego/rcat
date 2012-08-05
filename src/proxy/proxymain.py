@@ -8,6 +8,7 @@ The proxy acts as an intermediary of messages from front to back and vice-versa 
 the redefining of functions. 
 '''
 
+import os
 import tornado.ioloop
 import tornado.web
 import logging.config
@@ -41,11 +42,15 @@ if __name__ == "__main__":
 
     logging.info("[proxy]: Proxy Started!")
     
+    static_path = os.path.join("..", os.path.join("bin", "static"))
+    logging.info("[proxy]: static path is " + static_path)
+
     application = tornado.web.Application([
     (r"/", front.HTTPHandler),
+    (r"/static/(.*)", tornado.web.StaticFileHandler, {'path': static_path}),
     (r"/client", front.ClientHandler),
     (r"/server", back.ServerHandler),
-    (r"/admin", back.AdminHandler),
+    (r"/admin", back.AdminHandler)
     ])
     tornado.options.parse_command_line()
     application.listen(options.port)
