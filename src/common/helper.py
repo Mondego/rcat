@@ -1,6 +1,6 @@
 import ConfigParser
 import argparse
-import fcntl
+#import fcntl
 import json
 import logging
 import os
