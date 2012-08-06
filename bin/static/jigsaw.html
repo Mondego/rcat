@@ -26,6 +26,17 @@
 <script src="jigsaw-view.js"></script>
 <script src="jigsaw-nw.js"></script>
 
+<script>
+  window.onload = function() {
+    var canvas = document.getElementById("jigsaw");
+    var context = canvas.getContext("2d");
+    var imgObj = new Image();
+    imgObj.onload = function() {
+      context.drawImage(imgObj, 12, 10);
+    };
+    imgObj.src = "img/SplashImage.png";
+  };
+</script>
 
 
 
