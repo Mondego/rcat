@@ -10,11 +10,13 @@ function Network(h) {
 
 //  var host = "ws://opensim.ics.uci.edu:8888/client";
   var host = h;
+  var connected = false;
   var socket = new WebSocket(host);
   this.sendDelay = 100; // how often to send updates, in millis
 
   socket.onopen = function() {
     console.log('Socket opened; status = ' + socket.readyState);
+    connected = true;
   };
 
   // receive handler
@@ -48,10 +50,11 @@ function Network(h) {
   // (keeping a journal of the local changes is overkilling it)
   socket.onclose = function() {
     console.log('Socket closed; status = ' + socket.readyState);
-    alert("Lost connection to server");
+    if (connected == true) 
+      alert("Lost connection to server");
     $('#disconnect').hide();
     $('#connect').show();
-    $('#numPlayersBox').html('_');
+    $('#numPlayersBox').html('Disconnected.');
   };
 
   // Tell the server that the client's frustum changed.
@@ -130,6 +133,7 @@ function Network(h) {
 
   // close connection to the server
   this.close = function() {
+    connected = false; // This prevents the pop-up alert from coming up every time you intentionally disconnect
     socket.close();
   };
 

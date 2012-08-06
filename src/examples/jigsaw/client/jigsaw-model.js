@@ -44,7 +44,11 @@ function connect_server(){
 }
 
 function disconnect_server(){
-  window.location.reload()
+  nw.close()
+  view.cleanCanvas()
+  $('#disconnect').hide();
+  $('#connect').show();
+  $('#numPlayersBox').html('0');
 }
 
 // ------------------------ MODEL --------------------------

@@ -317,14 +317,18 @@ function View() {
     ctx.restore();
   }
 
-  // first clean the whole canvas,
-  // then draw in this order: grid, bound pieces, and loose pieces
-  // public method of view so that model can call it
-  this.drawAll = function() {
+  this.cleanCanvas = function() {
     var w = ctx.canvas.width;
     var h = ctx.canvas.height;
     ctx.fillStyle = '#000'; // black
     ctx.fillRect(0, 0, w, h);
+  }
+
+  // first clean the whole canvas,
+  // then draw in this order: grid, bound pieces, and loose pieces
+  // public method of view so that model can call it
+  this.drawAll = function() {
+    this.cleanCanvas();
     drawBoard();
     drawGrid();
     drawPieces();
