@@ -323,6 +323,9 @@ function View() {
     ctx.canvas.onmousedown = null;
     ctx.canvas.onmousemove = null;
     ctx.canvas.onmouseout = null;
+    ctx.canvas.removeEventListener('DOMMouseScroll', onmousewheel, false); // Firefox
+    ctx.canvas.removeEventListener('mousewheel', onmousewheel, false); // Chrome, IE
+    document.onkeydown = null;
   }
 
   this.cleanCanvas = function() {
