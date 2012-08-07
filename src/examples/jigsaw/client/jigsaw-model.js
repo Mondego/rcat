@@ -44,8 +44,8 @@ function connect_server(){
 }
 
 function disconnect_server(){
-  nw.close()
-  view.cleanCanvas()
+  nw.close();
+  view.close();
   loadSplashScreen();
 
   $('#disconnect').hide();
