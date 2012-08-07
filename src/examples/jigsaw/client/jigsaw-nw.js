@@ -31,6 +31,8 @@ function Network(h) {
       var dfrus = m.c.frus; // default frustum
       var pieces = m.c.pieces; // pieces
       var myid = m.c.myid; // the id given by the server to represent me
+      var nclients = m.c.clients;
+      model.setConnectedUsers(nclients);
       model.startGame(board, grid, dfrus, pieces, myid);
     } else if ('pm' in m) { // Received piece movement
       var id = m.pm.id; // piece id
@@ -42,7 +44,11 @@ function Network(h) {
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
-    } 
+    } else if ('NU' in m) {
+      model.userConnected();
+    } else if ('UD' in m) {
+      model.userDisconnected();
+    }
   };
 
   // TODO: try to get back the connection every 5-10 seconds

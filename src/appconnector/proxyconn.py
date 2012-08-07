@@ -111,6 +111,7 @@ class ProxyConnector():
                 del self.client_proxy[msg["UD"]]
             if msg["UD"] in self.client_admin:
                 del self.client_admin[msg["UD"]]
+            self.app.send(message)
         elif "NS" in msg:
             self.admins.update(set(msg["NS"]))
         elif "Failed" in msg:

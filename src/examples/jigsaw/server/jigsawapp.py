@@ -44,7 +44,7 @@ dfrus = {'x': 0,
 
 pieces = {}
 
-clients = {}
+clientsConnected = 0
 
 
 class JigsawServerHandler(websocket.WebSocketHandler):
@@ -73,6 +73,7 @@ class JigsawRequestParser(Thread):
         self.evt = None
     
     def run(self):
+        global clientsConnected
         try:
             enc = json.loads(self.message)
     
@@ -93,9 +94,21 @@ class JigsawRequestParser(Thread):
                        'grid': grid,
                        'frus': dfrus,
                        'pieces': pieces,
-                       'myid': userid
+                       'myid': userid,
+                       'clients': clientsConnected
                        }
                 response = {'M': {'c': cfg}, 'U': userid}
+                jsonmsg = json.dumps(response)
+                self.handler.write_message(jsonmsg)
+                clientsConnected+=1
+                # Inform other clients of client connection
+                response = {'M': enc}
+                jsonmsg = json.dumps(response)
+                self.handler.write_message(jsonmsg)
+            elif "UD" in enc:
+                #User was disconnected. Inform other clients
+                clientsConnected-=1
+                response = {'M': enc}
                 jsonmsg = json.dumps(response)
                 self.handler.write_message(jsonmsg)
     
@@ -174,6 +187,8 @@ class JigsawRequestParser(Thread):
 class JigsawServer():
     def __init__(self):
         global settings
+        # Hooks up to get messages coming in admin channel. 
+        # Used to know about new users, servers, and their disconnections.
         rcat.pc.set_admin_handler(self.admin_parser)
         config = helper.open_configuration('jigsaw.cfg')
         settings = self.jigsaw_parser(config)
@@ -258,7 +273,6 @@ class JigsawServer():
                                 datacon.mapper.insert(values, pid)
                                 
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")
-                
 
     def start_game(self):
         """
