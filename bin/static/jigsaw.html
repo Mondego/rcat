@@ -9,10 +9,10 @@
 <body>
 <div id="connectAndLogBoxes">
 	<div id="connectBox">
-		Server: <input id="serverUrl" value="ws://opensim.ics.uci.edu:8888/client"/>
+		Server: <input id="serverUrl" value="ws://localhost:8888/client"/>
 		<button id="connect">Connect</button>
 		<button id="disconnect" style="display:none">Disconnect</button>
-		Players connected: <span id="numPlayersBox">_</span> 
+		Players connected: <span id="numPlayersBox">Disconnected.</span> 
 	</div>
 	<div id="jigsawLog"></div>
 </div>
@@ -25,9 +25,8 @@
 <script src="jigsaw-model.js"></script>
 <script src="jigsaw-view.js"></script>
 <script src="jigsaw-nw.js"></script>
-
 <script>
-  window.onload = function() {
+  function loadSplashScreen() {
     var canvas = document.getElementById("jigsaw");
     var context = canvas.getContext("2d");
     var imgObj = new Image();
@@ -35,9 +34,12 @@
       context.drawImage(imgObj, 12, 10);
     };
     imgObj.src = "img/SplashImage.png";
+  }
+
+  window.onload = function() {
+    loadSplashScreen();
   };
+
 </script>
-
-
 
 </html>

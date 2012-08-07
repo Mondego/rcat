@@ -44,13 +44,36 @@ function connect_server(){
 }
 
 function disconnect_server(){
-  window.location.reload()
+  nw.close();
+  view.close();
+  loadSplashScreen();
+
+  $('#disconnect').hide();
+  $('#connect').show();
+  $('#numPlayersBox').html('Disconnected.');
 }
 
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
 function Model() {
+
+  this.numPlayers = 0
+
+  this.setConnectedUsers = function(n) {
+    this.numPlayers = n;
+    $('#numPlayersBox').html(this.numPlayers);
+  }
+
+  this.userConnected = function() {
+    this.numPlayers++;
+    $('#numPlayersBox').html(this.numPlayers);
+  }
+
+  this.userDisconnected = function() {
+    this.numPlayers--;
+    $('#numPlayersBox').html(this.numPlayers);
+  }
 
   this.BOARD = {// board = grid + empty space around the grid
     w : null,
