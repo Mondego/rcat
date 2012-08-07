@@ -46,6 +46,8 @@ function connect_server(){
 function disconnect_server(){
   nw.close()
   view.cleanCanvas()
+  loadSplashScreen();
+
   $('#disconnect').hide();
   $('#connect').show();
   $('#numPlayersBox').html('Disconnected.');
