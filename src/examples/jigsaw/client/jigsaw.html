@@ -9,16 +9,20 @@
 <body>
 <div id="connectAndLogBoxes">
 	<div id="connectBox">
-		Server: <input id="serverUrl" value="ws://localhost:8888/client"/>
+		Server: <input id="serverUrl" size=80 value="ws://localhost:8888/client"/>
 		<button id="connect">Connect</button>
 		<button id="disconnect" style="display:none">Disconnect</button>
 		Players connected: <span id="numPlayersBox">Disconnected.</span> 
+		Username: <input id="userName" value="Guest"/>
 	</div>
 	<div id="jigsawLog"></div>
 </div>
 
 <canvas id="jigsaw" width='1024' height='768'></canvas>
 <p> Full image in <a href="http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg"> here </a>
+<table id="scoreTable"> 
+</table>
+
 </body>
 
 <script src="http://code.jquery.com/jquery-1.5.js"></script>
@@ -26,6 +30,7 @@
 <script src="jigsaw-view.js"></script>
 <script src="jigsaw-nw.js"></script>
 <script>
+
   function loadSplashScreen() {
     var canvas = document.getElementById("jigsaw");
     var context = canvas.getContext("2d");

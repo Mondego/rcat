@@ -3,7 +3,34 @@
 // Display the puzzle in a canvas
 // and translate user inputs into model commands
 function View() {
-
+  // ------------------ SCORE CONTROLLER ------------------
+  var scoreTable = document.getElementById("scoreTable");
+  var scoreDict = {};
+  
+  this.createScoreTable = function(scores) {
+    while(scoreTable.rows.length > 1) {
+      scoreTable.deleteRow(scoreTable.rows.length-1);
+    }
+    var rowCount = scoreTable.rows.length;
+    scoreDict = {};
+    for (var userName in scores) {
+      var row = scoreTable.insertRow(rowCount);
+      var userCell = row.insertCell(0);
+      var scoreCell = row.insertCell(1);
+      
+      userCell.innerHTML = userName;
+      scoreCell.innerHTML = scores[userName];
+      scoreDict[userName] = rowCount;
+    }
+  }
+  
+  this.updateUserScore = function(user,newvalue) {
+    // Get row where entry is currently located
+    var rowNumber = scoreDict[user];
+    var cell = scoreTable.rows[rowNumber].cells[1];
+    cell.innerHTML = newvalue;
+  }
+  
   // ------------------ MOUSE CONTROLLER ------------------
 
   // Convert screen coordinates to board coordinates.

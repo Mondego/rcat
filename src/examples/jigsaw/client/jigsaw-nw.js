@@ -17,6 +17,8 @@ function Network(h) {
   socket.onopen = function() {
     console.log('Socket opened; status = ' + socket.readyState);
     connected = true;
+    var msg = {'usr': model.getUserName()};
+    socket.send(JSON.stringify(msg));
   };
 
   // receive handler
@@ -34,6 +36,13 @@ function Network(h) {
       var nclients = m.c.clients;
       model.setConnectedUsers(nclients);
       model.startGame(board, grid, dfrus, pieces, myid);
+    } else if ('scores' in m) { // Received all player scores
+      model.setScores(m.scores);
+    } else if ('scu' in m) { //  Received update for one or more players
+      var scoreUpdates = m.scu;
+      for (var key in scoreUpdates) {
+	      model.setUserScore(key, scoreUpdates[key]);
+	  }
     } else if ('pm' in m) { // Received piece movement
       var id = m.pm.id; // piece id
       var x = m.pm.x, y = m.pm.y;

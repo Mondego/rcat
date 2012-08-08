@@ -37,8 +37,13 @@ var canvas;
 
 function connect_server(){
   var host = $('#serverUrl').val();
+  var user = $('#userName').val();
+  if (user == "Guest") {
+    user = user + Math.floor((Math.random()*1000)+1);
+    $('#userName').val(user);
+  }
   canvas = document.getElementById("jigsaw");
-  model = new Model();
+  model = new Model(user);
   view = new View();
   nw = new Network(host);
 }
@@ -56,9 +61,30 @@ function disconnect_server(){
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
-function Model() {
+function Model(usr) {
 
-  this.numPlayers = 0
+  // -------- USER MANAGEMENT AND SCORE --------------------
+  this.numPlayers = 0;
+  this.userName = usr;
+  this.userScores = {};
+  
+  this.getUserName = function() {
+    return this.userName;
+  }
+  
+  this.setScores = function(scores) {
+    this.userScores = scores;
+    view.createScoreTable(scores);
+  }
+  
+  this.setUserScore = function(user,newScore) {
+    this.userScores[user] = newScore;
+    view.updateUserScore(user,newScore);
+  }
+  
+  this.getUserScore = function(user) {
+    return this.userScores[user];
+  }
 
   this.setConnectedUsers = function(n) {
     this.numPlayers = n;
@@ -74,6 +100,8 @@ function Model() {
     this.numPlayers--;
     $('#numPlayersBox').html(this.numPlayers);
   }
+
+  // -------- GAME SETTINGS -------------------------
 
   this.BOARD = {// board = grid + empty space around the grid
     w : null,
@@ -295,12 +323,14 @@ function Model() {
         this.draggedPiece = null; // stop dragging
         // TODO: display an effect?
       } else {
-        var p = this.loosePieces[id];
-        p.x = x;
-        p.y = y;
-        p.owner = null;
-        if (bound)
-          p.bind();
+        if (!(id in this.boundPieces)) {
+          var p = this.loosePieces[id];
+          p.x = x;
+          p.y = y;
+          p.owner = null;
+          if (bound)
+            p.bind();
+        }
       }
       view.drawAll();
     }
@@ -369,7 +399,7 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
   }
 
   // bind a piece: the piece has been correctly placed,
-  // it's not draggable naymore
+  // it's not draggable anymore
   this.bind = function() {
     if (this.id in model.loosePieces) {
       delete model.loosePieces[this.id];

@@ -1,20 +1,21 @@
-import random
 from copy import deepcopy
-from tornado import websocket
-from tornado.ioloop import IOLoop
-import logging.config
-import json
-import common.helper as helper
-from data.plugins.obm import ObjectManager
-from data.mappers.spacepart import SpacePartitioning
 from data.db.mysqlconn import MySQLConnector
-import ConfigParser
-import uuid
+from data.mappers.spacepart import SpacePartitioning
+from data.plugins.obm import ObjectManager
 from random import randint
-import time
 from rcat import RCAT
 from threading import Thread
+from tornado import websocket
+from tornado.ioloop import IOLoop
+from collections import defaultdict
+import ConfigParser
+import common.helper as helper
+import json
+import logging.config
+import random
 import threading
+import time
+import uuid
 
 global db
 global pc
@@ -45,6 +46,8 @@ dfrus = {'x': 0,
 pieces = {}
 
 clientsConnected = 0
+idToName = {}
+clientScores = defaultdict(int)
 
 
 class JigsawServerHandler(websocket.WebSocketHandler):
@@ -74,6 +77,7 @@ class JigsawRequestParser(Thread):
     
     def run(self):
         global clientsConnected
+        # TODO: userid and userid[0] is confusing 
         try:
             enc = json.loads(self.message)
     
@@ -122,6 +126,14 @@ class JigsawRequestParser(Thread):
                     #self.frus = m['rp']['v']
                     pass # TODO: update frustum table
                     # TODO: send pieces located in the new frustum
+                elif 'usr' in m:
+                    print "Received user name. Sending back the list of scores"
+                    idToName[userid] = m['usr']
+                    clientScores[m['usr']] = 0
+                    response = {'M': {'scores':clientScores}, 'U':enc['U']}
+                    jsonmsg = json.dumps(response)
+                    print response
+                    self.handler.write_message(jsonmsg)
     
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
@@ -168,9 +180,17 @@ class JigsawRequestParser(Thread):
                         # eventually bind piece 
                         bound = m['pd']['b']
                         if bound:
+                            userName = idToName[userid]
+                            clientScores[userName] += 1
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
                             datacon.mapper.update(x,y, [('b', 1)], pid)
+                            
+                            # Update score board. Separate from 'pd' message because this is always broadcasted.
+                            response = {'M': {'scu':{userName:clientScores[userName]}}}
+                            jsonmsg = json.dumps(response)
+                            self.handler.write_message(jsonmsg)
+                            
                         else:
                             logging.debug('%s dropped piece %s at %d,%d'
                                       % (userid, pid, x, y))
@@ -178,6 +198,8 @@ class JigsawRequestParser(Thread):
                         response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
+                        
+                        
                 
         except Exception, err:
             logging.exception("[jigsawapp]: Exception in message handling from client:")
