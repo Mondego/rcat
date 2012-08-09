@@ -104,6 +104,7 @@ class ObjectManager():
             rid_type = "varchar(255)"
         if autoinc != None:
             self.autoinc[table] = autoinc
+        """
         cmd = "create table if not exists " + table + "_obm(rid " + rid_type + " not null,host varchar(255) not null, primary key(rid))"
         self.datacon.db.execute(cmd)
         cmd = "create table if not exists " + table + "_reg(admid varchar(255) not null,host varchar(255) not null, primary key(admid))"
@@ -112,6 +113,14 @@ class ObjectManager():
         self.datacon.db.execute(cmd)
         self.datacon.db.retrieve_table_meta(table+"_obm", "rid")
         self.datacon.db.retrieve_table_meta(table+"_reg", "admid")
+        """
+        
+        cmd = "create table if not exists " + table + "_obm(rid " + rid_type + " not null,host varchar(255) not null, primary key(rid))"
+        self.datacon.db.create_table(table+"_obm",cmd,"rid")
+        cmd = "create table if not exists " + table + "_reg(admid varchar(255) not null,host varchar(255) not null, primary key(admid))"
+        self.datacon.db.create_table(table+"_reg",cmd,"admid")
+        cmd = "insert into " + table + "_reg values('" + adm + "','" + self.datacon.host + "')"
+        self.datacon.db.execute(cmd)
         
         self.tables[table] = {}
         self.location[table] = {}

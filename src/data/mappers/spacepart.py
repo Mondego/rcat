@@ -3,13 +3,15 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-from copy import deepcopy
+from collections import defaultdict
 import logging
-import math
 from collections import deque
 
 piece_mapper = []
 client_mapper = []
+idToName = {}
+clientScores = defaultdict(int)
+
 m_size = None
 m_boardx = None
 m_boardy = None
@@ -116,15 +118,16 @@ class SpacePartitioning():
         
     def create_table(self,table,ridname,clear=False):
         if clear:
-            self.datacon.obm.clear("jigsaw")
+            self.datacon.obm.clear(table)
         cmd = "create table if not exists " + table + "(pid varchar(255) not null, b boolean, x int,y int, c int, r int, l varchar(255),primary key(pid))"
-        self.datacon.db.execute(cmd)
-        self.datacon.db.retrieve_table_meta(table,ridname)
+        self.datacon.db.create_table(table,cmd,ridname)
         self.ridname = ridname
         self.table = table
-        
         self.datacon.obm.register_node(self.datacon.myid,table,ridname)
-        #self.datacon.obm.create_index(table,"uid")
+        
+        # Creates score table
+        cmd = "create table if not exists " + table + "_score(user varchar(255) not null, score int,primary key(user))"
+        self.datacon.db.create_table(table+"_score",cmd,"user")
         
     def insert(self,values,pid):
         if type(values) is dict:
@@ -198,6 +201,59 @@ class SpacePartitioning():
 
         self.quadtree = quadtree
         
+    def recover_last_game(self):
+        allobjs = self.datacon.db.execute("select * from jigsaw")
+        self.datacon.db.execute("delete from jigsaw")
+        for obj in allobjs:
+            self.insert(obj,obj["pid"])
+        self.retrieve_score_from_db()
+        
+        
+    """
+    ####################################
+    SCORE KEEPING SECTION
+    ####################################
+    """ 
+    def retrieve_score_from_db(self):
+        global clientScores
+        clientScores = {}
+        cmd = "select * from " + self.table + "_score"
+        result = self.datacon.db.execute(cmd)
+        for item in result:
+            clientScores[item["user"]] = item["score"]
+    
+    def schedule_score_update_db(self,username,score):
+        # schedules the score update to the database. 
+        update_dict = {'score':score}
+        self.datacon.db.schedule_update(self.table + "_score", username,update_dict)
+
+    def insert_new_user_score(self,score_tuple):
+        self.datacon.db.insert(self.table + "_score",score_tuple)
+    
+    # Adds new user to the score list, returns the current client scores
+    def new_user_connected(self,userid,username):
+        idToName[userid] = username
+        if not username in clientScores:
+            clientScores[username] = 0
+            self.insert_new_user_score((username,0))
+        return clientScores
+    
+    # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
+    def add_to_user_score(self,userid):
+        username = idToName[userid]
+        clientScores[username] += 1
+        self.schedule_score_update_db(username,clientScores[username])
+        return {username:clientScores[username]}
+        
+        
+    def get_user_scores(self):
+        return clientScores
+    
+    """
+    ####################################
+    SPACE PARTITIONING MEMORY SECTION
+    ####################################
+    """ 
     # Return range
     def __rr__(self,x,y,width,height):
         if x + width > m_boardx:

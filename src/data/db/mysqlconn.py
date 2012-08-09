@@ -87,7 +87,12 @@ class MySQLConnector():
         cur.execute("select count(*) from " + table)
         res = cur.fetchone()
         return int(res['count(*)'])
-    
+
+
+    # TODO: Make this create based on arguments, not on entire SQL command
+    def create_table(self,table,cmd,ridname):
+        self.execute(cmd)
+        self.retrieve_table_meta(table, ridname)
     
     def retrieve_table_meta(self, table, ridname,cols=None):
         self.tables_meta[table] = {}
@@ -191,6 +196,9 @@ class MySQLConnector():
             logger.error(e)
             return False
 
+    # schedules an update to be pushed to the database at next iteration. 
+    # Takes in the table name, the primary key (rid), and a dictionary of tuples (property,newvalue).
+    # e.g. schedule_update("people","SSN",{"age":12,"name":"john"}]
     def schedule_update(self,table,rid,data):
         logger.debug("[mysqlconn]: Scheduling an update for " + table + ". Data is :" + str(data))
         self.db_updates[table][rid] = data

@@ -46,9 +46,6 @@ dfrus = {'x': 0,
 pieces = {}
 
 clientsConnected = 0
-idToName = {}
-clientScores = defaultdict(int)
-
 
 class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
@@ -87,9 +84,6 @@ class JigsawRequestParser(Thread):
                 userid = enc["NU"]
     
                 pieces = {}
-                #dbresult = datacon.db.execute("select * from jigsaw")
-                #for item in dbresult:
-                #    pieces[item["pid"]] = item
                 pieces = datacon.mapper.select_all()
                 
                 # send the board config
@@ -127,12 +121,9 @@ class JigsawRequestParser(Thread):
                     pass # TODO: update frustum table
                     # TODO: send pieces located in the new frustum
                 elif 'usr' in m:
-                    print "Received user name. Sending back the list of scores"
-                    idToName[userid] = m['usr']
-                    clientScores[m['usr']] = 0
-                    response = {'M': {'scores':clientScores}, 'U':enc['U']}
+                    scores = datacon.mapper.new_user_connected(userid,m['usr'])
+                    response = {'M': {'scores':scores}, 'U':enc['U']}
                     jsonmsg = json.dumps(response)
-                    print response
                     self.handler.write_message(jsonmsg)
     
                 elif 'pm' in m: # piece movement
@@ -180,14 +171,13 @@ class JigsawRequestParser(Thread):
                         # eventually bind piece 
                         bound = m['pd']['b']
                         if bound:
-                            userName = idToName[userid]
-                            clientScores[userName] += 1
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
                             datacon.mapper.update(x,y, [('b', 1)], pid)
                             
                             # Update score board. Separate from 'pd' message because this is always broadcasted.
-                            response = {'M': {'scu':{userName:clientScores[userName]}}}
+                            update_res = datacon.mapper.add_to_user_score(userid)
+                            response = {'M': {'scu':update_res}}
                             jsonmsg = json.dumps(response)
                             self.handler.write_message(jsonmsg)
                             
@@ -276,10 +266,7 @@ class JigsawServer():
                     logging.info("[jigsawapp]: Starting game, please wait...")
                     count = datacon.db.count("jigsaw")
                     if count > 0:
-                        allobjs = datacon.db.execute("select * from jigsaw")
-                        datacon.db.execute("delete from jigsaw")
-                        for obj in allobjs:
-                            datacon.mapper.insert(obj,obj["pid"])
+                        datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
                         for r in range(grid['nrows']):
