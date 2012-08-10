@@ -3,32 +3,53 @@
 // Display the puzzle in a canvas
 // and translate user inputs into model commands
 function View() {
+
+  this.isGameOver = false;
+  this.newGame = function() {
+  	this.isGameOver = false;
+  }
+  
+  this.endGame = function() {
+  	this.isGameOver = true;
+  }
+  
+
   // ------------------ SCORE CONTROLLER ------------------
-  var scoreTable = document.getElementById("scoreTable");
-  var scoreDict = {};
+  this.scoreTable = document.getElementById("scoreTable");
+  this.scoreDict = {};
   
   this.createScoreTable = function(scores) {
-    while(scoreTable.rows.length > 1) {
-      scoreTable.deleteRow(scoreTable.rows.length-1);
+    while(this.scoreTable.rows.length > 1) {
+      this.scoreTable.deleteRow(this.scoreTable.rows.length-1);
     }
-    var rowCount = scoreTable.rows.length;
-    scoreDict = {};
+    this.scoreDict = {};
     for (var userName in scores) {
-      var row = scoreTable.insertRow(rowCount);
+      var row = this.scoreTable.insertRow();
       var userCell = row.insertCell(0);
       var scoreCell = row.insertCell(1);
       
       userCell.innerHTML = userName;
       scoreCell.innerHTML = scores[userName];
-      scoreDict[userName] = rowCount;
+      this.scoreDict[userName] = row;
     }
   }
   
   this.updateUserScore = function(user,newvalue) {
     // Get row where entry is currently located
-    var rowNumber = scoreDict[user];
-    var cell = scoreTable.rows[rowNumber].cells[1];
-    cell.innerHTML = newvalue;
+    if (user in this.scoreDict) {
+		var row = this.scoreDict[user];
+		var cell = row.cells[1];
+		cell.innerHTML = newvalue;
+    }
+    else {
+    	var row = this.scoreTable.insertRow();
+    	var userCell = row.insertCell(0);
+        var scoreCell = row.insertCell(1);
+        
+        userCell.innerHTML = user;
+        scoreCell.innerHTML = newvalue;
+        this.scoreDict[user] = row;
+    }
   }
   
   // ------------------ MOUSE CONTROLLER ------------------
@@ -236,7 +257,6 @@ function View() {
   var BGIMGLOADED = false
   BGIMG.onload = function() {
     BGIMGLOADED = true
-    console.log('bgimage loaded');
   };
   // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
   // wooden background from http://www.grsites.com/terms/
@@ -366,10 +386,20 @@ function View() {
   // then draw in this order: grid, bound pieces, and loose pieces
   // public method of view so that model can call it
   this.drawAll = function() {
-    this.cleanCanvas();
-    drawBoard();
-    drawGrid();
-    drawPieces();
+    if (!this.isGameOver) {
+		this.cleanCanvas();
+		drawBoard();
+		drawGrid();
+		drawPieces();
+    }
   };
-
+  
+  this.gameOver = function() {
+  	this.isGameOver = true;
+  	this.close();
+  	ctx.font = "40pt Calibri";
+	ctx.fillStyle = "blue";
+    ctx.fillText("Game Over! Your score was " + model.getMyScore(), 100, 100);
+	ctx.fillText("Click on Screen to Restart Game", 100, 200);
+  }
 }

@@ -58,15 +58,56 @@ function disconnect_server(){
   $('#numPlayersBox').html('Disconnected.');
 }
 
+// ------------------------ GENERIC ------------------------
+function isEmpty(obj) {
+	for (var key in obj) 
+		return false;
+	return true;
+}
+
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
 function Model(usr) {
-
+  // -------- INITIALIZATION ---------------------------
+  this.init = function() {
+	  this.numPlayers = 0;
+	  this.userName = usr;
+	  this.userScores = {};
+	  this.BOARD = {// board = grid + empty space around the grid
+		w : null,
+		h : null,
+		maxScale : null,
+		minScale : null
+	  };
+	  this.GRID = { // grid = where pieces can be dropped
+		x : null,
+		y : null,
+		ncols : null,
+		nrows : null,
+		cellw : null,
+		cellh : null
+	  };
+	  this.myid = null; // the id given by the server to represent me
+	
+	  // which part of the board is currently being viewed by the user
+	  this.frustum = {
+		x : null,
+		y : null,
+		scale : null, // zooming scale; >1 is zoomed in, <1 is zoomed out
+		w : null,
+		h : null
+	  };  
+  }
+  
+  this.init();
+  
+  // -------- GAME END ---------------------------
+  this.endGame = function() {
+	view.gameOver();
+  }
+  
   // -------- USER MANAGEMENT AND SCORE --------------------
-  this.numPlayers = 0;
-  this.userName = usr;
-  this.userScores = {};
   
   this.getUserName = function() {
     return this.userName;
@@ -84,6 +125,10 @@ function Model(usr) {
   
   this.getUserScore = function(user) {
     return this.userScores[user];
+  }
+  
+  this.getMyScore = function() {
+    return this.userScores[this.userName];
   }
 
   this.setConnectedUsers = function(n) {
@@ -103,30 +148,7 @@ function Model(usr) {
 
   // -------- GAME SETTINGS -------------------------
 
-  this.BOARD = {// board = grid + empty space around the grid
-    w : null,
-    h : null,
-    maxScale : null,
-    minScale : null
-  };
-  this.GRID = { // grid = where pieces can be dropped
-    x : null,
-    y : null,
-    ncols : null,
-    nrows : null,
-    cellw : null,
-    cellh : null
-  };
-  this.myid = null; // the id given by the server to represent me
 
-  // which part of the board is currently being viewed by the user
-  this.frustum = {
-    x : null,
-    y : null,
-    scale : null, // zooming scale; >1 is zoomed in, <1 is zoomed out
-    w : null,
-    h : null
-  };
 
   // Frustum primitive.
   // Fix the frustum if user scrolled past board edges
@@ -185,6 +207,7 @@ function Model(usr) {
   // Also create the pieces from server data.
   this.startGame = function(board, grid, dfrus, piecesData, myid) {
     // TODO: model.startGame? model is in jigsaw-nw, where this is being called from. I HATE javascript "this" conventions.. bah.. 
+    view.newGame();
     while (IMGLOADED == false) {
       waiting = setTimeout(function() { model.startGame(board, grid, dfrus, piecesData, myid); }, 500);
       console.log("Model: Image not loaded yet..");
@@ -222,6 +245,7 @@ function Model(usr) {
       sy = pd.r * sh;
       p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
     }
+    nw.sendUserName(model.getUserName());
     view.drawAll();
   };
 
@@ -311,6 +335,7 @@ function Model(usr) {
     }
     return res;
   };
+  
 
   // ------------- COMMANDS ISSUED BY THE NETWORK -----------
 
@@ -405,6 +430,9 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
       delete model.loosePieces[this.id];
       model.boundPieces[this.id] = this;
       this.bound = true;
+      if (isEmpty(model.loosePieces)) {
+        nw.sendGameOver();
+      }
     }
   };
 

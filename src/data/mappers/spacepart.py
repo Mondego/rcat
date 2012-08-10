@@ -3,9 +3,10 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-from collections import defaultdict
+from collections import defaultdict, deque
 import logging
-from collections import deque
+from threading import Timer
+import time
 
 piece_mapper = []
 client_mapper = []
@@ -116,6 +117,12 @@ class SpacePartitioning():
         self.location = {}
         self.datacon = datacon
         
+    """
+    ####################################
+    DATA MANAGEMENT SECTION
+    ####################################
+    """ 
+        
     def create_table(self,table,ridname,clear=False):
         if clear:
             self.datacon.obm.clear(table)
@@ -168,8 +175,27 @@ class SpacePartitioning():
         else:
             resp = self.datacon.obm.select_remote(self.table,owner,pid)
         return resp
-            
+    
+    def clear_all(self):
+        self.datacon.db.clear_table(self.table)
+        self.datacon.db.clear_table(self.table + "_score")
         
+    def check_game_end(self):
+        n = -1
+        cmd = "select count(*) from " + self.table + " where `b` = 0"
+        while (n != 0):
+            time.sleep(10)
+            res = self.datacon.db.execute_one(cmd)
+            n = int(res['count(*)'])
+        return True
+    
+            
+    """
+    ####################################
+    MAIN
+    ####################################
+    """ 
+    
     def join(self,settings):
         global m_boardx
         global m_boardy
@@ -236,7 +262,7 @@ class SpacePartitioning():
         if not username in clientScores:
             clientScores[username] = 0
             self.insert_new_user_score((username,0))
-        return clientScores
+        return {username:0}
     
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self,userid):

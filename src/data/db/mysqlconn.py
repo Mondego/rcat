@@ -27,6 +27,7 @@ class MySQLConnector():
     tables_meta = {}
     db_updates = {}
     db_inserts = {}
+    db = None
 
     def __init__(self,datacon):
         global mysqlconn
@@ -45,6 +46,7 @@ class MySQLConnector():
         global ps_socket
         curs = []
 
+        self.db = db
         # Default connection pool = 10
         if not poolsize:
             poolsize = 10
@@ -226,6 +228,8 @@ class MySQLConnector():
                 logger.error(e)
                 return False;
 
+    def clear_table(self, table):
+        self.execute("delete * from " + table)
 
     def insert_dict_to_list(self,table,dic):
         cols = self.tables_meta[table]["columns"]

@@ -17,15 +17,14 @@ function Network(h) {
   socket.onopen = function() {
     console.log('Socket opened; status = ' + socket.readyState);
     connected = true;
-    var msg = {'usr': model.getUserName()};
-    socket.send(JSON.stringify(msg));
   };
-
+  
   // receive handler
   socket.onmessage = function(msg) {
     m = JSON.parse(msg.data); // TODO: use json2.js for IE6 and 7
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // Received init config
+      model.init();
       var imgurl = m.c.imgurl; // puzzle image
       IMG.src = imgurl;
       var board = m.c.board; // board config
@@ -34,10 +33,10 @@ function Network(h) {
       var pieces = m.c.pieces; // pieces
       var myid = m.c.myid; // the id given by the server to represent me
       var nclients = m.c.clients;
+      var scores = m.c.scores;
       model.setConnectedUsers(nclients);
-      model.startGame(board, grid, dfrus, pieces, myid);
-    } else if ('scores' in m) { // Received all player scores
-      model.setScores(m.scores);
+      model.setScores(scores);      
+      model.startGame(board, grid, dfrus, pieces, myid);      
     } else if ('scu' in m) { //  Received update for one or more players
       var scoreUpdates = m.scu;
       for (var key in scoreUpdates) {
@@ -57,6 +56,9 @@ function Network(h) {
       model.userConnected();
     } else if ('UD' in m) {
       model.userDisconnected();
+    // Game Over!
+    } else if ('go' in m) {
+      model.endGame();
     }
   };
 
@@ -146,6 +148,15 @@ function Network(h) {
     socket.send(JSON.stringify(msg));
   };
 
+  this.sendGameOver = function() {
+	var msg = {'go': true};
+	socket.send(JSON.stringify(msg));
+  };
+  
+  this.sendUserName = function(user) {
+    var msg = {'usr': user};
+    socket.send(JSON.stringify(msg));
+  }
   // close connection to the server
   this.close = function() {
     connected = false; // This prevents the pop-up alert from coming up every time you intentionally disconnect

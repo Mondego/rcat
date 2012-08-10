@@ -85,7 +85,7 @@ class JigsawRequestParser(Thread):
     
                 pieces = {}
                 pieces = datacon.mapper.select_all()
-                
+                scores = datacon.mapper.get_user_scores()
                 # send the board config
                 cfg = {'imgurl':img_url,
                        'board': board,
@@ -93,7 +93,8 @@ class JigsawRequestParser(Thread):
                        'frus': dfrus,
                        'pieces': pieces,
                        'myid': userid,
-                       'clients': clientsConnected
+                       'clients': clientsConnected,
+                       'scores' : scores
                        }
                 response = {'M': {'c': cfg}, 'U': userid}
                 jsonmsg = json.dumps(response)
@@ -121,8 +122,8 @@ class JigsawRequestParser(Thread):
                     pass # TODO: update frustum table
                     # TODO: send pieces located in the new frustum
                 elif 'usr' in m:
-                    scores = datacon.mapper.new_user_connected(userid,m['usr'])
-                    response = {'M': {'scores':scores}, 'U':enc['U']}
+                    update_res = datacon.mapper.new_user_connected(userid,m['usr'])
+                    response = {'M': {'scu':update_res}}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
     
@@ -188,8 +189,20 @@ class JigsawRequestParser(Thread):
                         response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
-                        
-                        
+                # End game request from client
+                elif 'go':
+                    # TODO: Send final game score
+                    print "Game end request received"
+                    res = datacon.mapper.check_game_end()
+                    if res:
+                        msg = {'M': {'go':True}}
+                        jsonmsg = json.dumps(msg)
+                        self.handler.write_message(jsonmsg)
+                elif 'ng' in m:
+                    pass
+                
+                elif 'rg' in m:
+                    pass
                 
         except Exception, err:
             logging.exception("[jigsawapp]: Exception in message handling from client:")
@@ -265,6 +278,7 @@ class JigsawServer():
                 if settings["main"]["start"] == "true":
                     logging.info("[jigsawapp]: Starting game, please wait...")
                     count = datacon.db.count("jigsaw")
+                    #TODO: Add condition where new game is being started
                     if count > 0:
                         datacon.mapper.recover_last_game()
                     else:
