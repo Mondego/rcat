@@ -30,6 +30,7 @@ rcat = None
 tables = {}
 location = {}
 pchandler = None
+game_over = False
 
 img_url = ''
 board = {}
@@ -191,13 +192,17 @@ class JigsawRequestParser(Thread):
                         self.handler.write_message(jsonmsg)
                 # End game request from client
                 elif 'go':
-                    # TODO: Send final game score
-                    print "Game end request received"
-                    res = datacon.mapper.check_game_end()
-                    if res:
-                        msg = {'M': {'go':True}}
-                        jsonmsg = json.dumps(msg)
-                        self.handler.write_message(jsonmsg)
+                    global game_over
+                    # Am I already waiting for the game to end?
+                    if not game_over:
+                        game_over = True
+                        # TODO: Send final game score
+                        print "Game end request received"
+                        res = datacon.mapper.check_game_end()
+                        if res:
+                            msg = {'M': {'go':True}}
+                            jsonmsg = json.dumps(msg)
+                            self.handler.write_message(jsonmsg)
                 elif 'ng' in m:
                     pass
                 
