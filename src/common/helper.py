@@ -18,13 +18,15 @@ ansi_codes = {
                "endc" : '\033[0m'
               }
 
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915, # SIOCGIFADDR
-        struct.pack('256s', ifname[:15])
-    )[20:24])
+#===============================================================================
+# def get_ip_address(ifname):
+#    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#    return socket.inet_ntoa(fcntl.ioctl(
+#        s.fileno(),
+#        0x8915, # SIOCGIFADDR
+#        struct.pack('256s', ifname[:15])
+#    )[20:24])
+#===============================================================================
 
 def parse_input(cfg_file='app.cfg'):
     myip, myport, fp, cfg = None, None, None, cfg_file
@@ -60,7 +62,7 @@ def parse_input(cfg_file='app.cfg'):
                 proxies = json.loads(config.get('Main', 'proxies'))
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ", e)
-                myip = get_ip_address('eth0')
+                #myip = get_ip_address('eth0')
         else:
             return {}
         
@@ -94,7 +96,7 @@ def printc(msg, color):
     print ansi_codes[color] + msg + ansi_codes["endc"]
 
 def terminal():
-    time.sleep(2)
+    time.sleep(4)
     printc("\n\nInput commands to RCAT below. Type help for list for commands.", "blue")
     while(1):
         sys.stdout.write(ansi_codes["green"] + "[rcat]: ")

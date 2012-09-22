@@ -31,6 +31,7 @@ class OBMHandler(tornado.web.RequestHandler):
 class OBMParser(Thread):
     def __init__(self,handler):
         Thread.__init__(self)
+        self.daemon = True
         self.handler = handler
                 
     def run(self):
@@ -150,7 +151,7 @@ class ObjectManager():
         if not owner:
             owner = self.myhost
 #        else:
-#            owner = self.gethost(table,owner)
+#            owner = self.get_host_from_admin(table,owner)
         try:
             if not self.tables[table]:
                 self.tables[table] = {}
@@ -186,7 +187,8 @@ class ObjectManager():
             if not rid:
                 raise
             self.datacon.db.insert(table,values,False)
-        
+
+        # SetOwner sets location and tables caches
         self.setowner(table,rid,values,None,True)
         
         # Updates secondary indexes
@@ -196,18 +198,18 @@ class ObjectManager():
                 self.indexes[table][idx][value].append(rid)
             else:
                 self.indexes[table][idx][value] = [rid]
-        return True
+        return self.tables[table][rid]
 
     def update(self,table,update_tuples,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
         
         if not self.location[table][rid] == self.myhost:
             # If I don't own it, but I should! Request relocation
             result = "Failed"
             while (result == "Failed"):
-                self.location[table][rid] = self.getlocation(table,rid)
+                self.location[table][rid] = self.get_host_from_rid(table,rid)
                 if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
                     break
                 else:
@@ -235,13 +237,13 @@ class ObjectManager():
     def select(self,table,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
         
         if not self.location[table][rid] == self.myhost:
             # If I don't own it, but I should! Request relocation
             result = "Failed"
             while (result == "Failed"):
-                self.location[table][rid] = self.getlocation(table,rid)
+                self.location[table][rid] = self.get_host_from_rid(table,rid)
                 if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
                     break
                 else:
@@ -262,10 +264,10 @@ class ObjectManager():
     def delete(self,table,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
         
         if not self.location[table][rid] == self.myhost:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
             if not self.location[table][rid] == self.myhost:
                 return "Failed"
             else:
@@ -280,29 +282,39 @@ class ObjectManager():
     """
         
     def insert_remote(self,table,admid,values,rid):
-        remotehost = self.gethost(table,admid)
+        remotehost = self.get_host_from_admin(table,admid)
         self.location[table][rid] = remotehost
-        self.send_request_owner(remotehost, table, rid, "insert",values)
+        res = self.send_request_owner(remotehost, table, rid, "insert",values)
         logging.debug("[obm]: Inserting remotely at " + remotehost + " the values: " + str(values))
-        return True
+        if res == "OK":
+            return True
         
     def update_remote(self,table,admid,tuples,rid):
-        remotehost = self.gethost(table,admid)
+        remotehost = self.get_host_from_admin(table,admid)
+        # If I don't have the owner of this rid cached, store it
         if rid not in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
-        if self.location[table][rid] == self.myhost:
+            self.location[table][rid] = remotehost
+        # If the owner is supposed to be myself, set it
+        elif self.location[table][rid] == self.myhost:
             self.setowner(table,rid,None,remotehost)
+        # If the owner doesn't match the one I currently have stored, tell the current owner to relocate there
+        elif remotehost != self.location[table][rid]:
+            self.relocate(table,rid,remotehost)
         
-        self.location[table][rid] = remotehost
         self.send_request_owner(remotehost, table, rid, "update",tuples)
         logging.debug("[obm]: Remote update request.")
             
     def select_remote(self,table,admid,rid):
-        remotehost = self.gethost(table,admid)
+        remotehost = self.get_host_from_admin(table,admid)
+        # If I don't have the owner of this rid cached, store it
         if rid not in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
-        if self.location[table][rid] == self.myhost:
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
+        # If the owner is supposed to be myself, set it
+        elif self.location[table][rid] == self.myhost:
             self.setowner(table,rid,None,remotehost)
+        # If the owner doesn't match the one I currently have stored, tell the current owner to relocate there
+        elif remotehost != self.location[table][rid]:
+            self.relocate(table,rid,remotehost)
             
         resp = self.send_request_owner(remotehost,table,rid,"select")
         logging.debug("[obm]: Response from select: " + str(resp))
@@ -320,19 +332,19 @@ class ObjectManager():
             logging.error("[obm]: Index not created! Please create index first.")
             return False
 
-    def gethost(self,table,admid):
+    def get_host_from_admin(self,table,admid):
         cmd = "select host from " + table + "_reg where `admid` = '" + admid + "'"
         return self.datacon.db.execute_one(cmd)['host']
     
-    def getlocation(self,table,rid):
+    def get_host_from_rid(self,table,rid):
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
         return self.datacon.db.execute_one(cmd)['host']
     
     def relocate(self,table,rid,newowner):
         if not rid in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
         if self.location[table][rid] != self.myhost:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
             # Update location just in case
             if self.location[table][rid] != self.myhost:
                 logger.info("[obm]: Object is not here, sorry!")
@@ -354,7 +366,7 @@ class ObjectManager():
     """
     def request_relocate_to_local(self,table,rid):
         if not rid in self.location[table]:
-            self.location[table][rid] = self.getlocation(table,rid)
+            self.location[table][rid] = self.get_host_from_rid(table,rid)
         self.send_request_owner(self.location[table][rid],table,rid,"relocate")
         
     """

@@ -70,7 +70,6 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         try:
             msg = json.loads(message)
             logger.debug("[back]: Got admin message: " + str(msg))
-            logger.debug(message)
             newmsg = {}
 
             # Internal requests

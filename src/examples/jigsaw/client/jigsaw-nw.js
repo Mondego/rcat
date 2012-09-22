@@ -52,6 +52,8 @@ function Network(h) {
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
+    } else if ('pf' in m) {
+        
     } else if ('NU' in m) {
       model.userConnected();
     } else if ('UD' in m) {

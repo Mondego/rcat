@@ -68,6 +68,7 @@ handlers = [
 class JigsawRequestParser(Thread):
     def __init__(self,handler,message):
         Thread.__init__(self)
+        self.daemon = True
         self.handler = handler
         self.sched = IOLoop.instance().add_callback
         self.message = message
@@ -82,22 +83,26 @@ class JigsawRequestParser(Thread):
             # send the config when the user joins
             if "NU" in enc:
                 # get the user id
-                userid = enc["NU"]
+                new_user_list = enc["NU"]
+                if len(new_user_list) != 1:
+                    raise Exception('Not supporting multiple new users')
+                new_user = new_user_list[0]
     
                 pieces = {}
                 pieces = datacon.mapper.select_all()
                 scores = datacon.mapper.get_user_scores()
+                datacon.mapper.create_user(new_user)
                 # send the board config
                 cfg = {'imgurl':img_url,
                        'board': board,
                        'grid': grid,
                        'frus': dfrus,
                        'pieces': pieces,
-                       'myid': userid,
+                       'myid': new_user,
                        'clients': clientsConnected,
                        'scores' : scores
                        }
-                response = {'M': {'c': cfg}, 'U': userid}
+                response = {'M': {'c': cfg}, 'U': [new_user]}
                 jsonmsg = json.dumps(response)
                 self.handler.write_message(jsonmsg)
                 clientsConnected+=1
@@ -117,10 +122,13 @@ class JigsawRequestParser(Thread):
                 logging.debug(enc["M"])
                 m = json.loads(enc["M"])
                 userid = enc["U"][0]
-    
+
                 if 'rp' in m: # frustum update
-                    #self.frus = m['rp']['v']
-                    pass # TODO: update frustum table
+                    pf = datacon.mapper.set_user_frustrum(userid,m['rp']['v'])
+                    response = {'M': {'pf':pf},'U':[userid]}
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
+                    
                     # TODO: send pieces located in the new frustum
                 elif 'usr' in m:
                     update_res = datacon.mapper.new_user_connected(userid,m['usr'])
@@ -285,6 +293,7 @@ class JigsawServer():
                     count = datacon.db.count("jigsaw")
                     #TODO: Add condition where new game is being started
                     if count > 0:
+                        logging.info("[jigsawapp]: Recovering last game.")
                         datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database

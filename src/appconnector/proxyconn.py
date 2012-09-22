@@ -110,6 +110,7 @@ class ProxyConnector():
             if msg["UD"] in self.client_proxy:
                 del self.client_proxy[msg["UD"]]
             if msg["UD"] in self.client_admin:
+                
                 del self.client_admin[msg["UD"]]
             self.app.send(message)
         elif "NS" in msg:
@@ -122,7 +123,7 @@ class ProxyConnector():
         logger.debug("List of users: " + str(self.client_proxy))
     
     def Admin_on_error(self,ws, error):
-        raise
+        logger.exception("Exception in admin message channel: " + str(error))
     
     def Admin_on_close(self,ws):
         logger.debug("### Admin closed ###")

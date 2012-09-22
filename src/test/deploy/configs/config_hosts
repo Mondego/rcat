@@ -1,10 +1,7 @@
-#mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@parana.ics.uci.edu,parana.ics.uci.edu:8888,parana.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@rhine.ics.uci.edu,rhine.ics.uci.edu:8888,rhine.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@parana.ics.uci.edu,parana.ics.uci.edu:8888,parana.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@yangtze.ics.uci.edu,yangtze.ics.uci.edu:8888,yangtze.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@hudson.ics.uci.edu,hudson.ics.uci.edu:8888,hudson.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-#mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.node.cfg
-
-
-mondego@niagara.ics.uci.edu,niagara.ics.uci.edu:8888,niagara.ics.uci.edu:9999,mondego.jigsaw.main.cfg
+mondego@parana.ics.uci.edu,10.0.0.1:8888,10.0.0.1:9999,mondego.jigsaw.node.cfg
+mondego@ganges.ics.uci.edu,10.0.0.13:8888,10.0.0.13:9999,mondego.jigsaw.node.cfg
+mondego@rhine.ics.uci.edu,10.0.0.15:8888,10.0.0.15:9999,mondego.jigsaw.node.cfg
+mondego@hudson.ics.uci.edu,10.0.0.14:8888,10.0.0.14:9999,mondego.jigsaw.node.cfg
+mondego@akan.ics.uci.edu,10.0.0.11:8888,10.0.0.11:9999,mondego.jigsaw.node.cfg
+mondego@yangtze.ics.uci.edu,10.0.0.12:8888,10.0.0.12:9999,mondego.jigsaw.node.cfg
+mondego@niagara.ics.uci.edu,10.0.0.16:8888,10.0.0.16:9999,mondego.jigsaw.node.cfg

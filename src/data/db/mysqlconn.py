@@ -56,8 +56,13 @@ class MySQLConnector():
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
-        Timer(5.0, self.__dump_to_database__).start()
-        Timer(18000.0, self.keepalive).start()
+        dtd = Timer(5.0, self.__dump_to_database__)
+        dtd.daemon = True
+        dtd.start()
+        
+        ka = Timer(18000.0, self.keepalive)
+        ka.daemon = True
+        ka.start()
         
     def keepalive(self):
         logger.debug("[mysqlconn]: Keeping connection alive..")
@@ -69,7 +74,9 @@ class MySQLConnector():
             cur.execute("show tables")
             cur = self.cur
         logger.debug("[mysqlconn]: All cursors updated.")
-        Timer(18000.0, self.keepalive).start()
+        ka = Timer(18000.0, self.keepalive)
+        ka.daemon = True
+        ka.start()
         
         
     def execute(self,cmd):

@@ -7,20 +7,26 @@ from collections import defaultdict, deque
 import logging
 from threading import Timer
 import time
+from copy import deepcopy
 
 piece_mapper = []
 client_mapper = []
 idToName = {}
 clientScores = defaultdict(int)
 
-m_size = None
-m_boardx = None
-m_boardy = None
 client_loc = {}
 object_loc = {}
 cur_boardx = None
 cur_boardy = None
 quadtree = None
+
+class User():
+    uid = None
+    frustrum = None
+    def __init__(self,uid,frustrum=None):
+        self.uid = uid
+        self.frustrum = frustrum
+    
 
 class Node():
     tl,tr,bl,br,spl,adm = None, None, None, None, None, None
@@ -109,6 +115,8 @@ class SpacePartitioning():
     datacon = None
     quadtree = None
     table = None
+    board= {}
+    users = {}
     
     def __init__(self,datacon):
         self.db = datacon.db
@@ -116,13 +124,47 @@ class SpacePartitioning():
         self.tables = {}
         self.location = {}
         self.datacon = datacon
+    
+    
+    """
+    ####################################
+    USER MANAGEMENT SECTION
+    ####################################
+    """ 
         
+    def create_user(self,uid):
+        if not uid in self.users:
+            self.users[uid] = User(uid)
+    
+    def remove_user(self,uid):
+        if uid in self.users:
+            del self.users[uid]  
+    
+    def set_user_frustrum(self,uid,frus):
+        if not uid in self.users:
+            self.users[uid] = User(uid,frus)
+        else:
+            user = self.users[uid]
+            user.frustrum = frus
+        self.position_client(frus["x"], frus["y"], user, frus["w"], frus["h"])
+        ids = self.collect_pieces(frus["x"], frus["y"], frus["w"],frus["h"])
+        pieces = []
+        for pieceid in ids:
+            pieces.append(self.datacon.obm.select("jigsaw",pieceid))
+        print pieces
+        return pieces
+                
+    def get_user_frustrum(self,uid):
+        return self.users[uid].frustrum
+    
+        
+    
     """
     ####################################
     DATA MANAGEMENT SECTION
     ####################################
     """ 
-        
+    
     def create_table(self,table,ridname,clear=False):
         if clear:
             self.datacon.obm.clear(table)
@@ -142,18 +184,20 @@ class SpacePartitioning():
         owner = self.quadtree.find_owner((values[2],values[3]))
         if owner == self.myid:
             res = self.datacon.obm.insert(self.table,values,pid)
-            if res != True:
+            if not res:
                 logging.error("[spacepart]: Could not insert. Response: " + str(res))
         else:
             res = self.datacon.obm.insert_remote(self.table,owner,values,pid)
-            if res != True:
+            if not res:
                 logging.error("[spacepart]: Could not insert. Response: " + str(res))
     
     def update(self,x,y,tuples,pid):
         owner = self.quadtree.find_owner((x,y))
-        #self.position_object(x, y, pid)
         if owner == self.myid:
-            self.datacon.obm.update(self.table,tuples,pid)
+            curpiece = self.datacon.obm.select(self.table,pid)
+            self.delete_object(curpiece["x"],curpiece["y"],pid)
+            newpiece = self.datacon.obm.update(self.table,tuples,pid)
+            self.position_object(x, y, newpiece)
             return "LOCAL"
         else:
             self.datacon.obm.update_remote(self.table,owner,tuples,pid)
@@ -171,10 +215,10 @@ class SpacePartitioning():
     def select(self,x,y,pid):
         owner = self.quadtree.find_owner((x,y))
         if owner == self.myid:
-            resp = self.datacon.obm.select(self.table,pid)
+            piece = self.datacon.obm.select(self.table,pid)
         else:
-            resp = self.datacon.obm.select_remote(self.table,owner,pid)
-        return resp
+            piece = self.datacon.obm.select_remote(self.table,owner,pid)
+        return piece
     
     def clear_all(self):
         self.datacon.db.clear_table(self.table)
@@ -197,8 +241,6 @@ class SpacePartitioning():
     """ 
     
     def join(self,settings):
-        global m_boardx
-        global m_boardy
         global piece_mapper
         global client_mapper
         global quadtree
@@ -208,28 +250,32 @@ class SpacePartitioning():
         bw,bh = settings["board"]["w"],settings["board"]["h"]
         m_boardw,m_boardh = int(bw),int(bh)
         bucket_size = int(settings["main"]["bucket_size"])
-        """
-        TODO: Implement frustrum partitioning
+        
         # Build the bucket matrix for pieces and clients
-        line = [ set() for _ in range(0,m_boardw/bucket_size)]
-        for _ in range(0,m_boardh/bucket_size):
+        line = [ set() for _ in range(0,m_boardh/bucket_size)]
+        for _ in range(0,m_boardw/bucket_size):
             piece_mapper.append(deepcopy(line))
-        for _ in range(0,m_boardh/bucket_size):
+        line = [ set() for _ in range(0,m_boardh/bucket_size)]
+        for _ in range(0,m_boardw/bucket_size):
             client_mapper.append(deepcopy(line))
-        """ 
+            
         # Build data structure to lookup server responsible for each area. Using Quadtree for now
         adms = set(settings["ADMS"])
         first = adms.pop()
         quadtree = Node((m_boardw/2,m_boardh/2),first)
         for adm in adms:
-            print "Inserting in quadtree..."
             quadtree.FindAndInsert(adm)
+        logging.info(str(quadtree))
 
         self.quadtree = quadtree
+        self.board["bs"] = bucket_size 
+        self.board["w"] = m_boardw
+        self.board["h"] = m_boardh
         
     def recover_last_game(self):
         allobjs = self.datacon.db.execute("select * from jigsaw")
         self.datacon.db.execute("delete from jigsaw")
+        self.datacon.db.execute("delete from jigsaw_obm")
         for obj in allobjs:
             self.insert(obj,obj["pid"])
         self.retrieve_score_from_db()
@@ -280,57 +326,65 @@ class SpacePartitioning():
     SPACE PARTITIONING MEMORY SECTION
     ####################################
     """ 
-    # Return range
+    def __get_buckets(self,x,y):
+        return int(x/self.board["bs"]),int(y/self.board["bs"])
+    
+    # Return range 
     def __rr__(self,x,y,width,height):
-        if x + width > m_boardx:
-            buktx = m_boardx - 1
-        if y + height > m_boardy:
-            bukty = m_boardy - 1
-        return range(buktx), range(bukty)
+        if x < 0:
+            x = 0
+        if y < 0:
+            y = 0
+        x1,y1 = width,height
+        if x + width > self.board["w"]:
+            x1 = self.board["w"]
+        if y + height > self.board["h"]:
+            y1 = self.board["h"]
+        buktx,bukty = self.__get_buckets(x, y)
+        buktx1,bukty1 = self.__get_buckets(x1, y1)
+        return range(buktx,buktx1), range(bukty,bukty1)
         
     def position_object(self,x,y,obj):
         try:
-            buktx,bukty = int(x/m_size),int(y/m_size)
-            piece_mapper[buktx][bukty].add(obj)
+            buktx,bukty = self.__get_buckets(x, y)
+            piece_mapper[buktx][bukty].add(obj["pid"])
             object_loc[obj] = (buktx,bukty)
-        except Exception as e:
-            logging.error(e)
+        except Exception:
+            logging.exception("[spacepart]: Error positioning object")
 
     def position_client(self,x,y,cl,viewx,viewy):
-        buktx,bukty = int(x/m_size),int(y/m_size)
         if cl in client_loc:
             # cl: Tuple with top,left,width and height of client view
             rangex,rangey = self.__rr__(*client_loc[cl])
+            print rangex,rangey
             for i in rangex:
                 for j in rangey:
-                    piece_mapper[i][j].remove(cl)
+                    if cl in client_mapper[i][j]:
+                        client_mapper[i][j].remove(cl)
                     
-        client_loc[cl] = (buktx,bukty,viewx,viewy)
-        rangex,rangey = self.__rr__(buktx,bukty,viewx,viewy)
+        client_loc[cl] = (x,y,viewx,viewy)
+        rangex,rangey = self.__rr__(x,y,viewx,viewy)
         for i in rangex:
             for j in rangey:
-                piece_mapper[i][j].add(cl)
+                client_mapper[i][j].add(cl)
         
-        #client_mapper[buktx][bukty].add(cl)
-         
-    """
+        
     def delete_object(self,x,y,objid):
-        buktx,bukty = int(x/m_size),int(y/m_size)
+        buktx,bukty = self.__get_buckets(x,y)
         list_items = piece_mapper[buktx][bukty]
         for item in list_items:
-            if item[self.idname] == objid:
+            if item == objid:
                 list_items.remove(item)
     
-    def retrieve_near(self,x,y,search_range=10):
-        buktx,bukty = int(x/m_size),int(y/m_size)
-        rangex,rangey = self.__rr__(buktx,bukty,search_range)
+    def collect_pieces(self,x,y,x1,y1):
+        rangex,rangey = self.__rr__(x,y,x1,y1)
         result = []
         for i in rangex:
             for j in rangey:
                 if piece_mapper[i][j]:
                     result.add(piece_mapper[i][j])
-        return deepcopy(result)
-    """
+        return result
+    
 if __name__ == "__main__":
     adms = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
     rootnode = Node((500,500),0)
