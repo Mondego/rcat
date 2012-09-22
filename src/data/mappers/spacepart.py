@@ -151,7 +151,6 @@ class SpacePartitioning():
         pieces = []
         for pieceid in ids:
             pieces.append(self.datacon.obm.select("jigsaw",pieceid))
-        print pieces
         return pieces
                 
     def get_user_frustrum(self,uid):
@@ -356,7 +355,6 @@ class SpacePartitioning():
         if cl in client_loc:
             # cl: Tuple with top,left,width and height of client view
             rangex,rangey = self.__rr__(*client_loc[cl])
-            print rangex,rangey
             for i in rangex:
                 for j in rangey:
                     if cl in client_mapper[i][j]:
