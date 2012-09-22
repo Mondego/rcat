@@ -44,10 +44,12 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         clients[self.myid] = self
         
         newmsg = {}
-        newmsg["NU"] = [self.myid] 
+        newmsg["NU"] = [self.myid]
+         
         
         if proxy_options["DISTRIBUTION"] == PROXY_DISTRIBUTION.STICKY:
             self.sticky_server = proxyref.back.sticky_server()
+            newmsg["SS"] = proxyref.back.get_admid(self.sticky_server)
         proxyref.back.broadcast_admins(json.dumps(newmsg))
         
     def on_message(self, message):
@@ -68,6 +70,8 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         newmsg = {}
         # User disconnected
         newmsg["UD"] = self.myid
+        if self.sticky_server:
+            newmsg["SS"] = proxyref.back.get_admid(self.sticky_server)
 
         proxyref.back.broadcast_admins(json.dumps(newmsg))
         logger.debug("WebSocket closed")

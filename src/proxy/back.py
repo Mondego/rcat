@@ -15,7 +15,7 @@ servers = []
 admins = {}
 sticky_client = {}
 server_cycle = None
-server_ref = None
+server_admid = {}
 proxyref = None
 admin_proxy = {}
 logger = logging.getLogger("proxy")
@@ -39,6 +39,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             # App connector is registering its admid with this connection
             elif "REG" in msg:
                 admid = msg["REG"]
+                server_admid[self] = admid
                 admin_proxy[admid] = self
             else:
                 proxyref.front.send_message_to_client(msg["M"])
@@ -123,6 +124,7 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
         try:
             logger.debug("Admin Closed Connection")
             del admins[self.admid]
+            del server_admid[self]
         except Exception:
             logger.warning("[back]: Problem deleting admin from dictionary. Maybe it's already gone?")
 
@@ -133,6 +135,12 @@ class ServerLayer(proxy.AbstractBack):
         serverlayer = self
         logging.debug("Starting ServerLayer")
         proxyref = proxy
+
+    def get_admid(self, server):
+        if server in server_admid:
+            return server_admid[server]
+        else:
+            logging.error("[back]: Sync error, couldn't find id for this server.")
 
     def send_message_to_server(self, message, server=None):
         if (server):

@@ -147,10 +147,12 @@ class SpacePartitioning():
             user = self.users[uid]
             user.frustrum = frus
         self.position_client(frus["x"], frus["y"], user, frus["w"], frus["h"])
+        # collect pieces returns a list of sets. Each set represents a bucket
         ids = self.collect_pieces(frus["x"], frus["y"], frus["w"],frus["h"])
         pieces = []
-        for pieceid in ids:
-            pieces.append(self.datacon.obm.select("jigsaw",pieceid))
+        for set_pieces in ids:
+            for pieceid in set_pieces:
+                pieces.append(self.datacon.obm.select("jigsaw",pieceid))
         return pieces
                 
     def get_user_frustrum(self,uid):
@@ -276,6 +278,7 @@ class SpacePartitioning():
         self.datacon.db.execute("delete from jigsaw")
         self.datacon.db.execute("delete from jigsaw_obm")
         for obj in allobjs:
+            obj['l'] = None
             self.insert(obj,obj["pid"])
         self.retrieve_score_from_db()
         
@@ -347,7 +350,7 @@ class SpacePartitioning():
         try:
             buktx,bukty = self.__get_buckets(x, y)
             piece_mapper[buktx][bukty].add(obj["pid"])
-            object_loc[obj] = (buktx,bukty)
+            object_loc[obj["pid"]] = (buktx,bukty)
         except Exception:
             logging.exception("[spacepart]: Error positioning object")
 
@@ -370,7 +373,7 @@ class SpacePartitioning():
     def delete_object(self,x,y,objid):
         buktx,bukty = self.__get_buckets(x,y)
         list_items = piece_mapper[buktx][bukty]
-        for item in list_items:
+        for item in deepcopy(list_items):
             if item == objid:
                 list_items.remove(item)
     
@@ -380,7 +383,7 @@ class SpacePartitioning():
         for i in rangex:
             for j in rangey:
                 if piece_mapper[i][j]:
-                    result.add(piece_mapper[i][j])
+                    result.append(piece_mapper[i][j])
         return result
     
 if __name__ == "__main__":

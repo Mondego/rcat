@@ -24,7 +24,6 @@ global datacon
 
 settings = {}
 db = None
-pc = None
 datacon = None
 rcat = None
 tables = {}
@@ -82,40 +81,44 @@ class JigsawRequestParser(Thread):
     
             # send the config when the user joins
             if "NU" in enc:
-                # get the user id
-                new_user_list = enc["NU"]
-                if len(new_user_list) != 1:
-                    raise Exception('Not supporting multiple new users')
-                new_user = new_user_list[0]
-    
-                pieces = {}
-                pieces = datacon.mapper.select_all()
-                scores = datacon.mapper.get_user_scores()
-                datacon.mapper.create_user(new_user)
-                # send the board config
-                cfg = {'imgurl':img_url,
-                       'board': board,
-                       'grid': grid,
-                       'frus': dfrus,
-                       'pieces': pieces,
-                       'myid': new_user,
-                       'clients': clientsConnected,
-                       'scores' : scores
-                       }
-                response = {'M': {'c': cfg}, 'U': [new_user]}
-                jsonmsg = json.dumps(response)
-                self.handler.write_message(jsonmsg)
-                clientsConnected+=1
-                # Inform other clients of client connection
-                response = {'M': enc}
-                jsonmsg = json.dumps(response)
-                self.handler.write_message(jsonmsg)
+                if enc["SS"] != rcat.pc.adm_id:
+                    clientsConnected+=1
+                else:
+                    # get the user id
+                    new_user_list = enc["NU"]
+                    if len(new_user_list) != 1:
+                        raise Exception('Not supporting multiple new users')
+                    new_user = new_user_list[0]
+        
+                    pieces = {}
+                    pieces = datacon.mapper.select_all()
+                    scores = datacon.mapper.get_user_scores()
+                    datacon.mapper.create_user(new_user)
+                    # send the board config
+                    cfg = {'imgurl':img_url,
+                           'board': board,
+                           'grid': grid,
+                           'frus': dfrus,
+                           'pieces': pieces,
+                           'myid': new_user,
+                           'clients': clientsConnected,
+                           'scores' : scores
+                           }
+                    response = {'M': {'c': cfg}, 'U': [new_user]}
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
+                    clientsConnected+=1
+                    # Inform other clients of client connection
+                    response = {'M': enc}
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
             elif "UD" in enc:
                 #User was disconnected. Inform other clients
                 clientsConnected-=1
-                response = {'M': enc}
-                jsonmsg = json.dumps(response)
-                self.handler.write_message(jsonmsg)
+                if enc["SS"] == rcat.pc.adm_id:
+                    response = {'M': enc}
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
     
             else:
                 # usual message
@@ -147,19 +150,20 @@ class JigsawRequestParser(Thread):
                         lockid = userid
                         datacon.mapper.update(x,y,[('l',lockid)],pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
-                    if lockid == userid: # change location if I'm the owner
-                        # update piece coords
-                        loc = datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
-                        if loc != "LOCAL":
-                            rcat.pc.move_user(userid,loc)
-                        # add lock owner to msg to broadcast
-                        response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
-                        # broadcast
-                        jsonmsg = json.dumps(response)
-                        # TODO: Only send updates to concerned users
-                        self.handler.write_message(jsonmsg)
-                    else:
-                        logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))
+                    #TODO: Better detect conflict. Right now I privilege the latest attempt, not the first.
+                    #if lockid == userid: # change location if I'm the owner
+                    # update piece coords
+                    loc = datacon.mapper.update(x,y,[('x',x),('y',y)],pid)
+                    if loc != "LOCAL":
+                        rcat.pc.move_user(userid,loc)
+                    # add lock owner to msg to broadcast
+                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
+                    # broadcast
+                    jsonmsg = json.dumps(response)
+                    # TODO: Only send updates to concerned users
+                    self.handler.write_message(jsonmsg)
+                    #else:
+                    #    logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))
     
                 elif 'pd' in m: # piece drop
                     pid = m['pd']['id']
