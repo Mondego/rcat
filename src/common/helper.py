@@ -74,6 +74,14 @@ def parse_input(cfg_file='app.cfg'):
     else:
         return {}
     
+def parse_bot_input():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', help='port', default='8888')
+    parser.add_argument('-ip', help='host', default='localhost')
+    args = vars(parser.parse_args())
+    return args["ip"],args["p"]
+
+    
 def open_configuration(path):
     if (os.path.isfile(path)):
         fp = open(path)

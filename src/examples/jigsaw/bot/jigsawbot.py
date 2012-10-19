@@ -9,6 +9,7 @@ import logging
 import json
 import threading
 import time
+import common.helper
 
 class Bot():
     running = False
@@ -74,7 +75,8 @@ class Bot():
 if __name__ == '__main__':
     websocket.enableTrace(True)
     bot = Bot()
-    ws = websocket.WebSocketApp("ws://localhost:8888/client",
+    ip,port = common.helper.parse_bot_input()
+    ws = websocket.WebSocketApp("ws://" + ip + ":" + port + "/client",
                                 on_message = bot.on_message,
                                 on_error = bot.on_error,
                                 on_close = bot.on_close)

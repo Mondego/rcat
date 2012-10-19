@@ -420,7 +420,7 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
 
   // return whether the piece is currently being dragged by someone else
   this.isLocked = function() {
-    return (this.owner && this.owner == model.myid);
+    return (this.owner && this.owner != model.myid);
   }
 
   // bind a piece: the piece has been correctly placed,
