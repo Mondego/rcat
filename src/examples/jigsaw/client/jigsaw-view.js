@@ -42,7 +42,7 @@ function View() {
 		cell.innerHTML = newvalue;
     }
     else {
-    	var row = this.scoreTable.insertRow();
+    	var row = this.scoreTable.insertRow(0);
     	var userCell = row.insertCell(0);
         var scoreCell = row.insertCell(1);
         
