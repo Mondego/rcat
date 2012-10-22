@@ -24,7 +24,7 @@ function View() {
     }
     this.scoreDict = {};
     for (var userName in scores) {
-      var row = this.scoreTable.insertRow();
+      var row = this.scoreTable.insertRow(0);
       var userCell = row.insertCell(0);
       var scoreCell = row.insertCell(1);
       
