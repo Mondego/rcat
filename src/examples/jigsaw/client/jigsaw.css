@@ -1,16 +1,42 @@
+* {
+   margin: 0;
+   padding: 0;
+}
 
 body, html {
-   margin: 0;
    height: 100%;
 }
 
-#playground {
-   background-color: #eee;
-   width: 100%;
-   height: 100%;
-   margin: 0;
-}
 
 #jigsaw {
    border: solid black 2px;
+}
+
+table#connectAndLogBoxes {
+	background-color: #feb;
+	border-collapse: collapse;
+	margin-bottom: 8px;
+	display:block;
+	border: 1px solid #aaa;
+}
+
+#connectAndLogBoxes td {
+	padding: 5px; 
+}
+#buttonArea {
+   vertical-align: middle;
+}
+
+#connect, #disconnect {
+	height: 50px;
+	width: 120px;
+	font-size: 1.2em;
+}
+
+#disconnect {
+	display:none;
+}
+
+#numPlayers {
+	display: none;
 }

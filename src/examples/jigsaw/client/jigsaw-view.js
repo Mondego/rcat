@@ -1,57 +1,97 @@
 // -------------------------- VIEW + CONTROLLER -----------------------------
 
+// splash image is instantiated before the game is started
+var SPLASHIMG = new Image();
+SPLASHIMG.onload = function() {
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(SPLASHIMG, 10, 12);
+};
+SPLASHIMG.src = "img/SplashImage.png";
+
+// ------------------------ button binders/controllers ----------------
+
+$('#disconnect').bind('click', function(e) {
+  // e.preventDefault();
+  nw.close();
+  view.close();
+
+  $('#numPlayers').hide()
+  $('#disconnect').hide();
+  $('#connect').show();
+  $('#numPlayersBox').html('Disconnected.');
+
+});
+
+// When the player connects, instantiate the global model, view,
+// and network controller.
+$('#connect').bind('click', function(e) {
+  // e.preventDefault();
+  $('#connect').hide();
+  $('#disconnect').show();
+  $('#numPlayers').show();
+  $('#numPlayersBox').html("Waiting...");
+  // build the model
+  var user = $('#userName').val();
+  if (user == "Guest") {
+    user = user + Math.floor((Math.random() * 1000) + 1);
+    $('#userName').val(user);
+  }
+  model = new Model(user);
+  view = new View();
+  var host = $('#serverUrl').val();
+  nw = new Network(host);
+});
+
 // Display the puzzle in a canvas
 // and translate user inputs into model commands
 function View() {
 
   this.isGameOver = false;
   this.newGame = function() {
-  	this.isGameOver = false;
+    this.isGameOver = false;
   }
-  
+
   this.endGame = function() {
-  	this.isGameOver = true;
+    this.isGameOver = true;
   }
-  
 
   // ------------------ SCORE CONTROLLER ------------------
   this.scoreTable = document.getElementById("scoreTable");
   this.scoreDict = {};
-  
+
   this.createScoreTable = function(scores) {
-    while(this.scoreTable.rows.length > 1) {
-      this.scoreTable.deleteRow(this.scoreTable.rows.length-1);
+    while (this.scoreTable.rows.length > 1) {
+      this.scoreTable.deleteRow(this.scoreTable.rows.length - 1);
     }
     this.scoreDict = {};
-    for (var userName in scores) {
+    for ( var userName in scores) {
       var row = this.scoreTable.insertRow(0);
       var userCell = row.insertCell(0);
       var scoreCell = row.insertCell(1);
-      
+
       userCell.innerHTML = userName;
       scoreCell.innerHTML = scores[userName];
       this.scoreDict[userName] = row;
     }
   }
-  
-  this.updateUserScore = function(user,newvalue) {
+
+  this.updateUserScore = function(user, newvalue) {
     // Get row where entry is currently located
     if (user in this.scoreDict) {
-		var row = this.scoreDict[user];
-		var cell = row.cells[1];
-		cell.innerHTML = newvalue;
-    }
-    else {
-    	var row = this.scoreTable.insertRow(0);
-    	var userCell = row.insertCell(0);
-        var scoreCell = row.insertCell(1);
-        
-        userCell.innerHTML = user;
-        scoreCell.innerHTML = newvalue;
-        this.scoreDict[user] = row;
+      var row = this.scoreDict[user];
+      var cell = row.cells[1];
+      cell.innerHTML = newvalue;
+    } else {
+      var row = this.scoreTable.insertRow(0);
+      var userCell = row.insertCell(0);
+      var scoreCell = row.insertCell(1);
+
+      userCell.innerHTML = user;
+      scoreCell.innerHTML = newvalue;
+      this.scoreDict[user] = row;
     }
   }
-  
+
   // ------------------ MOUSE CONTROLLER ------------------
 
   // Convert screen coordinates to board coordinates.
@@ -202,20 +242,14 @@ function View() {
     // only if the board actually scrolled.
     // TODO: this needs debugging
     /*
-    if (model.draggedPiece) {
-      var oldbPos = view.toBoardPos(view.mousePos);
-      model.moveBoardRelative(dx, dy);
-      var newbPos = view.toBoardPos(view.mousePos);
-      // pdx < dx if the frustum was near the side of the board
-      // pdx = 0 if the frustum was exactly on the side
-      var pdx = newbPos.x - oldbPos.x;
-      var pdy = newbPos.y - oldbPos.y;
-      model.dragMyPiece(pdx, pdy);
-    } else {
-      // no piece dragged: only scroll the board
-      model.moveBoardRelative(dx, dy);
-    }
-    */
+     * if (model.draggedPiece) { var oldbPos = view.toBoardPos(view.mousePos);
+     * model.moveBoardRelative(dx, dy); var newbPos =
+     * view.toBoardPos(view.mousePos); // pdx < dx if the frustum was near the
+     * side of the board // pdx = 0 if the frustum was exactly on the side var
+     * pdx = newbPos.x - oldbPos.x; var pdy = newbPos.y - oldbPos.y;
+     * model.dragMyPiece(pdx, pdy); } else { // no piece dragged: only scroll
+     * the board model.moveBoardRelative(dx, dy); }
+     */
     model.moveBoardRelative(dx, dy);
 
   }
@@ -260,7 +294,6 @@ function View() {
   };
   // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
   // wooden background from http://www.grsites.com/terms/
-  // TODO: img.onload
 
   // draw the background
   function drawBoard() {
@@ -337,7 +370,9 @@ function View() {
     var dw = dims.w, dh = dims.h;
     ctx.save();
     while (IMGLOADED == false) {
-      waiting = setTimeout(function() { drawPiece(p); }, 500);
+      waiting = setTimeout(function() {
+        drawPiece(p);
+      }, 500);
       console.log("View: Image not loaded yet..");
       return;
     }
@@ -370,9 +405,12 @@ function View() {
     ctx.canvas.onmousedown = null;
     ctx.canvas.onmousemove = null;
     ctx.canvas.onmouseout = null;
-    ctx.canvas.removeEventListener('DOMMouseScroll', onmousewheel, false); // Firefox
-    ctx.canvas.removeEventListener('mousewheel', onmousewheel, false); // Chrome, IE
+    // Firefox
+    ctx.canvas.removeEventListener('DOMMouseScroll', onmousewheel, false);
+    // Chrome, IE
+    ctx.canvas.removeEventListener('mousewheel', onmousewheel, false);
     document.onkeydown = null;
+    ctx.drawImage(SPLASHIMG, 10, 12);
   }
 
   this.cleanCanvas = function() {
@@ -387,19 +425,19 @@ function View() {
   // public method of view so that model can call it
   this.drawAll = function() {
     if (!this.isGameOver) {
-		this.cleanCanvas();
-		drawBoard();
-		drawGrid();
-		drawPieces();
+      this.cleanCanvas();
+      drawBoard();
+      drawGrid();
+      drawPieces();
     }
   };
-  
+
   this.gameOver = function() {
-  	this.isGameOver = true;
-  	this.close();
-  	ctx.font = "40pt Calibri";
-	ctx.fillStyle = "blue";
+    this.isGameOver = true;
+    this.close();
+    ctx.font = "40pt Calibri";
+    ctx.fillStyle = "blue";
     ctx.fillText("Game Over! Your score was " + model.getMyScore(), 100, 100);
-	ctx.fillText("Click on Screen to Restart Game", 100, 200);
+    ctx.fillText("Click on Screen to Restart Game", 100, 200);
   }
 }
