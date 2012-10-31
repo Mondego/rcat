@@ -7,21 +7,29 @@
 </head>
 
 <body>
-<div id="connectAndLogBoxes">
-	<div id="connectBox">
-		Server: <input id="serverUrl" size=80 value="ws://localhost:8888/client"/>
-		<button id="connect">Connect</button>
-		<button id="disconnect" style="display:none">Disconnect</button>
-		Players connected: <span id="numPlayersBox">Disconnected.</span> 
-		Username: <input id="userName" value="Guest"/>
-	</div>
+	<table id="connectAndLogBoxes">
+		<tr>
+			<td id='buttonArea'>
+				<button id="connect">Join in!</button>
+				<button id="disconnect">Log out</button>
+			</td>
+			<td id="connectBox">Server URL: <input id="serverUrl" size=40
+				value="ws://localhost:8888/client" /> <br />Player name: <input
+				id="userName" value="Guest" /> <span id='numPlayers'> <br />Players
+					connected: <span id="numPlayersBox"></span>
+			</span>
+			</td>
+		</tr>
+	</table>
+	
 	<div id="jigsawLog"></div>
-</div>
 
-<canvas id="jigsaw" width='1024' height='768'></canvas>
-<p> Full image in <a href="http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg"> here </a>
-<table id="scoreTable"> 
-</table>
+	<canvas id="jigsaw" width='1024' height='768'></canvas>
+	<p>
+		Full image in <a
+			href="http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg"> here </a>
+	<table id="scoreTable">
+	</table>
 
 </body>
 
@@ -29,22 +37,6 @@
 <script src="jigsaw-model.js"></script>
 <script src="jigsaw-view.js"></script>
 <script src="jigsaw-nw.js"></script>
-<script>
 
-  function loadSplashScreen() {
-    var canvas = document.getElementById("jigsaw");
-    var context = canvas.getContext("2d");
-    var imgObj = new Image();
-    imgObj.onload = function() {
-      context.drawImage(imgObj, 12, 10);
-    };
-    imgObj.src = "img/SplashImage.png";
-  }
-
-  window.onload = function() {
-    loadSplashScreen();
-  };
-
-</script>
 
 </html>

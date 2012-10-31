@@ -1,21 +1,4 @@
-// ------------------------- GLOBAL --------------------
-
-// ------------------------ BINDERS ----------------
-
-$('#disconnect').bind('click', function(e) {
-	//e.preventDefault();
-	$('#disconnect').hide();
-	$('#connect').show();
-	disconnect_server();
-});
-
-$('#connect').bind('click', function(e) {
-	//e.preventDefault();
-	$('#connect').hide();
-	$('#disconnect').show();
-        $('#numPlayersBox').html("Waiting...");
-	connect_server();
-});
+//------------------------- GLOBAL --------------------
 
 // start by downloading the large image to be sliced for the puzzle
 // TODO: async image loading instead
@@ -23,7 +6,6 @@ var IMG = new Image();
 var IMGLOADED = false
 IMG.onload = function() {
   IMGLOADED = true
-  console.log('Image loaded');
   // TODO: time the image loading + async img load
 };
 // img.src = "img/BugsLife.jpg"; // 800 x 600
@@ -33,37 +15,8 @@ IMG.onload = function() {
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
 
 var model, view, nw;
-var canvas;
+var canvas = document.getElementById("jigsaw");
 
-function connect_server(){
-  var host = $('#serverUrl').val();
-  var user = $('#userName').val();
-  if (user == "Guest") {
-    user = user + Math.floor((Math.random()*1000)+1);
-    $('#userName').val(user);
-  }
-  canvas = document.getElementById("jigsaw");
-  model = new Model(user);
-  view = new View();
-  nw = new Network(host);
-}
-
-function disconnect_server(){
-  nw.close();
-  view.close();
-  loadSplashScreen();
-
-  $('#disconnect').hide();
-  $('#connect').show();
-  $('#numPlayersBox').html('Disconnected.');
-}
-
-// ------------------------ GENERIC ------------------------
-function isEmpty(obj) {
-	for (var key in obj) 
-		return false;
-	return true;
-}
 
 // ------------------------ MODEL --------------------------
 
@@ -71,62 +24,62 @@ function isEmpty(obj) {
 function Model(usr) {
   // -------- INITIALIZATION ---------------------------
   this.init = function() {
-	  this.numPlayers = 0;
-	  this.userName = usr;
-	  this.userScores = {};
-	  this.BOARD = {// board = grid + empty space around the grid
-		w : null,
-		h : null,
-		maxScale : null,
-		minScale : null
-	  };
-	  this.GRID = { // grid = where pieces can be dropped
-		x : null,
-		y : null,
-		ncols : null,
-		nrows : null,
-		cellw : null,
-		cellh : null
-	  };
-	  this.myid = null; // the id given by the server to represent me
-	
-	  // which part of the board is currently being viewed by the user
-	  this.frustum = {
-		x : null,
-		y : null,
-		scale : null, // zooming scale; >1 is zoomed in, <1 is zoomed out
-		w : null,
-		h : null
-	  };  
+    this.numPlayers = 0;
+    this.userName = usr;
+    this.userScores = {};
+    this.BOARD = {// board = grid + empty space around the grid
+      w : null,
+      h : null,
+      maxScale : null,
+      minScale : null
+    };
+    this.GRID = { // grid = where pieces can be dropped
+      x : null,
+      y : null,
+      ncols : null,
+      nrows : null,
+      cellw : null,
+      cellh : null
+    };
+    this.myid = null; // the id given by the server to represent me
+
+    // which part of the board is currently being viewed by the user
+    this.frustum = {
+      x : null,
+      y : null,
+      scale : null, // zooming scale; >1 is zoomed in, <1 is zoomed out
+      w : null,
+      h : null
+    };
   }
-  
+
   this.init();
-  
+
   // -------- GAME END ---------------------------
   this.endGame = function() {
-	view.gameOver();
+    view.gameOver();
   }
-  
+
   // -------- USER MANAGEMENT AND SCORE --------------------
-  
+
   this.getUserName = function() {
     return this.userName;
   }
-  
+
   this.setScores = function(scores) {
     this.userScores = scores;
     view.createScoreTable(scores);
   }
-  
-  this.setUserScore = function(user,newScore) {
+
+  this.setUserScore = function(user, newScore) {
     this.userScores[user] = newScore;
-    view.updateUserScore(user,newScore);
+    view.updateUserScore(user, newScore);
   }
-  
+
   this.getUserScore = function(user) {
     return this.userScores[user];
   }
-  
+
   this.getMyScore = function() {
     return this.userScores[this.userName];
   }
@@ -147,8 +100,6 @@ function Model(usr) {
   }
 
   // -------- GAME SETTINGS -------------------------
-
-
 
   // Frustum primitive.
   // Fix the frustum if user scrolled past board edges
@@ -206,11 +157,14 @@ function Model(usr) {
   // Init board, grid, and frustum from server config.
   // Also create the pieces from server data.
   this.startGame = function(board, grid, dfrus, piecesData, myid) {
-    // TODO: model.startGame? model is in jigsaw-nw, where this is being called from. I HATE javascript "this" conventions.. bah.. 
+    // TODO: model.startGame? model is in jigsaw-nw, where this is being called
+    // from. I HATE javascript "this" conventions.. bah..
     view.newGame();
     while (IMGLOADED == false) {
-      waiting = setTimeout(function() { model.startGame(board, grid, dfrus, piecesData, myid); }, 500);
-      console.log("Model: Image not loaded yet..");
+      waiting = setTimeout(function() {
+        model.startGame(board, grid, dfrus, piecesData, myid);
+      }, 500);
+      console.log("Still downloading the image ...");
       return;
     }
     this.BOARD = board;
@@ -335,7 +289,6 @@ function Model(usr) {
     }
     return res;
   };
-  
 
   // ------------- COMMANDS ISSUED BY THE NETWORK -----------
 
@@ -430,7 +383,7 @@ function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
       delete model.loosePieces[this.id];
       model.boundPieces[this.id] = this;
       this.bound = true;
-      if (isEmpty(model.loosePieces)) {
+      if (model.loosePieces.length == 0) {
         nw.sendGameOver();
       }
     }
