@@ -1,22 +1,21 @@
 //------------------------- GLOBAL --------------------
 
+var model, view, nw;
+var canvas;
+
 // start by downloading the large image to be sliced for the puzzle
 // TODO: async image loading instead
 var IMG = new Image();
 var IMGLOADED = false
 IMG.onload = function() {
   IMGLOADED = true
-  // TODO: time the image loading + async img load
+  // TODO: time the image loading
 };
 // img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
-
-var model, view, nw;
-var canvas = document.getElementById("jigsaw");
-
 
 // ------------------------ MODEL --------------------------
 
@@ -157,9 +156,8 @@ function Model(usr) {
   // Init board, grid, and frustum from server config.
   // Also create the pieces from server data.
   this.startGame = function(board, grid, dfrus, piecesData, myid) {
-    // TODO: model.startGame? model is in jigsaw-nw, where this is being called
-    // from. I HATE javascript "this" conventions.. bah..
     view.newGame();
+    // if the img has not loaded yet, wait for 500ms
     while (IMGLOADED == false) {
       waiting = setTimeout(function() {
         model.startGame(board, grid, dfrus, piecesData, myid);

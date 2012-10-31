@@ -4,9 +4,14 @@
 <meta charset="utf-8">
 <title>Jigsaw Puzzle v0.1</title>
 <link rel="stylesheet" href="jigsaw.css" />
+<script
+	src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="jigsaw-model.js"></script>
+<script src="jigsaw-view.js"></script>
+<script src="jigsaw-nw.js"></script>
 </head>
-
 <body>
+
 	<table id="connectAndLogBoxes">
 		<tr>
 			<td id='buttonArea'>
@@ -21,7 +26,7 @@
 			</td>
 		</tr>
 	</table>
-	
+
 	<div id="jigsawLog"></div>
 
 	<canvas id="jigsaw" width='1024' height='768'></canvas>
@@ -32,11 +37,4 @@
 	</table>
 
 </body>
-
-<script src="http://code.jquery.com/jquery-1.5.js"></script>
-<script src="jigsaw-model.js"></script>
-<script src="jigsaw-view.js"></script>
-<script src="jigsaw-nw.js"></script>
-
-
 </html>

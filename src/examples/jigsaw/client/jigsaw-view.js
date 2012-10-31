@@ -1,50 +1,67 @@
-// -------------------------- VIEW + CONTROLLER -----------------------------
+// ----------------- GLOBAL ------------------- 
 
-// splash image is instantiated before the game is started
+// splash image is instantiated before the game is started,
+// but loaded when the page is ready
 var SPLASHIMG = new Image();
-SPLASHIMG.onload = function() {
-  var ctx = canvas.getContext('2d');
-  ctx.drawImage(SPLASHIMG, 10, 12);
-};
-SPLASHIMG.src = "img/SplashImage.png";
 
 // ------------------------ button binders/controllers ----------------
 
-$('#disconnect').bind('click', function(e) {
-  // e.preventDefault();
-  nw.close();
-  view.close();
+// when the page and DOM are ready, wire the controller logic to view elements,
+// and load the splash screen
+$(function() {
 
-  $('#numPlayers').hide()
-  $('#disconnect').hide();
-  $('#connect').show();
-  $('#numPlayersBox').html('Disconnected.');
+  // When the player connects, instantiate the global model, view, and nw.
+  $('#connect').bind('click', function(e) {
+    // e.preventDefault();
+    $('#connect').hide();
+    $('#disconnect').show();
+    $('#numPlayers').show();
+    $('#numPlayersBox').html("Waiting...");
+    // instantiate the MVC
+    var user = $('#userName').val();
+    if (user == "Guest") {
+      user = user + Math.floor((Math.random() * 1000) + 1);
+      $('#userName').val(user);
+    }
+    model = new Model(user);
+    view = new View();
+    var host = $('#serverUrl').val();
+    nw = new Network(host);
+  });
+
+  // when the player logs out, close the view and network socket
+  $('#disconnect').bind('click', function(e) {
+    // e.preventDefault();
+    nw.close();
+    view.close();
+    $('#numPlayers').hide()
+    $('#disconnect').hide();
+    $('#connect').show();
+    $('#numPlayersBox').html('Disconnected.');
+  });
+
+  // set the canvas global var
+  // $(#id) needs get(0), cf http://api.jquery.com/id-selector/#comment-94801864
+  canvas = $('#jigsaw').get(0);
+
+  // image load callbacks
+  SPLASHIMG.onload = function() {
+    var now = new Date().getTime()
+    var load_time = now - this.startLoadTime
+    console.log('Splash image took ' + load_time + ' ms to load')
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(SPLASHIMG, 10, 12);
+  };
+  SPLASHIMG.startLoadTime = new Date().getTime();
+  SPLASHIMG.src = "img/SplashImage.png";
 
 });
 
-// When the player connects, instantiate the global model, view,
-// and network controller.
-$('#connect').bind('click', function(e) {
-  // e.preventDefault();
-  $('#connect').hide();
-  $('#disconnect').show();
-  $('#numPlayers').show();
-  $('#numPlayersBox').html("Waiting...");
-  // build the model
-  var user = $('#userName').val();
-  if (user == "Guest") {
-    user = user + Math.floor((Math.random() * 1000) + 1);
-    $('#userName').val(user);
-  }
-  model = new Model(user);
-  view = new View();
-  var host = $('#serverUrl').val();
-  nw = new Network(host);
-});
+// -------------------------- VIEW + CONTROLLER -----------------------------
 
-// Display the puzzle in a canvas
-// and translate user inputs into model commands
 function View() {
+  // Display the puzzle in a canvas
+  // and translate user inputs into model commands
 
   this.isGameOver = false;
   this.newGame = function() {

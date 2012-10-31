@@ -1,6 +1,6 @@
 // ----------------------- NETWORK --------------- 
 
-function Network(h) {
+function Network(host) {
 
   if (!window.WebSocket) {
     console.log('Websocket not supported.');
@@ -8,8 +8,8 @@ function Network(h) {
     return;
   }
 
-//  var host = "ws://opensim.ics.uci.edu:8888/client";
-  var host = h;
+  // var host = "ws://opensim.ics.uci.edu:8888/client";
+  this.host = host;
   var connected = false;
   var socket = new WebSocket(host);
   this.sendDelay = 100; // how often to send updates, in millis
@@ -18,7 +18,7 @@ function Network(h) {
     console.log('Socket opened; status = ' + socket.readyState);
     connected = true;
   };
-  
+
   // receive handler
   socket.onmessage = function(msg) {
     m = JSON.parse(msg.data); // TODO: use json2.js for IE6 and 7
@@ -26,7 +26,7 @@ function Network(h) {
     if ('c' in m) { // Received init config
       model.init();
       var imgurl = m.c.imgurl; // puzzle image
-      IMG.src = imgurl;
+      IMG.src = imgurl; // TODO: IMG.src should be in model instead
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
@@ -35,13 +35,13 @@ function Network(h) {
       var nclients = m.c.clients;
       var scores = m.c.scores;
       model.setConnectedUsers(nclients);
-      model.setScores(scores);      
-      model.startGame(board, grid, dfrus, pieces, myid);      
-    } else if ('scu' in m) { //  Received update for one or more players
+      model.setScores(scores);
+      model.startGame(board, grid, dfrus, pieces, myid);
+    } else if ('scu' in m) { // Received update for one or more players
       var scoreUpdates = m.scu;
-      for (var key in scoreUpdates) {
-	      model.setUserScore(key, scoreUpdates[key]);
-	  }
+      for ( var key in scoreUpdates) {
+        model.setUserScore(key, scoreUpdates[key]);
+      }
     } else if ('pm' in m) { // Received piece movement
       var id = m.pm.id; // piece id
       var x = m.pm.x, y = m.pm.y;
@@ -53,12 +53,12 @@ function Network(h) {
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
     } else if ('pf' in m) {
-        
+
     } else if ('NU' in m) {
       model.userConnected();
     } else if ('UD' in m) {
       model.userDisconnected();
-    // Game Over!
+      // Game Over!
     } else if ('go' in m) {
       model.endGame();
     }
@@ -69,7 +69,7 @@ function Network(h) {
   // (keeping a journal of the local changes is overkilling it)
   socket.onclose = function() {
     console.log('Socket closed; status = ' + socket.readyState);
-    if (connected == true) 
+    if (connected == true)
       alert("Lost connection to server");
     $('#disconnect').hide();
     $('#connect').show();
@@ -151,25 +151,23 @@ function Network(h) {
   };
 
   this.sendGameOver = function() {
-	var msg = {'go': true};
-	socket.send(JSON.stringify(msg));
+    var msg = {
+      'go' : true
+    };
+    socket.send(JSON.stringify(msg));
   };
-  
+
   this.sendUserName = function(user) {
-    var msg = {'usr': user};
+    var msg = {
+      'usr' : user
+    };
     socket.send(JSON.stringify(msg));
   }
   // close connection to the server
   this.close = function() {
-    connected = false; // This prevents the pop-up alert from coming up every time you intentionally disconnect
+    connected = false; // This prevents the pop-up alert from coming up every
+    // time you intentionally disconnect
     socket.close();
   };
 
-}
-
-function writeToScreen(element, message) { 
-    var pre = document.getElementById(element); 
-    pre.style.wordWrap = "break-word"; 
-    pre.innerHTML = message; 
-    output.appendChild(pre); 
 }
