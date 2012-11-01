@@ -3,14 +3,6 @@
 var model, view, nw;
 var canvas;
 
-// start by downloading the large image to be sliced for the puzzle
-// TODO: async image loading instead
-var IMG = new Image();
-var IMGLOADED = false
-IMG.onload = function() {
-  IMGLOADED = true
-  // TODO: time the image loading
-};
 // img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
@@ -40,6 +32,8 @@ function Model(usr) {
       cellw : null,
       cellh : null
     };
+    this.IMG = new Image(); // onload is after startGame
+
     this.myid = null; // the id given by the server to represent me
 
     // which part of the board is currently being viewed by the user
@@ -153,18 +147,11 @@ function Model(usr) {
     }
   };
 
-  // Init board, grid, and frustum from server config.
-  // Also create the pieces from server data.
-  this.startGame = function(board, grid, dfrus, piecesData, myid) {
-    view.newGame();
-    // if the img has not loaded yet, wait for 500ms
-    while (IMGLOADED == false) {
-      waiting = setTimeout(function() {
-        model.startGame(board, grid, dfrus, piecesData, myid);
-      }, 500);
-      console.log("Still downloading the image ...");
-      return;
-    }
+  // Start the game: build the model right away,
+  // but build the view only when the heavy puzzle image has been received.
+  this.startGame = function(board, grid, dfrus, piecesData, myid, img) {
+
+    // Init board, grid, and frustum from server config.
     this.BOARD = board;
     this.GRID = grid;
     this.myid = myid;
@@ -179,16 +166,16 @@ function Model(usr) {
     this.frustum.h = dims.h;
     nw.sendFrustum(this.frustum);
 
-    // piece creations
+    // Also create the pieces from server data.
     this.loosePieces = {}; // hash table of movable pieces
     this.boundPieces = {}; // pieces that have been dropped in the correct cell
     var x, y; // coords of the piece on the board
     var sx, sy; // dimensions of the slice from the original image
     var w = grid.cellw;
     var h = grid.cellh;
-    // each piece contains a sw x sh slice of the original image
-    var sw = IMG.width / grid.ncols;
-    var sh = IMG.height / grid.nrows;
+    // each piece contains a sw * sh slice of the original image
+    var sw = img.img_w / grid.ncols;
+    var sh = img.img_h / grid.nrows;
     var pdata, p, sx, sy;
     var id;
     for (id in piecesData) {
@@ -198,7 +185,15 @@ function Model(usr) {
       p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
     }
     nw.sendUserName(model.getUserName());
-    view.drawAll();
+
+    // Only init the view when the puzzle image has been downloaded.
+    this.IMG.onload = function() {
+      console.log('callback for puzzle img loaded')
+      view.newGame();
+      view.drawAll();
+    };
+    this.IMG.src = img.img_url;
+
   };
 
   // -------- COMMANDS ISSUED BY THE CONTROLLER --------------

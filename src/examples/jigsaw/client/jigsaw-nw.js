@@ -23,21 +23,21 @@ function Network(host) {
   socket.onmessage = function(msg) {
     m = JSON.parse(msg.data); // TODO: use json2.js for IE6 and 7
     // cf http://stackoverflow.com/a/4935684/856897
-    if ('c' in m) { // Received init config
+
+    if ('c' in m) { // init config
       model.init();
-      var imgurl = m.c.imgurl; // puzzle image
-      IMG.src = imgurl; // TODO: IMG.src should be in model instead
+      var nclients = m.c.clients;
+      model.setConnectedUsers(nclients);
+      var scores = m.c.scores;
+      model.setScores(scores);
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
       var pieces = m.c.pieces; // pieces
       var myid = m.c.myid; // the id given by the server to represent me
-      var nclients = m.c.clients;
-      var scores = m.c.scores;
-      model.setConnectedUsers(nclients);
-      model.setScores(scores);
-      model.startGame(board, grid, dfrus, pieces, myid);
-    } else if ('scu' in m) { // Received update for one or more players
+      var img = m.c.img; // url and size of puzzle image
+      model.startGame(board, grid, dfrus, pieces, myid, img);
+    } else if ('scu' in m) { // score updates for 1 or more players
       var scoreUpdates = m.scu;
       for ( var key in scoreUpdates) {
         model.setUserScore(key, scoreUpdates[key]);

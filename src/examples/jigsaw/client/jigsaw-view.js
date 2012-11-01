@@ -46,15 +46,11 @@ $(function() {
 
   // image load callbacks
   SPLASHIMG.onload = function() {
-    var now = new Date().getTime()
-    var load_time = now - this.startLoadTime
-    console.log('Splash image took ' + load_time + ' ms to load')
     var ctx = canvas.getContext('2d');
     ctx.drawImage(SPLASHIMG, 10, 12);
   };
-  SPLASHIMG.startLoadTime = new Date().getTime();
   SPLASHIMG.src = "img/SplashImage.png";
-
+  
 });
 
 // -------------------------- VIEW + CONTROLLER -----------------------------
@@ -313,13 +309,13 @@ function View() {
   // wooden background from http://www.grsites.com/terms/
 
   // draw the background
-  function drawBoard() {
+  this.drawBoard = function() {
     ctx.save();
     var pattern = ctx.createPattern(BGIMG, 'repeat');
     ctx.fillStyle = pattern;
     // ctx.fillStyle = '#def'; // light blue
-    var pos = view.toScreenPos(0, 0);
-    var dims = view.toScreenDims(model.BOARD.w, model.BOARD.h);
+    var pos = this.toScreenPos(0, 0);
+    var dims = this.toScreenDims(model.BOARD.w, model.BOARD.h);
     ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
     ctx.restore();
   }
@@ -335,7 +331,8 @@ function View() {
     ctx.fillStyle = '#fff';
     ctx.fillRect(pos.x, pos.y, dims.w, dims.h);
     ctx.globalAlpha = 0.2; // transparency
-    ctx.drawImage(IMG, 0, 0, IMG.width, IMG.height, pos.x, pos.y, w, h);
+    var img = model.IMG
+    ctx.drawImage(img, 0, 0, img.width, img.height, pos.x, pos.y, w, h);
     ctx.globalAlpha = 1;
     // draw grid lines
     ctx.strokeStyle = "#222"; // gray
@@ -386,15 +383,7 @@ function View() {
     var dims = view.toScreenDims(grid.cellw, grid.cellh);
     var dw = dims.w, dh = dims.h;
     ctx.save();
-    while (IMGLOADED == false) {
-      waiting = setTimeout(function() {
-        drawPiece(p);
-      }, 500);
-      console.log("View: Image not loaded yet..");
-      return;
-    }
-    clearTimeout(waiting);
-    ctx.drawImage(IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
+    ctx.drawImage(model.IMG, p.sx, p.sy, p.sw, p.sh, pos.x, pos.y, dw, dh);
     // draw borders on top of pieces currently being dragged
     if (p.owner) { // piece is owned by another player
       ctx.strokeStyle = "#f0f"; // magenta
@@ -443,7 +432,7 @@ function View() {
   this.drawAll = function() {
     if (!this.isGameOver) {
       this.cleanCanvas();
-      drawBoard();
+      this.drawBoard();
       drawGrid();
       drawPieces();
     }
