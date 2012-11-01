@@ -42,12 +42,11 @@ $(function() {
   });
 
   // set the canvas global var
-  // $(#id) needs get(0), cf http://api.jquery.com/id-selector/#comment-94801864
-  canvas = $('#jigsaw').get(0);
+  $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
 
   // splash image callback
   SPLASHIMG.onload = function() {
-    var ctx = canvas.getContext('2d');
+    var ctx = $canvas.get(0).getContext('2d');
     ctx.drawImage(SPLASHIMG, 10, 12);
   };
   SPLASHIMG.src = "img/SplashImage.png";
@@ -164,7 +163,7 @@ function View() {
   var view = this; // in canvas callbacks, 'this' is the canvas, not the view
 
   // register canvas callbacks to mouse events
-  canvas.onmousedown = function(e) {
+  $canvas.mousedown(function(e) {
     // TODO: what about right clicks? http://stackoverflow.com/a/322827/856897
     view.isMouseDown = true;
     var screenPos = getScreenPos(e);
@@ -175,10 +174,10 @@ function View() {
       x : pos.x,
       y : pos.y
     };
-  };
+  });
 
   // mouseup = drop piece or stop dragging
-  canvas.onmouseup = function(e) {
+  $canvas.mouseup(function(e) {
     view.isMouseDown = false;
     var sPos = getScreenPos(e);
     if (model.draggedPiece) {
@@ -186,12 +185,12 @@ function View() {
       model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
     view.dragStart = null; // stop dragging board or piece
-  };
+  });
 
   // Don't redraw the canvas if the mouse moved but was not down.
   // The modes "drag a piece" or "slide the board" are in the model logic;
   // For the view, it's only about mouse movement.
-  canvas.onmousemove = function(e) {
+  $canvas.mousemove(function(e) {
     var screenPos = getScreenPos(e);
     if (view.isMouseDown) {
       var pos = view.toBoardPos(screenPos); // screen to model coords
@@ -208,9 +207,10 @@ function View() {
         y : pos.y
       };
     }
-  };
+  });
 
-  canvas.onmouseout = function(e) {
+  // 
+  $canvas.mouseout(function(e) {
     view.isMouseDown = false;
     var sPos = getScreenPos(e);
     if (model.draggedPiece) {
@@ -218,27 +218,26 @@ function View() {
       model.dropMyPiece(bPos.x, bPos.y); // drop the piece
     }
     view.dragStart = null; // stop dragging board or piece
-  };
+  });
 
   this.scaleStep = 1.5; // how smooth is the zooming-in and out
 
-  function onmousewheel(e) {
+  // mouse wheel from https://github.com/brandonaaron/jquery-mousewheel
+  // for complete doc, see http://www.quirksmode.org/js/events_properties.html
+  $canvas.mousewheel(function(e, delta, deltaX, deltaY) {
     e.preventDefault(); // dont scroll the window
-    // detail for FF, wheelDelta for Chrome and IE
-    var scroll = -e.wheelDelta || e.detail; // < 0 means forward/up, > 0 is down
-    var isZoomingOut = scroll > 0;
+    // in jquery.mousewheel, delta = 1 for forward/up, -1 for down/backward
+    var isZoomingOut = delta < 0;
     var screenPos = getScreenPos(e);
     model.zoomOnScreenPoint(isZoomingOut, view.scaleStep, screenPos);
-  }
-  canvas.addEventListener('DOMMouseScroll', onmousewheel, false); // FF
-  canvas.addEventListener('mousewheel', onmousewheel, false); // Chrome, IE
+  });
 
   var keyScrollOffset = 50; // how many px of the screen to scroll when keydown
   // Use arrows or WASD to scroll the board.
   // For canvas.onkeydown, the canvas should get focus first.
   // See http://stackoverflow.com/questions/10562092/gaining-focus-on-canvas
   // keydown is repeatedly fired if user keeps pressing the key
-  document.onkeydown = function(e) {
+  $(document).bind('keypress keydown', function(e) {
     // see http://stackoverflow.com/questions/1444477/keycode-and-charcode
     e = e || window.event;
     var keyCode = e.keyCode;
@@ -274,8 +273,7 @@ function View() {
      * the board model.moveBoardRelative(dx, dy); }
      */
     model.moveBoardRelative(dx, dy);
-
-  }
+  });
 
   // get click position relative to the canvas's top left corner
   // adapted from http://www.quirksmode.org/js/events_properties.html
@@ -283,16 +281,19 @@ function View() {
   function getScreenPos(e) {
     var posx;
     var posy;
-    if (!e)
+    if (!e) {
       var e = window.event;
+    }
     if (e.pageX || e.pageY) {
-      posx = e.pageX - canvas.offsetLeft;
-      posy = e.pageY - canvas.offsetTop;
+      // posx = e.pageX - canvas.offsetLeft;
+      // posy = e.pageY - canvas.offsetTop;
+      posx = e.pageX - $canvas.offset().left;
+      posy = e.pageY - $canvas.offset().top;
     } else if (e.clientX || e.clientY) {
       posx = e.clientX + document.body.scrollLeft
-          + document.documentElement.scrollLeft - canvas.offsetLeft;
+          + document.documentElement.scrollLeft - $canvas.offset().left;
       posy = e.clientY + document.body.scrollTop
-          + document.documentElement.scrollTop - canvas.offsetTop;
+          + document.documentElement.scrollTop - $canvas.offset().top;
     } else {
       console.log('Error: event did not contain mouse position.')
     }
@@ -305,7 +306,7 @@ function View() {
 
   // ---------------------- VIEW ------------------------------
 
-  var ctx = canvas.getContext('2d');
+  var ctx = $canvas.get(0).getContext('2d');
 
   // draw the background
   this.drawBoard = function() {
@@ -411,21 +412,18 @@ function View() {
 
   this.close = function() {
     this.cleanCanvas();
-    ctx.canvas.onmouseup = null;
-    ctx.canvas.onmousedown = null;
-    ctx.canvas.onmousemove = null;
-    ctx.canvas.onmouseout = null;
-    // Firefox
-    ctx.canvas.removeEventListener('DOMMouseScroll', onmousewheel, false);
-    // Chrome, IE
-    ctx.canvas.removeEventListener('mousewheel', onmousewheel, false);
-    document.onkeydown = null;
+    $canvas.unbind('mouseup');
+    $canvas.unbind('mousedown');
+    $canvas.unbind('mousemove');
+    $canvas.unbind('mouseout');
+    $canvas.unmousewheel();
+    $(document).unbind('keypress keydown'); // WASD and arrow-key movement
     ctx.drawImage(SPLASHIMG, 10, 12);
   }
 
   this.cleanCanvas = function() {
-    var w = ctx.canvas.width;
-    var h = ctx.canvas.height;
+    var w = $canvas.prop('width');
+    var h = $canvas.prop('height');
     ctx.fillStyle = '#FFF'; // black
     ctx.fillRect(0, 0, w, h);
   }

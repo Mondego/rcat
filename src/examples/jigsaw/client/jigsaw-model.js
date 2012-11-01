@@ -1,7 +1,8 @@
 //------------------------- GLOBAL --------------------
 
 var model, view, nw;
-var canvas;
+var $canvas;
+
 
 // img.src = "img/BugsLife.jpg"; // 800 x 600
 // img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
@@ -99,7 +100,7 @@ function Model(usr) {
   this.keepFrustumOnBoard = function() {
     var fru = this.frustum;
     // canvas dimensions in board coords
-    var cdims = view.toBoardDims(canvas.width, canvas.height);
+    var cdims = view.toBoardDims($canvas.prop('width'), $canvas.prop('height'));
     // horizontally
     var tooLeft = fru.x < 0;
     var tooRight = fru.x + fru.w > this.BOARD.w;
@@ -161,7 +162,7 @@ function Model(usr) {
     this.frustum.x = dfrus.x;
     this.frustum.y = dfrus.y;
     this.frustum.scale = dfrus.scale;
-    var dims = view.toBoardDims(canvas.width, canvas.height);
+    var dims = view.toBoardDims($canvas.prop('width'), $canvas.prop('height'));
     this.frustum.w = dims.w;
     this.frustum.h = dims.h;
     nw.sendFrustum(this.frustum);
@@ -188,7 +189,6 @@ function Model(usr) {
 
     // Only init the view when the puzzle image has been downloaded.
     this.IMG.onload = function() {
-      console.log('callback for puzzle img loaded')
       view.newGame();
       view.drawAll();
     };
