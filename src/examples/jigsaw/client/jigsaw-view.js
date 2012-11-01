@@ -1,8 +1,9 @@
 // ----------------- GLOBAL ------------------- 
 
-// splash image is instantiated before the game is started,
-// but loaded when the page is ready
+// The splash image and puzzle background image
+// start fetching their content when the page is ready.
 var SPLASHIMG = new Image();
+var BGIMG = new Image();
 
 // ------------------------ button binders/controllers ----------------
 
@@ -44,13 +45,22 @@ $(function() {
   // $(#id) needs get(0), cf http://api.jquery.com/id-selector/#comment-94801864
   canvas = $('#jigsaw').get(0);
 
-  // image load callbacks
+  // splash image callback
   SPLASHIMG.onload = function() {
     var ctx = canvas.getContext('2d');
     ctx.drawImage(SPLASHIMG, 10, 12);
   };
   SPLASHIMG.src = "img/SplashImage.png";
-  
+
+  // background image callback
+  BGIMG.onload = function() {
+    BGIMG.loaded = true;
+  };
+  // http://static1.grsites.com/archive/textures/wood/wood004.jpg
+  // wooden background from http://www.grsites.com/terms/
+  BGIMG.loaded = false;
+  BGIMG.src = "img/wood004.jpg";
+
 });
 
 // -------------------------- VIEW + CONTROLLER -----------------------------
@@ -297,23 +307,17 @@ function View() {
 
   var ctx = canvas.getContext('2d');
 
-  // background image
-  var BGIMG = new Image();
-  BGIMG.src = "img/wood004.jpg";
-
-  var BGIMGLOADED = false
-  BGIMG.onload = function() {
-    BGIMGLOADED = true
-  };
-  // "http://static1.grsites.com/archive/textures/wood/wood004.jpg";
-  // wooden background from http://www.grsites.com/terms/
-
   // draw the background
   this.drawBoard = function() {
     ctx.save();
-    var pattern = ctx.createPattern(BGIMG, 'repeat');
-    ctx.fillStyle = pattern;
-    // ctx.fillStyle = '#def'; // light blue
+    // only draw the bg img if the bg img successfully downloaded
+    if (BGIMG.loaded) {
+      var pattern = ctx.createPattern(BGIMG, 'repeat');
+      ctx.fillStyle = pattern;
+    } else {
+      // img did not load yet: single-color bg
+      ctx.fillStyle = '#feb'; // light brown
+    }
     var pos = this.toScreenPos(0, 0);
     var dims = this.toScreenDims(model.BOARD.w, model.BOARD.h);
     ctx.fillRect(pos.x, pos.y, dims.w, dims.h);

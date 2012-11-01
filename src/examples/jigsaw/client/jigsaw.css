@@ -17,7 +17,7 @@ table#connectAndLogBoxes {
 	border-collapse: collapse;
 	margin-bottom: 8px;
 	display:block;
-	border: 1px solid #aaa;
+	border-bottom: 1px solid #aaa;
 }
 
 #connectAndLogBoxes td {
