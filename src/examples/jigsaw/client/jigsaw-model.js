@@ -3,22 +3,17 @@
 var model, view, nw;
 var $canvas;
 
-
-// img.src = "img/BugsLife.jpg"; // 800 x 600
-// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg'; // 640 x 480
-// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg'; // 1600 x 1200
-// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg'; // 9000 x 6000
-// img.src = 'http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg';
-
 // ------------------------ MODEL --------------------------
 
 // stores game logic and data
 function Model(usr) {
   // -------- INITIALIZATION ---------------------------
   this.init = function() {
+
     this.numPlayers = 0;
     this.userName = usr;
     this.userScores = {};
+
     this.BOARD = {// board = grid + empty space around the grid
       w : null,
       h : null,
@@ -55,10 +50,6 @@ function Model(usr) {
   }
 
   // -------- USER MANAGEMENT AND SCORE --------------------
-
-  this.getUserName = function() {
-    return this.userName;
-  }
 
   this.setScores = function(scores) {
     this.userScores = scores;
@@ -148,8 +139,12 @@ function Model(usr) {
     }
   };
 
-  // Start the game: build the model right away,
-  // but build the view only when the heavy puzzle image has been received.
+  // Starting the game takes 3 steps:
+  // 1- Build the model right away with the most recent server data.
+  // This enables us to process incoming movement messages right away.
+  // 2- Start downloading the puzzle image.
+  // 3- Build the view when the heavy puzzle image has been received.
+  // That way, we only display the view when everything is ready.
   this.startGame = function(board, grid, dfrus, piecesData, myid, img) {
 
     // Init board, grid, and frustum from server config.
@@ -185,7 +180,7 @@ function Model(usr) {
       sy = pd.r * sh;
       p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
     }
-    nw.sendUserName(model.getUserName());
+    nw.sendUserName(this.userName);
 
     // Only init the view when the puzzle image has been downloaded.
     this.IMG.onload = function() {

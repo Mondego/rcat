@@ -310,8 +310,8 @@ class JigsawServer():
                                 pid = str(uuid.uuid4()) # piece id
                                 b = 0 # bound == correctly placed, can't be moved anymore
                                 l = None# lock = id of the player moving the piece
-                                x = randint(0, board['w'] / 2)
-                                y = randint(0, board['h'] / 2)
+                                x = randint(0, board['w'] - grid['cellw'])
+                                y = randint(0, board['h'] - grid['cellh'])
                                 # Remove h later on!
                                 values = [pid, b, x, y, c, r, l]
 
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     datacon = rcat.datacon
     logging.debug('[jigsawapp]: Starting jigsaw..')
 
-    time.sleep(3)
+    time.sleep(2)
 
     jigsaw = JigsawServer()
     helper.terminal()

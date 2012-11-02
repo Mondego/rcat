@@ -1,24 +1,35 @@
 [Jigsaw_Main]
 start=true
 bucket_size=10
-img_url=http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg
-
-[Jigsaw_Board]
-w=2000
-h=1600 
-maxScale=16
-minScale=0.5
-
-[Jigsaw_Grid]
-x=250
-y=200
-ncols=5
-nrows=5
-cellw=100
-cellh=75
 
 [Jigsaw_DB]
-address=
-db=
-user=
-password=
+address=localhost
+db=jigsaw
+user=jigsawuser
+password=mypwd
+
+[Jigsaw_Image]
+img_url=http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg
+img_w=1600
+img_h=1200
+# img/BugsLife.jpg # 800 x 600
+# http://ics.uci.edu/~tdebeauv/rCAT/diablo_150KB.jpg # 640 x 480
+# http://ics.uci.edu/~tdebeauv/rCAT/diablo_1MB.jpg # 1600 x 1200
+# http://ics.uci.edu/~tdebeauv/rCAT/diablo_2MB.jpg # 9000 x 6000
+
+
+[Jigsaw_Board]
+# if you assume canvas of 800*600, then make minScale*w = 800
+w=800
+h=600
+maxScale=10
+minScale=1
+
+[Jigsaw_Grid]
+# to center the grid in the middle of the board, set x to (w-ncols*cellw)/2
+x=200
+y=150
+ncols=4
+nrows=3
+cellw=100
+cellh=100

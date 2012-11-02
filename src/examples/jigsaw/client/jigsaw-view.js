@@ -220,7 +220,8 @@ function View() {
     view.dragStart = null; // stop dragging board or piece
   });
 
-  this.scaleStep = 1.5; // how smooth is the zooming-in and out
+  // how smooth is the zooming-in and out
+  this.scaleStep = 1.5; // 1.5 better than 1.4 to prevent floating point errors
 
   // mouse wheel from https://github.com/brandonaaron/jquery-mousewheel
   // for complete doc, see http://www.quirksmode.org/js/events_properties.html
