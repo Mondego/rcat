@@ -14,10 +14,10 @@ $(function() {
   // When the player connects, instantiate the global model, view, and nw.
   $('#connect').bind('click', function(e) {
     // e.preventDefault();
-    $('#connect').hide();
+    $('#loadingScreen').hide();
+    $('#gameScreen').show();
+    $('#connectionStatus').html("Connecting");
     $('#disconnect').show();
-    $('#numPlayers').show();
-    $('#numPlayersBox').html("Waiting...");
     // instantiate the MVC
     var user = $('#userName').val();
     if (user == "Guest") {
@@ -35,10 +35,9 @@ $(function() {
     // e.preventDefault();
     nw.close();
     view.close();
-    $('#numPlayers').hide()
-    $('#disconnect').hide();
-    $('#connect').show();
-    $('#numPlayersBox').html('Disconnected.');
+    $('#gameScreen').hide();
+    $('#loadingScreen').show();
+    $('#connectionStatus').html('Disconnected.');
   });
 
   // set the canvas global var
@@ -221,7 +220,8 @@ function View() {
   });
 
   // how smooth is the zooming-in and out
-  this.scaleStep = 1.5; // 1.5 better than 1.4 to prevent floating point errors
+  // 5/4=1.25 is better than 4/3=1.333...334 to prevent floating point errors
+  this.scaleStep = 1.25;
 
   // mouse wheel from https://github.com/brandonaaron/jquery-mousewheel
   // for complete doc, see http://www.quirksmode.org/js/events_properties.html
@@ -245,19 +245,19 @@ function View() {
     var dx = 0, dy = 0;
     switch (keyCode) {
     case (87): // w
-    case (38): // up arrow
+    //case (38): // up arrow
       dy = view.toBoardDims(0, keyScrollOffset).h
       break;
     case (65): // a
-    case (37): // left arrow
+    //case (37): // left arrow
       dx = view.toBoardDims(keyScrollOffset, 0).w
       break;
     case (83): // s
-    case (40): // down arrow
+    //case (40): // down arrow
       dy = -view.toBoardDims(0, keyScrollOffset).h
       break;
     case (68): // d
-    case (39): // right arrow
+    //case (39): // right arrow
       dx = -view.toBoardDims(keyScrollOffset, 0).w
       break;
     }

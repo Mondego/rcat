@@ -7,50 +7,112 @@ body,html {
 	height: 100%;
 }
 
-table#connectAndLogBoxes {
-	background-color: #feb;
+#aboveFooterWrapper {
+	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
+	min-height: 100%;
+	height: auto !important;
+	height: 100%;
+	margin: 0 auto -4em; /* 4em = height of footer */
+}
+
+#footer,#footerPusher {
+	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
+	height: 4em;
+	clear: both;
+}
+
+/***************** theme classes ********************/
+.lightWoodThemed {
+	background-color: #feb; /* light brown */
+	color: #653; /* dark brown */
+}
+
+.darkWoodThemed {
+	color: #feb; /* light brown */
+	background-color: #653; /* dark brown */
+}
+
+button {
+	border-radius: 4px 4px 4px 4px;
+	cursor: pointer;
+}
+
+button.darkWoodThemed {
+	background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
+	border-color: #431;
+}
+
+table {
 	border-collapse: collapse;
-	margin-bottom: 8px;
+}
+
+table.darkWoodThemed td {
+	border: 1px solid #320;
+}
+
+input.lightWoodThemed {
+	color: #653;
+	background-color: #fff;
+}
+
+/********************** header *************/
+#header {
 	display: block;
-	border-bottom: 1px solid #aaa;
+	border-bottom: 1px solid #a97;
+	line-height: 5em;
+	/* trick to vertical align cf http://phrogz.net/css/vertical-align/index.html */
 }
 
-#connectAndLogBoxes td {
-	padding: 5px;
+#header h1 {
+	text-align: center;
+	font-size: 3.5em;
 }
 
-#buttonArea {
-	vertical-align: middle;
+/*********** loading Screen ***************/
+#loadingScreen {
+	margin: 200px 0 0;
 }
 
-#connect,#disconnect {
-	height: 50px;
-	width: 120px;
-	font-size: 1.2em;
+#loadingScreen p {
+	text-align: center;
+	font-size: 40px;
+	padding: 15px 0;
 }
 
-#disconnect {
-	display: none;
+#connect {
+	height: 70px;
+	width: 200px;
+	font-size: 40px;
 }
 
-#numPlayers {
-	display: none;
+input#userName {
+	font-size: 35px;
+	width: 350px;
+}
+/************** game screen **************/
+#gameScreen {
+	margin-top: 10px;
+	display: none; /* loading screen is displayed first */
 }
 
-table#content {
+table#gameAndScores {
 	text-align: center;
 	margin: 0 auto;
 }
 
-canvas#jigsaw {
-	border: solid black 2px;
-}
-
-table#scoreTable {
-	border-collapse: collapse;
+table#gameAndScores td {
+   padding: 0;	
 }
 
 #scoreTable td {
-	border: 1px solid black;
 	padding: 3px;
+}
+
+/************************ footer ***************/
+#footer {
+	border-top: 1px solid;
+}
+
+#disconnect {
+	display: none;
 }
