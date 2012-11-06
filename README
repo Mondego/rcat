@@ -22,3 +22,9 @@ Now point your browser at <host>:8888/static/jigsaw.html, change the host name a
 To reset the game:
 1. cd src/test/deploy/util
 2. ./mysql_script_executer.sh <dbname> <dbuser> <dbpassword> jigsaw_clean.sql out.txt
+
+To check the database: 
+- mysql -u jigsawuser -p 
+- then enter password
+- use jigsawdb
+- select * from jigsawpieces
