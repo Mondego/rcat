@@ -225,15 +225,6 @@ class SpacePartitioning():
         self.datacon.db.clear_table(self.table)
         self.datacon.db.clear_table(self.table + "_score")
         
-    def check_game_end(self):
-        n = -1
-        cmd = "select count(*) from " + self.table + " where `b` = 0"
-        while (n != 0):
-            time.sleep(10)
-            res = self.datacon.db.execute_one(cmd)
-            n = int(res['count(*)'])
-        return True
-    
             
     """
     ####################################

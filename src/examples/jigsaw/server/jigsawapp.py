@@ -30,6 +30,7 @@ tables = {}
 location = {}
 pchandler = None
 game_over = False
+coordinator = None
 
 img_settings = {}
 board = {}
@@ -121,6 +122,11 @@ class JigsawRequestParser(Thread):
                     self.handler.write_message(jsonmsg)
 
             else:
+                if game_over:
+                    msg = {'M': {'go':True}}
+                    jsonmsg = json.dumps(msg)
+                    pchandler.write_message(jsonmsg)
+
                 # usual message
                 logging.debug(enc["M"])
                 m = json.loads(enc["M"])
@@ -202,19 +208,6 @@ class JigsawRequestParser(Thread):
                         response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
-                # End game request from client
-                elif 'go':
-                    global game_over
-                    # Am I already waiting for the game to end?
-                    if not game_over:
-                        game_over = True
-                        # TODO: Send final game score
-                        print "Game end request received"
-                        res = datacon.mapper.check_game_end()
-                        if res:
-                            msg = {'M': {'go':True}}
-                            jsonmsg = json.dumps(msg)
-                            self.handler.write_message(jsonmsg)
                 elif 'ng' in m:
                     pass
 
@@ -223,7 +216,6 @@ class JigsawRequestParser(Thread):
 
         except Exception, err:
             logging.exception("[jigsawapp]: Exception in message handling from client:")
-
 
 
 class JigsawServer():
@@ -252,6 +244,20 @@ class JigsawServer():
 
         if settings["main"]["start"] == "true":
             self.start_game()
+            
+    def check_game_end(self):
+        global game_over
+        n = -1
+        cmd = "select count(*) from " + datacon.mapper.table + " where `b` = 0"
+        while (n != 0):
+            time.sleep(3)
+            res = datacon.db.execute_one(cmd)
+            n = int(res['count(*)'])
+        msg = {'M': {'go':True}}
+        jsonmsg = json.dumps(msg)
+        pchandler.write_message(jsonmsg)
+        game_over = True
+
 
     def jigsaw_parser(self, config):
         app_config = {"main":{"start":"false"}}
@@ -290,6 +296,11 @@ class JigsawServer():
                 global board
                 global img_settings
                 global grid
+                
+                if "C" in msg["BC"]:
+                    global coordinator
+                    coordinator = msg["BC"]["C"]
+                    logging.info("[jigsawapp]: Coordinator is " + coordinator)
 
                 newgame_settings = msg["BC"]["NEW"]
                 board = newgame_settings["board"]
@@ -309,46 +320,25 @@ class JigsawServer():
                             for  c in range(grid['ncols']):
                                 pid = str(uuid.uuid4()) # piece id
                                 b = 0 # bound == correctly placed, can't be moved anymore
-                                l = None# lock = id of the player moving the piece
+                                l = None # lock = id of the player moving the piece
                                 x = randint(0, board['w'] - grid['cellw'])
                                 y = randint(0, board['h'] - grid['cellh'])
                                 # Remove h later on!
                                 values = [pid, b, x, y, c, r, l]
 
                                 datacon.mapper.insert(values, pid)
-
+                    # Game end checker
+                    t = Thread(target=self.check_game_end)
+                    t.daemon = True
+                    t.start()
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")
 
     def start_game(self):
-        """
-        global board
-        global img_url
-        global grid
-        
-        
-        board = settings["board"]
-        img_url = settings["main"]["img_url"]
-        grid = settings["grid"]                
-        
-        # Prepares the pieces in the database
-        for r in range(grid['nrows']):
-            for  c in range(grid['ncols']):
-                pid = str(uuid.uuid4()) # piece id
-                b = 0 # bound == correctly placed, can't be moved anymore
-                l = 0# lock = id of the player moving the piece
-                x = randint(0, board['w'] / 2)
-                y = randint(0, board['h'] / 2)
-                # Remove h later on!
-                values = [pid, b, x, y, c, r, l]
-                
-                datacon.mapper.insert(values, pid)
-        """
-
         # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
         mod_settings = deepcopy(settings)
         del mod_settings["main"]["start"]
         mod_settings["ADMS"] = list(rcat.pc.admins)
-        newmsg = {"BC":{"NEW":mod_settings}}
+        newmsg = {"BC":{"NEW":mod_settings,"C":rcat.pc.adm_id}}
         json_message = json.dumps(newmsg)
         proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
         proxy_admin.send(json_message)

@@ -185,7 +185,7 @@ class MySQLConnector():
                         except mdb.cursors.Error, e:
                             print e
 
-            time.sleep(5)
+            time.sleep(3)
     
 
     """
