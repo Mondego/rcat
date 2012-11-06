@@ -319,8 +319,6 @@ function Model(usr) {
 
 } // end of model
 
-// Holds coordinates of a puzzle piece.
-// Could be an object {c:5,r:6} instead of a whole Piece class.
 // TODO: could have an ID given by the server instead of c,r
 // (that would make cheating more annoying for puzzles with lots of pieces)
 function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {

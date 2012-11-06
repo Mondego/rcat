@@ -11,8 +11,9 @@ function Network(host) {
   this.host = host;
   var connected = false;
   var socket = new WebSocket(host);
+  $('#connectionStatus').html("Connecting");
   this.sendDelay = 100; // how often to send updates, in millis
-
+  
   socket.onopen = function() {
     $('#connectionStatus').html("Connected.");
     connected = true;
@@ -67,12 +68,10 @@ function Network(host) {
   // TODO: re-init the board when the connection is back
   // (keeping a journal of the local changes is overkilling it)
   socket.onclose = function() {
-    console.log('Socket closed; status = ' + socket.readyState);
     if (connected == true)
       alert("Lost connection to server");
     $('#disconnect').hide();
-    $('#connect').show();
-    $('#numPlayersBox').html('Disconnected.');
+    $('#connectionStatus').html('Disconnected.');
   };
 
   // Tell the server that the client's frustum changed.

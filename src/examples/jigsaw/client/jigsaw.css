@@ -32,18 +32,18 @@ body,html {
 	background-color: #653; /* dark brown */
 }
 
-button {
+button,input[type=submit] {
 	cursor: pointer;
 }
 
-button.darkWoodThemed {
+button.darkWoodThemed,input[type=submit].darkWoodThemed {
 	background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
 	background: -webkit-linear-gradient(#875, #542);
 	background: -moz-linear-gradient(#875, #542);
 	border-color: #542;
 }
 
-button.darkWoodThemed:hover { /*
+button.darkWoodThemed:hover,input[type=submit].darkWoodThemed:hover { /*
    background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
    border-color: #542;*/
 	box-shadow: 2px 5px 5px #a97;
@@ -57,13 +57,13 @@ table.darkWoodThemed td {
 	border: 1px solid #feb;
 }
 
-input.lightWoodThemed {
+input[type=text].lightWoodThemed {
 	color: #653;
 	background-color: #fff;
 	border: 1px solid #ba8;
 }
 
-input.lightWoodThemed:focus {
+input[type=text].lightWoodThemed:focus {
 	border: 1px solid #653;
 	box-shadow: 2px 2px 2px #a97; /* dimensions to be overriden below*/
 }
@@ -93,7 +93,7 @@ input.lightWoodThemed:focus {
 	padding: 15px 0;
 }
 
-button#connect {
+#connect {
 	height: 70px;
 	width: 200px;
 	font-size: 40px;

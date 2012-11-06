@@ -24,11 +24,13 @@
 		<div id='content'>
 
 			<div id='loadingScreen'>
-				<p class='lightWoodThemed'>
-					Player name: <input id="playerName" value="Guest"
-						class='lightWoodThemed' />
-					<button id="connect" class='darkWoodThemed'>Join in!</button>
-				</p>
+				<form id='connectForm'>
+					<p class='lightWoodThemed'>
+						Player name: <input type='text' value="Guest" id="playerName"
+							class='lightWoodThemed' /> <input type='submit' value='Join in!'
+							id="connect" class='darkWoodThemed' />
+					</p>
+				</form>
 			</div>
 
 			<div id='gameScreen'>
@@ -39,20 +41,6 @@
 						<th>Score</th>
 					</tr>
 				</table>
-
-				<!-- 
-				<table id='gameAndScores'>
-					<tr>
-						<td>
-							<canvas id="jigsaw" width='800' height='600'></canvas>
-						</td>
-						<td>
-							<table id="scoreTable" class='darkWoodThemed'>
-								<caption>Leaderboard</caption>
-							</table>
-						</td>
-				</table>
-				 -->
 			</div>
 
 		</div>
@@ -65,8 +53,8 @@
 		<p id='controlsDesc'>Controls: left click to drag and drop piece;
 			WASD or click on the board to move the board.</p>
 		<p id='serverUrlArea'>
-			Server URL: <input id="serverUrl" value="ws://localhost:8888/client"
-				class='lightWoodThemed' />
+			Server URL: <input type='text' id="serverUrl"
+				value="ws://localhost:8888/client" class='lightWoodThemed' />
 		</p>
 		<p id='connectionStatusArea'>
 			Connection status: <span id='connectionStatus'>Not connected</span>

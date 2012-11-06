@@ -7,18 +7,18 @@ var BGIMG = new Image();
 
 // ------------------------ button binders/controllers ----------------
 
-// when the page and DOM are ready, wire the controller logic to view elements,
+// When the page and DOM are ready, wire the controller logic to view elements,
+// and instantiate the global model.
 $(function() {
 
   // set the canvas global var
   $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
-  
+
   var triggerGame = function(playerName) {
-    // Instantiate the global model, view, and nw, and reveal the game screen.
+    // instantiate the global view, and nw, and reveal the game screen.
     $('#loadingScreen').hide();
     $('#gameScreen').show();
     // debug footer
-    $('#connectionStatus').html("Connecting");
     $('#disconnect').show();
     // instantiate the MVC
     model = new Model(playerName);
@@ -27,15 +27,14 @@ $(function() {
     var host = $('#serverUrl').val();
     nw = new Network(host);
   };
-  
-  // wire the JOIN GAME button
-  $('#connect').bind('click', function(e) {
-    // e.preventDefault();
+
+  // wire the JOIN GAME button + when ENTER is pushed in the text input field
+  $('#connectForm').submit(function() {
     var playerName = $('#playerName').val();
     $.cookie('jigsawPlayerName', playerName); // set the cookie
     triggerGame(playerName);
   });
-  
+
   var playerName = $.cookie('jigsawPlayerName'); // cookie storing player name
   if (playerName == null) {// ask the player his/her name
     $('#loadingScreen').show();
@@ -78,7 +77,7 @@ $(function() {
 
 function View() {
   // Display the puzzle in a canvas
-  // and translate user inputs into model commands
+  // and translate user inputs into model commands.
 
   this.isGameOver = false;
   this.newGame = function() {
