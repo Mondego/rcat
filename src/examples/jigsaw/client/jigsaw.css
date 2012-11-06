@@ -12,12 +12,12 @@ body,html {
 	min-height: 100%;
 	height: auto !important;
 	height: 100%;
-	margin: 0 auto -4em; /* 4em = height of footer */
+	margin: 0 auto -4.5em; /* 4.5em = height of footer */
 }
 
 #footer,#footerPusher {
 	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
-	height: 4em;
+	height: 4.5em;
 	clear: both;
 }
 
@@ -33,13 +33,20 @@ body,html {
 }
 
 button {
-	border-radius: 4px 4px 4px 4px;
 	cursor: pointer;
 }
 
 button.darkWoodThemed {
 	background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
-	border-color: #431;
+	background: -webkit-linear-gradient(#875, #542);
+	background: -moz-linear-gradient(#875, #542);
+	border-color: #542;
+}
+
+button.darkWoodThemed:hover { /*
+   background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
+   border-color: #542;*/
+	box-shadow: 2px 5px 5px #a97;
 }
 
 table {
@@ -47,12 +54,18 @@ table {
 }
 
 table.darkWoodThemed td {
-	border: 1px solid #320;
+	border: 1px solid #feb;
 }
 
 input.lightWoodThemed {
 	color: #653;
 	background-color: #fff;
+	border: 1px solid #ba8;
+}
+
+input.lightWoodThemed:focus {
+	border: 1px solid #653;
+	box-shadow: 2px 2px 2px #a97; /* dimensions to be overriden below*/
 }
 
 /********************** header *************/
@@ -70,6 +83,7 @@ input.lightWoodThemed {
 
 /*********** loading Screen ***************/
 #loadingScreen {
+	display: none; /* will only show up if user name cookie not found */
 	margin: 200px 0 0;
 }
 
@@ -79,33 +93,62 @@ input.lightWoodThemed {
 	padding: 15px 0;
 }
 
-#connect {
+button#connect {
 	height: 70px;
 	width: 200px;
 	font-size: 40px;
+	border-radius: 4px 4px 4px 4px;
 }
 
-input#userName {
+input#playerName {
 	font-size: 35px;
 	width: 350px;
+	border-radius: 4px 4px 4px 4px;
+	border-width: 3px;
+	padding: 4px;
 }
+
+input#playerName:focus {
+	box-shadow: 0px 5px 5px;
+}
+
 /************** game screen **************/
 #gameScreen {
-	margin-top: 10px;
-	display: none; /* loading screen is displayed first */
-}
-
-table#gameAndScores {
-	text-align: center;
 	margin: 0 auto;
+	margin-top: 10px;
+	display: none; /* will show up when the game view starts */
+	width: 1200px;
 }
 
-table#gameAndScores td {
-   padding: 0;	
+#jigsaw {
+	float: left;
+	margin-right: 10px;
 }
 
-#scoreTable td {
+table#scoreTable {
+	text-align: center;
+}
+
+table#scoreTable th {
 	padding: 3px;
+}
+
+table#scoreTable td {
+	padding: 3px;
+}
+
+table#scoreTable td:nth-child(1),table#scoreTable th:nth-child(1) {
+	/* first column = player names */
+	padding-right: 15px;
+	text-align: right;
+}
+
+tr.onlinePlayerScore {
+	color: #feb;
+}
+
+tr.offlinePlayerScore {
+	color: #bbb;
 }
 
 /************************ footer ***************/
@@ -113,6 +156,17 @@ table#gameAndScores td {
 	border-top: 1px solid;
 }
 
-#disconnect {
+button#disconnect {
 	display: none;
+	border-width: 1px;
+	border-radius: 3px 3px 3px 3px;
+}
+
+input#serverUrl {
+	width: 300px;
+	font-size: 15px;
+	padding: 2px;
+	border-radius: 3px 3px 3px 3px;
+	border-width: 2px;
+	border-radius: 3px 3px 3px 3px;
 }

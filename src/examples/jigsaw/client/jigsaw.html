@@ -7,6 +7,7 @@
 <script
 	src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
 <script src="jquery.mousewheel.js"></script>
+<script src="jquery.cookie.js"></script>
 <script src="jigsaw-model.js"></script>
 <script src="jigsaw-view.js"></script>
 <script src="jigsaw-nw.js"></script>
@@ -24,12 +25,22 @@
 
 			<div id='loadingScreen'>
 				<p class='lightWoodThemed'>
-					Player name: <input id="userName" value="Guest" class='darkWoodThemed'/>
+					Player name: <input id="playerName" value="Guest"
+						class='lightWoodThemed' />
 					<button id="connect" class='darkWoodThemed'>Join in!</button>
 				</p>
 			</div>
 
 			<div id='gameScreen'>
+				<canvas id="jigsaw" width='800' height='600'></canvas>
+				<table id="scoreTable" class='darkWoodThemed'>
+					<tr>
+						<th>Player name</th>
+						<th>Score</th>
+					</tr>
+				</table>
+
+				<!-- 
 				<table id='gameAndScores'>
 					<tr>
 						<td>
@@ -41,6 +52,7 @@
 							</table>
 						</td>
 				</table>
+				 -->
 			</div>
 
 		</div>
@@ -53,8 +65,8 @@
 		<p id='controlsDesc'>Controls: left click to drag and drop piece;
 			WASD or click on the board to move the board.</p>
 		<p id='serverUrlArea'>
-			Server URL: <input id="serverUrl" size=40
-				value="ws://localhost:8888/client" />
+			Server URL: <input id="serverUrl" value="ws://localhost:8888/client"
+				class='lightWoodThemed' />
 		</p>
 		<p id='connectionStatusArea'>
 			Connection status: <span id='connectionStatus'>Not connected</span>

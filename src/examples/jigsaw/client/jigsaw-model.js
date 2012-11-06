@@ -28,7 +28,7 @@ function Model(usr) {
       cellw : null,
       cellh : null
     };
-    this.IMG = new Image(); // onload is after startGame
+    this.IMG = new Image(); // IMG.onload happens after model.startGame
 
     this.myid = null; // the id given by the server to represent me
 
@@ -40,9 +40,7 @@ function Model(usr) {
       w : null,
       h : null
     };
-  }
-
-  this.init();
+  };
 
   // -------- GAME END ---------------------------
   this.endGame = function() {

@@ -8,27 +8,42 @@ var BGIMG = new Image();
 // ------------------------ button binders/controllers ----------------
 
 // when the page and DOM are ready, wire the controller logic to view elements,
-// and load the splash screen
 $(function() {
 
-  // When the player connects, instantiate the global model, view, and nw.
-  $('#connect').bind('click', function(e) {
-    // e.preventDefault();
+  // set the canvas global var
+  $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
+  
+  var triggerGame = function(playerName) {
+    // Instantiate the global model, view, and nw, and reveal the game screen.
     $('#loadingScreen').hide();
     $('#gameScreen').show();
+    // debug footer
     $('#connectionStatus').html("Connecting");
     $('#disconnect').show();
     // instantiate the MVC
-    var user = $('#userName').val();
-    if (user == "Guest") {
-      user = user + Math.floor((Math.random() * 1000) + 1);
-      $('#userName').val(user);
-    }
-    model = new Model(user);
+    model = new Model(playerName);
     view = new View();
+    // connect to the server
     var host = $('#serverUrl').val();
     nw = new Network(host);
+  };
+  
+  // wire the JOIN GAME button
+  $('#connect').bind('click', function(e) {
+    // e.preventDefault();
+    var playerName = $('#playerName').val();
+    $.cookie('jigsawPlayerName', playerName); // set the cookie
+    triggerGame(playerName);
   });
+  
+  var playerName = $.cookie('jigsawPlayerName'); // cookie storing player name
+  if (playerName == null) {// ask the player his/her name
+    $('#loadingScreen').show();
+    $('#gameScreen').hide();
+  } else { // if a user name cookie is found, start the game directly
+    $('#playerName').val(playerName);
+    triggerGame(playerName);
+  }
 
   // when the player logs out, close the view and network socket
   $('#disconnect').bind('click', function(e) {
@@ -38,10 +53,8 @@ $(function() {
     $('#gameScreen').hide();
     $('#loadingScreen').show();
     $('#connectionStatus').html('Disconnected.');
+    $.removeCookie('jigsawUserName');
   });
-
-  // set the canvas global var
-  $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
 
   // splash image callback
   SPLASHIMG.onload = function() {
@@ -77,7 +90,7 @@ function View() {
   }
 
   // ------------------ SCORE CONTROLLER ------------------
-  this.scoreTable = document.getElementById("scoreTable");
+  this.scoreTable = $("#scoreTable").get(0);
   this.scoreDict = {};
 
   this.createScoreTable = function(scores) {
@@ -245,19 +258,19 @@ function View() {
     var dx = 0, dy = 0;
     switch (keyCode) {
     case (87): // w
-    //case (38): // up arrow
+      // case (38): // up arrow
       dy = view.toBoardDims(0, keyScrollOffset).h
       break;
     case (65): // a
-    //case (37): // left arrow
+      // case (37): // left arrow
       dx = view.toBoardDims(keyScrollOffset, 0).w
       break;
     case (83): // s
-    //case (40): // down arrow
+      // case (40): // down arrow
       dy = -view.toBoardDims(0, keyScrollOffset).h
       break;
     case (68): // d
-    //case (39): // right arrow
+      // case (39): // right arrow
       dx = -view.toBoardDims(keyScrollOffset, 0).w
       break;
     }

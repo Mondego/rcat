@@ -3,8 +3,7 @@
 function Network(host) {
 
   if (!window.WebSocket) {
-    console.log('Websocket not supported.');
-    // TODO: better error handling
+    $('#connectionStatus').html("Error: websocket not supported.");
     return;
   }
 
@@ -15,7 +14,7 @@ function Network(host) {
   this.sendDelay = 100; // how often to send updates, in millis
 
   socket.onopen = function() {
-    console.log('Socket opened; status = ' + socket.readyState);
+    $('#connectionStatus').html("Connected.");
     connected = true;
   };
 
