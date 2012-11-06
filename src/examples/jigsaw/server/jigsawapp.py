@@ -1,6 +1,6 @@
 from copy import deepcopy
 from data.db.mysqlconn import MySQLConnector
-from data.mappers.spacepart import SpacePartitioning
+from examples.jigsaw.server.mapper.spacepart import SpacePartitioning
 from data.plugins.obm import ObjectManager
 from random import randint
 from rcat import RCAT

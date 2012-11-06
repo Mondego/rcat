@@ -9,7 +9,6 @@ import tornado.websocket
 import itertools
 import logging
 import proxy
-import uuid
 
 servers = []
 admins = {}

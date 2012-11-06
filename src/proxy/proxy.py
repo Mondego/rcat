@@ -11,6 +11,9 @@ class Proxy():
     back = None
 
 class AbstractBack():
+    def get_admid(self, server):
+        raise Exception('[Proxy]: Not implemented!')
+
     def send_message_to_server(self,message,server=None):
         raise Exception('[Proxy]: Not implemented!')
     
@@ -22,6 +25,9 @@ class AbstractBack():
 
     
 class AbstractFront():
+    def move_client(self,user,adm):
+        raise Exception('[Proxy]: Not implemented!')
+    
     def authorize_client(self, authclient, cuuid):
         raise Exception('[Proxy]: Not implemented!')
     

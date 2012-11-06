@@ -8,7 +8,7 @@ import json
 import data.dataconn as DataConn
 import common.helper as helper
 from data.plugins.obm import ObjectManager
-from data.mappers.chatmapper import ChatManager
+from examples.demoapp.server.mapper.chatmapper import ChatManager
 from data.db.mysqlconn import MySQLConnector
 
 global datacon
