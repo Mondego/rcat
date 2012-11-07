@@ -93,8 +93,9 @@ class JigsawRequestParser(Thread):
 
                     pieces = {}
                     pieces = datacon.mapper.select_all()
+                    # create player before pulling the scores
+                    datacon.mapper.create_user(new_user) 
                     scores = datacon.mapper.get_user_scores()
-                    datacon.mapper.create_user(new_user)
                     # send the board config
                     cfg = {'img':img_settings,
                            'board': board,
@@ -137,13 +138,13 @@ class JigsawRequestParser(Thread):
                     response = {'M': {'pf':pf}, 'U':[userid]}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
-
                     # TODO: send pieces located in the new frustum
-                elif 'usr' in m:
+
+                elif 'usr' in m: # TODO: when does this happen? [tho]
                     update_res = datacon.mapper.new_user_connected(userid, m['usr'])
                     response = {'M': {'scu':update_res}}
                     jsonmsg = json.dumps(response)
-                    self.handler.write_message(jsonmsg)
+                    #self.handler.write_message(jsonmsg) # should not be sent when clients connect [tho]
 
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
@@ -244,7 +245,7 @@ class JigsawServer():
 
         if settings["main"]["start"] == "true":
             self.start_game()
-            
+
     def check_game_end(self):
         global game_over
         n = -1
@@ -296,7 +297,7 @@ class JigsawServer():
                 global board
                 global img_settings
                 global grid
-                
+
                 if "C" in msg["BC"]:
                     global coordinator
                     coordinator = msg["BC"]["C"]
@@ -338,7 +339,7 @@ class JigsawServer():
         mod_settings = deepcopy(settings)
         del mod_settings["main"]["start"]
         mod_settings["ADMS"] = list(rcat.pc.admins)
-        newmsg = {"BC":{"NEW":mod_settings,"C":rcat.pc.adm_id}}
+        newmsg = {"BC":{"NEW":mod_settings, "C":rcat.pc.adm_id}}
         json_message = json.dumps(newmsg)
         proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
         proxy_admin.send(json_message)
