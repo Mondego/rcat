@@ -12,7 +12,7 @@ function Model(usr) {
 
     this.numPlayers = 0;
     this.userName = usr;
-    this.userScores = {};
+    this.scores = {}; // map user id to score
 
     this.BOARD = {// board = grid + empty space around the grid
       w : null,
@@ -50,37 +50,23 @@ function Model(usr) {
   // -------- USER MANAGEMENT AND SCORE --------------------
 
   this.setScores = function(scores) {
-    this.userScores = scores;
-    view.createScoreTable(scores);
+    this.scores = scores;
+    view.initScores(scores);
   }
 
   this.setUserScore = function(user, newScore) {
-    this.userScores[user] = newScore;
+    this.scores[user] = newScore;
     view.updateUserScore(user, newScore);
   }
 
   this.getUserScore = function(user) {
-    return this.userScores[user];
+    return this.scores[user];
   }
 
   this.getMyScore = function() {
-    return this.userScores[this.userName];
+    return this.scores[this.userName];
   }
 
-  this.setConnectedUsers = function(n) {
-    this.numPlayers = n;
-    $('#numPlayersBox').html(this.numPlayers);
-  }
-
-  this.userConnected = function() {
-    this.numPlayers++;
-    $('#numPlayersBox').html(this.numPlayers);
-  }
-
-  this.userDisconnected = function() {
-    this.numPlayers--;
-    $('#numPlayersBox').html(this.numPlayers);
-  }
 
   // -------- GAME SETTINGS -------------------------
 

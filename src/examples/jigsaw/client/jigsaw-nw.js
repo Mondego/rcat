@@ -13,7 +13,7 @@ function Network(host) {
   var socket = new WebSocket(host);
   $('#connectionStatus').html("Connecting");
   this.sendDelay = 100; // how often to send updates, in millis
-  
+
   socket.onopen = function() {
     $('#connectionStatus').html("Connected.");
     connected = true;
@@ -26,9 +26,11 @@ function Network(host) {
 
     if ('c' in m) { // init config
       model.init();
-      var nclients = m.c.clients;
-      model.setConnectedUsers(nclients);
+      // var nclients = m.c.clients;
+      // model.setConnectedUsers(nclients);
       var scores = m.c.scores;
+      console.log('c')
+      console.log(scores)
       model.setScores(scores);
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
@@ -38,6 +40,8 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
+      console.log('scu')
+      console.log(m)
       var scoreUpdates = m.scu;
       for ( var key in scoreUpdates) {
         model.setUserScore(key, scoreUpdates[key]);
@@ -54,19 +58,17 @@ function Network(host) {
       model.dropRemotePiece(id, x, y, bound, owner);
     } else if ('pf' in m) {
 
-    } else if ('NU' in m) {
-      model.userConnected();
-    } else if ('UD' in m) {
-      model.userDisconnected();
-      // Game Over!
-    } else if ('go' in m) {
+    } else if ('NU' in m) { // new user
+
+    } else if ('UD' in m) { // user disconnected
+
+    } else if ('go' in m) {// Game Over
       model.endGame();
     }
   };
 
-  // TODO: try to get back the connection every 5-10 seconds
+  // TODO: try to get back the connection every 5-10 seconds a la gmail
   // TODO: re-init the board when the connection is back
-  // (keeping a journal of the local changes is overkilling it)
   socket.onclose = function() {
     if (connected == true)
       alert("Lost connection to server");

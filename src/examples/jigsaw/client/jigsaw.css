@@ -5,6 +5,7 @@
 
 body,html {
 	height: 100%;
+	width: 100%;
 }
 
 #aboveFooterWrapper {
@@ -72,13 +73,22 @@ input[type=text].lightWoodThemed:focus {
 #header {
 	display: block;
 	border-bottom: 1px solid #a97;
-	line-height: 5em;
+	position: relative;
+	/*line-height: 70px;*/
 	/* trick to vertical align cf http://phrogz.net/css/vertical-align/index.html */
 }
 
 #header h1 {
 	text-align: center;
-	font-size: 3.5em;
+	font-size: 50px;
+	padding: 10px 0px;
+}
+
+#header p {
+	position: absolute;
+	bottom: 0px;
+	right: 10px;
+	font-size: 12px;
 }
 
 /*********** loading Screen ***************/
@@ -117,7 +127,9 @@ input#playerName:focus {
 	margin: 0 auto;
 	margin-top: 10px;
 	display: none; /* will show up when the game view starts */
-	width: 1200px;
+	max-width: 100%;
+	width: 1100px; /*810px canvas + 290px table */
+	/* if screen width < 1200, width will be 100% */
 }
 
 #jigsaw {
@@ -126,6 +138,7 @@ input#playerName:focus {
 }
 
 table#scoreTable {
+	float: left;
 	text-align: center;
 }
 
@@ -139,8 +152,16 @@ table#scoreTable td {
 
 table#scoreTable td:nth-child(1),table#scoreTable th:nth-child(1) {
 	/* first column = player names */
-	padding-right: 15px;
+	padding-right: 10px;
 	text-align: right;
+	max-width: 180px; /* dont get too wide with long names */
+   overflow: hidden; /* cut long names */
+}
+
+table#scoreTable td:nth-child(2),table#scoreTable th:nth-child(2) {
+	/* 2nd column = score*/
+	max-width: 80px;
+	overflow: hidden;
 }
 
 tr.onlinePlayerScore {

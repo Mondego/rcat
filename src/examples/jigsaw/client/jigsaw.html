@@ -19,6 +19,10 @@
 
 		<div id='header' class='lightWoodThemed'>
 			<h1>Online Jigsaw Puzzle</h1>
+			<p>
+				Hello, <span id='playerNameDisplay'></span>!
+				<button id="disconnect" class='darkWoodThemed'>Log out</button>
+			</p>
 		</div>
 
 		<div id='content'>
@@ -36,10 +40,7 @@
 			<div id='gameScreen'>
 				<canvas id="jigsaw" width='800' height='600'></canvas>
 				<table id="scoreTable" class='darkWoodThemed'>
-					<tr>
-						<th>Player name</th>
-						<th>Score</th>
-					</tr>
+					<!-- Will be filled when the score data is received. -->
 				</table>
 			</div>
 
@@ -58,7 +59,6 @@
 		</p>
 		<p id='connectionStatusArea'>
 			Connection status: <span id='connectionStatus'>Not connected</span>
-			<button id="disconnect" class='darkWoodThemed'>Log out</button>
 		</p>
 	</div>
 

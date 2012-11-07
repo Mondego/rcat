@@ -89,40 +89,42 @@ function View() {
   }
 
   // ------------------ SCORE CONTROLLER ------------------
-  this.scoreTable = $("#scoreTable").get(0);
   this.scoreDict = {};
 
-  this.createScoreTable = function(scores) {
-    while (this.scoreTable.rows.length > 1) {
-      this.scoreTable.deleteRow(this.scoreTable.rows.length - 1);
-    }
-    this.scoreDict = {};
-    for ( var userName in scores) {
-      var row = this.scoreTable.insertRow(0);
-      var userCell = row.insertCell(0);
-      var scoreCell = row.insertCell(1);
-
-      userCell.innerHTML = userName;
-      scoreCell.innerHTML = scores[userName];
-      this.scoreDict[userName] = row;
-    }
+  // Clean the score table and add the scores by ascending order.
+  this.initScores = function(scores) {
+    // init the table
+    $('#scoreTable').html('<tr><th>Player name</th><th>Score</th></tr>');
+    // sort the scores
+    var sortedScores = new Array();
+    $.each(scores, function(name, score) {
+      sortedScores.push({
+        'n' : name,
+        's' : score
+      });
+    });
+    sortedScores.sort(function(pair1, pair2) {
+      return pair2['s'] - pair1['s']; // descending order
+    });
+    // fill the table
+    $.each(sortedScores, function(index, pair) {
+      $('#scoreTable').find('tbody').append(
+          $('<tr><td>' + pair['n'] + '</td><td>' + pair['s'] + '</td></tr>'));
+    });
   }
 
   this.updateUserScore = function(user, newvalue) {
     // Get row where entry is currently located
-    if (user in this.scoreDict) {
-      var row = this.scoreDict[user];
-      var cell = row.cells[1];
-      cell.innerHTML = newvalue;
-    } else {
-      var row = this.scoreTable.insertRow(0);
-      var userCell = row.insertCell(0);
-      var scoreCell = row.insertCell(1);
-
-      userCell.innerHTML = user;
-      scoreCell.innerHTML = newvalue;
-      this.scoreDict[user] = row;
-    }
+    /*
+     * if (user in this.scoreDict) { var row = this.scoreDict[user]; var cell =
+     * row.cells[1]; cell.innerHTML = newvalue; } else { var row =
+     * this.scoreTable.insertRow(0); var userCell = row.insertCell(0); var
+     * scoreCell = row.insertCell(1);
+     * 
+     * userCell.innerHTML = user; scoreCell.innerHTML = newvalue;
+     * this.scoreDict[user] = row; }
+     */
+    console.log('Should update score of ' + user + ' with ' + newvalue)
   }
 
   // ------------------ MOUSE CONTROLLER ------------------
