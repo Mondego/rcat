@@ -91,6 +91,11 @@ input[type=text].lightWoodThemed:focus {
 	font-size: 12px;
 }
 
+button#disconnect {
+	border-width: 1px;
+	border-radius: 3px 3px 3px 3px;
+}
+
 /*********** loading Screen ***************/
 #loadingScreen {
 	display: none; /* will only show up if user name cookie not found */
@@ -155,7 +160,7 @@ table#scoreTable td:nth-child(1),table#scoreTable th:nth-child(1) {
 	padding-right: 10px;
 	text-align: right;
 	max-width: 180px; /* dont get too wide with long names */
-   overflow: hidden; /* cut long names */
+	overflow: hidden; /* cut long names */
 }
 
 table#scoreTable td:nth-child(2),table#scoreTable th:nth-child(2) {
@@ -175,12 +180,6 @@ tr.offlinePlayerScore {
 /************************ footer ***************/
 #footer {
 	border-top: 1px solid;
-}
-
-button#disconnect {
-	display: none;
-	border-width: 1px;
-	border-radius: 3px 3px 3px 3px;
 }
 
 input#serverUrl {

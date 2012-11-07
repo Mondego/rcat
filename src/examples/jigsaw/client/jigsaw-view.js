@@ -18,8 +18,9 @@ $(function() {
     // instantiate the global view, and nw, and reveal the game screen.
     $('#loadingScreen').hide();
     $('#gameScreen').show();
-    // debug footer
-    $('#disconnect').show();
+    // 'Hello, playerName!' and logout button in header
+    $('#disconnectArea').show();
+    $('#playerNameDisplay').html(playerName);
     // instantiate the MVC
     model = new Model(playerName);
     view = new View();
@@ -49,6 +50,7 @@ $(function() {
     // e.preventDefault();
     nw.close();
     view.close();
+    $('#disconnectArea').hide();
     $('#gameScreen').hide();
     $('#loadingScreen').show();
     $('#connectionStatus').html('Disconnected.');
@@ -109,22 +111,21 @@ function View() {
     // fill the table
     $.each(sortedScores, function(index, pair) {
       $('#scoreTable').find('tbody').append(
-          $('<tr><td>' + pair['n'] + '</td><td>' + pair['s'] + '</td></tr>'));
+          $('<tr id="' + pair['n'] + '"><td>' + pair['n'] + '</td><td>'
+              + pair['s'] + '</td></tr>'));
     });
   }
 
   this.updateUserScore = function(user, newvalue) {
-    // Get row where entry is currently located
-    /*
-     * if (user in this.scoreDict) { var row = this.scoreDict[user]; var cell =
-     * row.cells[1]; cell.innerHTML = newvalue; } else { var row =
-     * this.scoreTable.insertRow(0); var userCell = row.insertCell(0); var
-     * scoreCell = row.insertCell(1);
-     * 
-     * userCell.innerHTML = user; scoreCell.innerHTML = newvalue;
-     * this.scoreDict[user] = row; }
-     */
-    console.log('Should update score of ' + user + ' with ' + newvalue)
+    // Update the score cell of that user's row.
+    $row = $('#scoreTable tr#' + user);
+    if ($row.length) { // the row exists already: replace the score
+      $row.children('td:nth-child(2)').html(newvalue);
+    } else { // create the row
+      // TODO: how do I know which row to insert it? 
+      // TODO: need to rethink the server message too
+    }
+
   }
 
   // ------------------ MOUSE CONTROLLER ------------------
