@@ -194,9 +194,10 @@ function Model(usr) {
         // TODO: get the piece that collides with highest z-index
       }
     }
-    if (found) // at least one free piece collides: prepare to drag it around
+    if (found) { // at least one free piece collides: prepare to drag it around
       this.draggedPiece = p;
-    this.dragMyPiece(0, 0);
+      this.dragMyPiece(0, 0);
+    }
   };
 
   // Drag a piece locally, and send the move to the server.
