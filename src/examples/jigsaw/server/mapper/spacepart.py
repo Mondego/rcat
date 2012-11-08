@@ -135,6 +135,9 @@ class SpacePartitioning():
     def create_user(self,uid):
         if not uid in self.users:
             self.users[uid] = User(uid)
+            
+    def user_list(self):
+        return self.users
     
     def remove_user(self,uid):
         if uid in self.users:
@@ -263,11 +266,16 @@ class SpacePartitioning():
         self.board["bs"] = bucket_size 
         self.board["w"] = m_boardw
         self.board["h"] = m_boardh
-        
-    def recover_last_game(self):
-        allobjs = self.datacon.db.execute("select * from jigsaw")
+
+    def dump_last_game(self,keep_score=False):
         self.datacon.db.execute("delete from jigsaw")
         self.datacon.db.execute("delete from jigsaw_obm")
+        if not keep_score:
+            self.datacon.db.execute("delete from jigsaw_score")
+       
+    def recover_last_game(self):
+        allobjs = self.datacon.db.execute("select * from jigsaw")
+        self.dump_last_game(keep_score=True)
         for obj in allobjs:
             obj['l'] = None
             self.insert(obj,obj["pid"])

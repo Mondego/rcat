@@ -21,7 +21,9 @@ global db
 global pc
 global settings
 global datacon
+global jigsaw
 
+jigsaw = None
 settings = {}
 db = None
 datacon = None
@@ -29,7 +31,7 @@ rcat = None
 tables = {}
 location = {}
 pchandler = None
-game_over = False
+game_over = True
 coordinator = None
 
 img_settings = {}
@@ -73,7 +75,7 @@ class JigsawRequestParser(Thread):
         self.sched = IOLoop.instance().add_callback
         self.message = message
         self.evt = None
-
+    
     def run(self):
         global clientsConnected
         # TODO: userid and userid[0] is confusing 
@@ -91,29 +93,16 @@ class JigsawRequestParser(Thread):
                         raise Exception('Not supporting multiple new users')
                     new_user = new_user_list[0]
 
-                    pieces = {}
-                    pieces = datacon.mapper.select_all()
-                    # create player before pulling the scores
-                    datacon.mapper.create_user(new_user) 
-                    scores = datacon.mapper.get_user_scores()
-                    # send the board config
-                    cfg = {'img':img_settings,
-                           'board': board,
-                           'grid': grid,
-                           'frus': dfrus,
-                           'pieces': pieces,
-                           'myid': new_user,
-                           'clients': clientsConnected,
-                           'scores' : scores
-                           }
-                    response = {'M': {'c': cfg}, 'U': [new_user]}
-                    jsonmsg = json.dumps(response)
-                    self.handler.write_message(jsonmsg)
-                    clientsConnected += 1
                     # Inform other clients of client connection
                     response = {'M': enc}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
+                    clientsConnected += 1
+                    datacon.mapper.create_user(new_user)
+
+                    if not game_over:
+                        jigsaw.send_game_to_clients([new_user])
+                        
             elif "UD" in enc:
                 #User was disconnected. Inform other clients
                 clientsConnected -= 1
@@ -153,7 +142,7 @@ class JigsawRequestParser(Thread):
                     piece = datacon.mapper.select(x, y, pid)
 
                     lockid = piece['l']
-                    if not lockid or lockid == "None": # lock the piece if nobody owns it
+                    if (not lockid or lockid == "None") and not piece['b']: # lock the piece if nobody owns it
                         lockid = userid
                         datacon.mapper.update(x, y, [('l', lockid)], pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
@@ -183,15 +172,15 @@ class JigsawRequestParser(Thread):
                         logging.warning("[jigsawapp]: Got something weird: " + str(piece))
                         return
                     lockid = piece['l']
-                    if lockid and lockid == userid: # I was the owner
+                    if lockid and lockid == userid and not piece['b']: # I was the owner
                         # unlock piece
-                        datacon.mapper.update(x, y, [('l', None)], pid)
+                        datacon.mapper.update(x, y, [('l', None),('x', x), ('y', y)], pid)
                         # update piece coords
-                        datacon.mapper.update(x, y, [('x', x), ('y', y)], pid)
+                        #datacon.mapper.update(x, y, [('x', x), ('y', y)], pid)
 
                         # eventually bind piece 
                         bound = m['pd']['b']
-                        if bound:
+                        if bound:# we know the piece is not bound yet
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
                             datacon.mapper.update(x, y, [('b', 1)], pid)
@@ -244,10 +233,11 @@ class JigsawServer():
             datacon.mapper.create_table("jigsaw", "pid")
 
         if settings["main"]["start"] == "true":
+            settings["abandon"] = False
             self.start_game()
 
     def check_game_end(self):
-        global game_over
+        global settings
         n = -1
         cmd = "select count(*) from " + datacon.mapper.table + " where `b` = 0"
         while (n != 0):
@@ -257,7 +247,32 @@ class JigsawServer():
         msg = {'M': {'go':True}}
         jsonmsg = json.dumps(msg)
         pchandler.write_message(jsonmsg)
-        game_over = True
+        settings["abandon"] = True 
+        
+        self.start_game()
+
+    def send_game_to_clients(self,clients=None):
+        #TODO: Not send all pieces
+        pieces = datacon.mapper.select_all()
+        scores = datacon.mapper.get_user_scores()
+        
+        # send the board config
+        cfg = {'img':img_settings,
+               'board': board,
+               'grid': grid,
+               'frus': dfrus,
+               'pieces': pieces,
+               'clients': clientsConnected,
+               'scores' : scores
+               }
+        if not clients:
+            clients = datacon.mapper.user_list()
+
+        for client in clients:
+            cfg['myid'] = client
+            response = {'M': {'c': cfg}, 'U': [client]}
+            jsonmsg = json.dumps(response)
+            pchandler.write_message(jsonmsg)
 
 
     def jigsaw_parser(self, config):
@@ -292,12 +307,15 @@ class JigsawServer():
 
     # Parses messages coming through admin channel of proxy
     def admin_parser(self, msg):
+        global game_over
+        global settings
         if "BC" in msg:
             if "NEW" in msg["BC"]:
                 global board
                 global img_settings
                 global grid
-
+                game_over = True
+                
                 if "C" in msg["BC"]:
                     global coordinator
                     coordinator = msg["BC"]["C"]
@@ -309,12 +327,17 @@ class JigsawServer():
                 grid = newgame_settings["grid"]
                 datacon.mapper.join(newgame_settings)
                 if settings["main"]["start"] == "true":
-                    logging.info("[jigsawapp]: Starting game, please wait...")
+                    logging.info("[jigsawapp]: Starting game, please wait...")                    
+                    # Restarting the game at the user's command, or at game over             
+                    if settings["abandon"]:
+                        logging.info("[jigsawapp]: Abandoning old game.")
+                        datacon.mapper.dump_last_game()
+                        settings["abandon"] = False
+
                     count = datacon.db.count("jigsaw")
-                    #TODO: Add condition where new game is being started
                     if count > 0:
-                        logging.info("[jigsawapp]: Recovering last game.")
-                        datacon.mapper.recover_last_game()
+                            logging.info("[jigsawapp]: Recovering last game.")
+                            datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
                         for r in range(grid['nrows']):
@@ -326,15 +349,31 @@ class JigsawServer():
                                 y = randint(0, board['h'] - grid['cellh'])
                                 # Remove h later on!
                                 values = [pid, b, x, y, c, r, l]
-
-                                datacon.mapper.insert(values, pid)
+    
+                                datacon.mapper.insert(values, pid)                        
+                
+                        
                     # Game end checker
                     t = Thread(target=self.check_game_end)
                     t.daemon = True
                     t.start()
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")
+                    
+                    # Tell servers that new game started
+                    newmsg = {"BC":{"LOADED":True}}
+                    json_message = json.dumps(newmsg)
+                    proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
+                    proxy_admin.send(json_message)
+                    
+                    # Tell clients about new game
+                    self.send_game_to_clients()
+                    
+                    
+            elif "LOADED" in msg["BC"]:
+                game_over = False
 
     def start_game(self):
+        global settings
         # Tells all other servers to start game and gives a fixed list of admins so that they all create the same Data Structure
         mod_settings = deepcopy(settings)
         del mod_settings["main"]["start"]
