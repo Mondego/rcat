@@ -67,7 +67,6 @@ function Model(usr) {
     return this.scores[this.userName];
   }
 
-
   // -------- GAME SETTINGS -------------------------
 
   // Frustum primitive.
@@ -197,6 +196,7 @@ function Model(usr) {
     }
     if (found) // at least one free piece collides: prepare to drag it around
       this.draggedPiece = p;
+    this.dragMyPiece(0, 0);
   };
 
   // Drag a piece locally, and send the move to the server.

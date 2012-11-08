@@ -29,8 +29,6 @@ function Network(host) {
       // var nclients = m.c.clients;
       // model.setConnectedUsers(nclients);
       var scores = m.c.scores;
-      console.log('c')
-      console.log(scores)
       model.setScores(scores);
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
@@ -40,8 +38,6 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
-      console.log('scu')
-      console.log(m)
       var scoreUpdates = m.scu;
       for ( var key in scoreUpdates) {
         model.setUserScore(key, scoreUpdates[key]);

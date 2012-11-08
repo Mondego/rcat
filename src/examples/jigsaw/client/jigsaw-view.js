@@ -231,7 +231,7 @@ function View() {
     }
   });
 
-  // 
+  // stop dragging pieces when the mouse goes out of the canvas
   $canvas.mouseout(function(e) {
     view.isMouseDown = false;
     var sPos = getScreenPos(e);
