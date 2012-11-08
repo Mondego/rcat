@@ -11,6 +11,14 @@ var BGIMG = new Image();
 // and instantiate the global model.
 $(function() {
 
+  // prevent ESC key to close websocket on firefox,
+  // cf https://bugzilla.mozilla.org/show_bug.cgi?id=614304#c14
+  $(document).keydown(function(e) {
+    if (e.which == 27) { // ESC key
+      e.preventDefault();
+    }
+  });
+
   // set the canvas global var
   $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
 
@@ -122,7 +130,7 @@ function View() {
     if ($row.length) { // the row exists already: replace the score
       $row.children('td:nth-child(2)').html(newvalue);
     } else { // create the row
-      // TODO: how do I know which row to insert it? 
+      // TODO: how do I know which row to insert it?
       // TODO: need to rethink the server message too
     }
 
