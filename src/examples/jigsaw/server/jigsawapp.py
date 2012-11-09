@@ -244,7 +244,8 @@ class JigsawServer():
             time.sleep(3)
             res = datacon.db.execute_one(cmd)
             n = int(res['count(*)'])
-        msg = {'M': {'go':True}}
+        scores = datacon.mapper.get_user_scores()
+        msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
         pchandler.write_message(jsonmsg)
         settings["abandon"] = True 

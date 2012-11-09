@@ -181,7 +181,7 @@ class SpacePartitioning():
         self.table_reg = self.table + "_reg"        
         
         # Creates score table
-        cmd = "create table if not exists " + table + "_score(pid varchar(255), user varchar(255) not null, score int,primary key(pid))"
+        cmd = "create table if not exists " + table + "_score(pid varchar(255), user varchar(255) not null, score int,primary key(user))"
         self.table_score = self.table + "_score" 
         self.datacon.db.create_table(table+"_score",cmd,"user")
         
@@ -307,13 +307,13 @@ class SpacePartitioning():
         else:
             self.datacon.db.insert(self.table_score,[userid,username,0])
             user_score = self.datacon.db.execute_one("select score from " + self.table_score + " where `user`='" + username + "'")['score']
-        return {username:user_score}
+        return [username,userid,user_score]
     
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self,userid):
         self.datacon.db.execute("update " + self.table_score + " set score = score + 1 where `pid`='"+ userid + "'")
         res = self.datacon.db.execute_one("select * from " + self.table_score + " where `pid`='" + userid + "'")
-        return {res['user']:res['score']}
+        return [res['user'],userid,res['score']]
     
     def disconnect_user(self,userid):
         self.datacon.db.execute("update " + self.table_score + " set `pid`='' where `pid`="+ "'" + userid +"'")
