@@ -181,7 +181,7 @@ class SpacePartitioning():
         self.table_reg = self.table + "_reg"        
         
         # Creates score table
-        cmd = "create table if not exists " + table + "_score(pid varchar(255), user varchar(255) not null, score int,primary key(user))"
+        cmd = "create table if not exists " + table + "_score(uid varchar(255), user varchar(255) not null, score int,primary key(user))"
         self.table_score = self.table + "_score" 
         self.datacon.db.create_table(table+"_score",cmd,"user")
         
@@ -192,7 +192,7 @@ class SpacePartitioning():
             self.datacon.db.execute("delete from " + self.table_score)
         else:
             # Clear users connected at the time
-            self.datacon.db.execute("update set " + self.table_score + " `pid` = ''")
+            self.datacon.db.execute("update set " + self.table_score + " `uid` = ''")
         
     def insert(self,values,pid):
         if type(values) is dict:
@@ -288,11 +288,12 @@ class SpacePartitioning():
     SCORE KEEPING SECTION
     ####################################
     """ 
+    # TODO: Score keeping service
     def get_user_scores(self):
         global clientScores
         scores = {}
         scores["top20"] = self.datacon.db.execute("select * from " + self.table_score + " order by score limit 20")
-        scores["connected"] = self.datacon.db.execute("select * from " + self.table_score + " where pid<>''")
+        scores["connected"] = self.datacon.db.execute("select * from " + self.table_score + " where uid<>''")
         return scores
                 
     def insert_new_user_score(self,score_tuple):
@@ -300,9 +301,11 @@ class SpacePartitioning():
     
     # Adds new user to the score list, returns the current client scores
     def new_user_connected(self,userid,username):
+        if username == "Guest":
+            return None
         res = self.datacon.db.execute_one("select score from " + self.table_score + " where `user`='" + username + "'")
         if res:
-            self.datacon.db.execute("update " + self.table_score + " set `pid`='" + userid + "' where `user`='" + username + "'")
+            self.datacon.db.execute("update " + self.table_score + " set `uid`='" + userid + "' where `user`='" + username + "'")
             user_score = res['score']
         else:
             self.datacon.db.insert(self.table_score,[userid,username,0])
@@ -311,12 +314,16 @@ class SpacePartitioning():
     
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self,userid):
-        self.datacon.db.execute("update " + self.table_score + " set score = score + 1 where `pid`='"+ userid + "'")
-        res = self.datacon.db.execute_one("select * from " + self.table_score + " where `pid`='" + userid + "'")
-        return [res['user'],userid,res['score']]
+        try:
+            self.datacon.db.execute("update " + self.table_score + " set score = score + 1 where `uid`='"+ userid + "'")
+            res = self.datacon.db.execute_one("select * from " + self.table_score + " where `uid`='" + userid + "'")
+            return [res['user'],userid,res['score']]
+        except:
+            logging.debug("[spacepart]: User id " + userid + " not found. Client disconnected, or Guest user.")
+            return None
     
     def disconnect_user(self,userid):
-        self.datacon.db.execute("update " + self.table_score + " set `pid`='' where `pid`="+ "'" + userid +"'")
+        self.datacon.db.execute("update " + self.table_score + " set `uid`='' where `uid`="+ "'" + userid +"'")
         
     
     """

@@ -130,12 +130,13 @@ class JigsawRequestParser(Thread):
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
                     # TODO: send pieces located in the new frustum
-
-                elif 'usr' in m: # TODO: when does this happen? [tho]
-                    update_res = datacon.mapper.new_user_connected(userid, m['usr'])
-                    response = {'M': {'scu':update_res}}
-                    jsonmsg = json.dumps(response)
-                    #self.handler.write_message(jsonmsg) # should not be sent when clients connect [tho]
+                    
+                elif 'usr' in m: # This message carries the username to be registered. It's sent after config is received on client
+                    if m['usr'] != 'Guest':
+                        update_res = datacon.mapper.new_user_connected(userid, m['usr'])
+                        response = {'M': {'scu':update_res}}
+                        jsonmsg = json.dumps(response)
+                        #self.handler.write_message(jsonmsg) # should not be sent when clients connect [tho]
 
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
@@ -187,9 +188,11 @@ class JigsawRequestParser(Thread):
 
                             # Update score board. Separate from 'pd' message because this is always broadcasted.
                             update_res = datacon.mapper.add_to_user_score(userid)
-                            response = {'M': {'scu':update_res}}
-                            jsonmsg = json.dumps(response)
-                            self.handler.write_message(jsonmsg)
+                            # If not update_res means we have an anonymous user, no scores should be sent
+                            if update_res:
+                                response = {'M': {'scu':update_res}}
+                                jsonmsg = json.dumps(response)
+                                self.handler.write_message(jsonmsg)
 
                         else:
                             logging.debug('%s dropped piece %s at %d,%d'
