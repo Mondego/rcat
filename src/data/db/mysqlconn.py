@@ -129,8 +129,7 @@ class MySQLConnector():
         return metadata,fields
 
     """
-    __retrieve_object_from_db(self,table,RID,name=None,update_values=None):
-    update_value: tuple with (old_value,new_value)
+    __retrieve_object_from_db(self,table,RID):
     """
     def retrieve_object_from_db(self,table,RID):
         cur = self.cur
@@ -192,7 +191,7 @@ class MySQLConnector():
     select(self,table,name=None,RID): Return object (or one property of object). Requires finding authoritative owner and requesting most recent status 
     """
     def select(self, table, RID, names=None):
-        return self.retrieve_object_from_db(table, RID, names)
+        return self.retrieve_object_from_db(table, RID)
     
     def delete(self,table,RID):
         cur = self.cur

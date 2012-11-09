@@ -187,12 +187,12 @@ RMUVE_Manager: The app developer should substitute the event method to receive a
 """
 class RMUVE_Manager():
     def recv_event(self, evt):
-        raise
+        raise Exception("Not yet implemented")
 
     def send_event(self,evt):
         if evt == Event.DISCONNECT:
             # TODO: Send disconnection event to proxy
-            raise
+            raise Exception("Not yet implemented")
 
 """
 The Event class stores all standard events that between the system and the application. For instance, if the developer

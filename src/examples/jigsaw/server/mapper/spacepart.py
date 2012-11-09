@@ -161,7 +161,7 @@ class SpacePartitioning():
     def get_user_frustrum(self,uid):
         return self.users[uid].frustrum
     
-        
+    
     
     """
     ####################################
@@ -177,10 +177,22 @@ class SpacePartitioning():
         self.ridname = ridname
         self.table = table
         self.datacon.obm.register_node(self.datacon.myid,table,ridname)
+        self.table_obm = self.table + "_obm"
+        self.table_reg = self.table + "_reg"        
         
         # Creates score table
-        cmd = "create table if not exists " + table + "_score(user varchar(255) not null, score int,primary key(user))"
+        cmd = "create table if not exists " + table + "_score(pid varchar(255), user varchar(255) not null, score int,primary key(pid))"
+        self.table_score = self.table + "_score" 
         self.datacon.db.create_table(table+"_score",cmd,"user")
+        
+    def dump_last_game(self,keep_score=False):
+        self.datacon.db.execute("delete from " + self.table)
+        self.datacon.db.execute("delete from " + self.table_obm)
+        if not keep_score:
+            self.datacon.db.execute("delete from " + self.table_score)
+        else:
+            # Clear users connected at the time
+            self.datacon.db.execute("update set " + self.table_score + " `pid` = ''")
         
     def insert(self,values,pid):
         if type(values) is dict:
@@ -224,10 +236,6 @@ class SpacePartitioning():
             piece = self.datacon.obm.select_remote(self.table,owner,pid)
         return piece
     
-    def clear_all(self):
-        self.datacon.db.clear_table(self.table)
-        self.datacon.db.clear_table(self.table + "_score")
-        
             
     """
     ####################################
@@ -260,26 +268,19 @@ class SpacePartitioning():
         quadtree = Node((m_boardw/2,m_boardh/2),first)
         for adm in adms:
             quadtree.FindAndInsert(adm)
-        logging.info(str(quadtree))
 
         self.quadtree = quadtree
         self.board["bs"] = bucket_size 
         self.board["w"] = m_boardw
         self.board["h"] = m_boardh
 
-    def dump_last_game(self,keep_score=False):
-        self.datacon.db.execute("delete from jigsaw")
-        self.datacon.db.execute("delete from jigsaw_obm")
-        if not keep_score:
-            self.datacon.db.execute("delete from jigsaw_score")
-       
     def recover_last_game(self):
-        allobjs = self.datacon.db.execute("select * from jigsaw")
+        allobjs = self.datacon.db.execute("select * from " + self.table)
         self.dump_last_game(keep_score=True)
+        #self.datacon.db.execute("UPDATE SET " + self.table + " `l` = 'None'")
         for obj in allobjs:
             obj['l'] = None
             self.insert(obj,obj["pid"])
-        self.retrieve_score_from_db()
         
         
     """
@@ -287,40 +288,36 @@ class SpacePartitioning():
     SCORE KEEPING SECTION
     ####################################
     """ 
-    def retrieve_score_from_db(self):
+    def get_user_scores(self):
         global clientScores
-        clientScores = {}
-        cmd = "select * from " + self.table + "_score"
-        result = self.datacon.db.execute(cmd)
-        for item in result:
-            clientScores[item["user"]] = item["score"]
-    
-    def schedule_score_update_db(self,username,score):
-        # schedules the score update to the database. 
-        update_dict = {'score':score}
-        self.datacon.db.schedule_update(self.table + "_score", username,update_dict)
-
+        scores = {}
+        scores["top20"] = self.datacon.db.execute("select * from " + self.table_score + " order by score limit 20")
+        scores["connected"] = self.datacon.db.execute("select * from " + self.table_score + " where pid<>''")
+        return scores
+                
     def insert_new_user_score(self,score_tuple):
-        self.datacon.db.insert(self.table + "_score",score_tuple)
+        self.datacon.db.insert(self.table_score,score_tuple)
     
     # Adds new user to the score list, returns the current client scores
     def new_user_connected(self,userid,username):
-        idToName[userid] = username
-        if not username in clientScores:
-            clientScores[username] = 0
-            self.insert_new_user_score((username,0))
-        return {username:0}
+        res = self.datacon.db.execute_one("select score from " + self.table_score + " where `user`='" + username + "'")
+        if res:
+            self.datacon.db.execute("update " + self.table_score + " set `pid`='" + userid + "' where `user`='" + username + "'")
+            user_score = res['score']
+        else:
+            self.datacon.db.insert(self.table_score,[userid,username,0])
+            user_score = self.datacon.db.execute_one("select score from " + self.table_score + " where `user`='" + username + "'")['score']
+        return {username:user_score}
     
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self,userid):
-        username = idToName[userid]
-        clientScores[username] += 1
-        self.schedule_score_update_db(username,clientScores[username])
-        return {username:clientScores[username]}
+        self.datacon.db.execute("update " + self.table_score + " set score = score + 1 where `pid`='"+ userid + "'")
+        res = self.datacon.db.execute_one("select * from " + self.table_score + " where `pid`='" + userid + "'")
+        return {res['user']:res['score']}
+    
+    def disconnect_user(self,userid):
+        self.datacon.db.execute("update " + self.table_score + " set `pid`='' where `pid`="+ "'" + userid +"'")
         
-        
-    def get_user_scores(self):
-        return clientScores
     
     """
     ####################################

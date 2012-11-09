@@ -31,7 +31,7 @@ rcat = None
 tables = {}
 location = {}
 pchandler = None
-game_over = True
+game_loading = True
 coordinator = None
 
 img_settings = {}
@@ -100,22 +100,24 @@ class JigsawRequestParser(Thread):
                     clientsConnected += 1
                     datacon.mapper.create_user(new_user)
 
-                    if not game_over:
+                    if not game_loading:
                         jigsaw.send_game_to_clients([new_user])
                         
             elif "UD" in enc:
                 #User was disconnected. Inform other clients
                 clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
+                    datacon.mapper.disconnect_user(enc["UD"])
                     response = {'M': enc}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
 
             else:
-                if game_over:
+                if game_loading:
                     msg = {'M': {'go':True}}
                     jsonmsg = json.dumps(msg)
                     pchandler.write_message(jsonmsg)
+                    return
 
                 # usual message
                 logging.debug(enc["M"])
@@ -173,10 +175,8 @@ class JigsawRequestParser(Thread):
                         return
                     lockid = piece['l']
                     if lockid and lockid == userid and not piece['b']: # I was the owner
-                        # unlock piece
+                        # unlock piece and update piece coords
                         datacon.mapper.update(x, y, [('l', None),('x', x), ('y', y)], pid)
-                        # update piece coords
-                        #datacon.mapper.update(x, y, [('x', x), ('y', y)], pid)
 
                         # eventually bind piece 
                         bound = m['pd']['b']
@@ -307,14 +307,14 @@ class JigsawServer():
 
     # Parses messages coming through admin channel of proxy
     def admin_parser(self, msg):
-        global game_over
+        global game_loading
         global settings
         if "BC" in msg:
             if "NEW" in msg["BC"]:
                 global board
                 global img_settings
                 global grid
-                game_over = True
+                game_loading = True
                 
                 if "C" in msg["BC"]:
                     global coordinator
@@ -370,7 +370,7 @@ class JigsawServer():
                     
                     
             elif "LOADED" in msg["BC"]:
-                game_over = False
+                game_loading = False
 
     def start_game(self):
         global settings
