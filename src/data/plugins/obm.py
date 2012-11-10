@@ -139,7 +139,7 @@ class ObjectManager():
     def find_all(self,table):
         # TODO: There is still possible inconsistency, current frustrum must be subscribing to updates
         # maybe also we need timestamps..
-        cmd = "select * from " + table + "_obm"
+        cmd = "select * from " + table
         result = self.datacon.db.execute(cmd)
         logger.debug("[obm]: Result from select all in table_obm: " + str(result))
         return result
@@ -237,7 +237,12 @@ class ObjectManager():
     def select(self,table,rid):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
+            res = self.get_host_from_rid(table,rid)
+            # Piece is not owned or created by anyone yet
+            if not res:
+                self.location[table][rid] = self.myhost
+            else:
+                self.location[table][rid] = res
         
         if not self.location[table][rid] == self.myhost:
             # If I don't own it, but I should! Request relocation
@@ -308,7 +313,13 @@ class ObjectManager():
         remotehost = self.get_host_from_admin(table,admid)
         # If I don't have the owner of this rid cached, store it
         if rid not in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
+            res = self.get_host_from_rid(table,rid)
+            # Piece is not owned or created by anyone yet
+            if not res:
+                self.location[table][rid] = remotehost
+            else:
+                self.location[table][rid] = res
+                
         # If the owner is supposed to be myself, set it
         elif self.location[table][rid] == self.myhost:
             self.setowner(table,rid,None,remotehost)
@@ -338,7 +349,11 @@ class ObjectManager():
     
     def get_host_from_rid(self,table,rid):
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
-        return self.datacon.db.execute_one(cmd)['host']
+        res = self.datacon.db.execute_one(cmd)
+        if res:
+            return ['host']
+        else:
+            None
     
     def relocate(self,table,rid,newowner):
         if not rid in self.location[table]:

@@ -192,8 +192,13 @@ class SpacePartitioning():
             self.datacon.db.execute("delete from " + self.table_score)
         else:
             # Clear users connected at the time
-            self.datacon.db.execute("update set " + self.table_score + " `uid` = ''")
+            self.datacon.db.execute("update " + self.table_score + " set `uid` = ''")
+            
+    # Inserts directly, OBM caches on select 
+    def insert_batch(self,values):
+        self.datacon.db.insert_batch(self.table, values)
         
+    # Inserts through OBM, thus creating the caches of objects created
     def insert(self,values,pid):
         if type(values) is dict:
             values = self.datacon.db.insert_dict_to_list(self.table,values)
@@ -220,6 +225,13 @@ class SpacePartitioning():
             return owner
     
     def select_all(self):
+        pieces = {}
+        objs = self.datacon.db.execute("select * from " + self.table)
+        for item in objs:
+            pieces[item["pid"]] = item
+        return pieces
+    
+    def select_all_from_obm(self):
         pieces = {}
         objs = self.datacon.obm.find_all(self.table)
         # Returns pairs of rid,host
@@ -277,10 +289,9 @@ class SpacePartitioning():
     def recover_last_game(self):
         allobjs = self.datacon.db.execute("select * from " + self.table)
         self.dump_last_game(keep_score=True)
-        #self.datacon.db.execute("UPDATE SET " + self.table + " `l` = 'None'")
+        self.datacon.db.execute("UPDATE " + self.table + " SET `l` = 'None'")
         for obj in allobjs:
-            obj['l'] = None
-            self.insert(obj,obj["pid"])
+            self.insert_database(obj,obj["pid"])
         
         
     """
@@ -310,14 +321,14 @@ class SpacePartitioning():
         else:
             self.datacon.db.insert(self.table_score,[userid,username,0])
             user_score = self.datacon.db.execute_one("select score from " + self.table_score + " where `user`='" + username + "'")['score']
-        return [username,userid,user_score]
+        return [{'user':username,'uid':userid,'score':user_score}]
     
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self,userid):
         try:
             self.datacon.db.execute("update " + self.table_score + " set score = score + 1 where `uid`='"+ userid + "'")
             res = self.datacon.db.execute_one("select * from " + self.table_score + " where `uid`='" + userid + "'")
-            return [res['user'],userid,res['score']]
+            return [{'user':res['user'],'uid':userid,'score':res['score']}]
         except:
             logging.debug("[spacepart]: User id " + userid + " not found. Client disconnected, or Guest user.")
             return None

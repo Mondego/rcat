@@ -212,6 +212,19 @@ class MySQLConnector():
         self.db_updates[table][rid] = data
         return True
 
+
+    def insert_batch(self,table,list_values):
+        mystr = ''
+        try:
+            mystr = ("INSERT INTO %s VALUES(" % table) + ',('.join([','.join([`str(val)` for val in values]) + ")" for values in list_values])
+            cur = self.cur
+            cur.execute(mystr)
+            cur.connection.commit()
+                # Auto-increment?
+        except mdb.cursors.Error, e:
+                logger.error(e)
+                return False;
+        
     """
     insert(self,table,values,RID): Attempts to create a new item in the database and becomes the authoritative owner of object.
     Input: List of values based on column order. Retrieve column order if desired with get_columns()
@@ -220,6 +233,7 @@ class MySQLConnector():
         try:
             cur = self.cur
             mystr = ("INSERT INTO %s VALUES(" % table) + ','.join([`str(val)` for val in values]) + ")"
+            
             logger.debug(mystr)
             cur.execute(mystr)
             cur.connection.commit()

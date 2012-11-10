@@ -93,10 +93,6 @@ class JigsawRequestParser(Thread):
                         raise Exception('Not supporting multiple new users')
                     new_user = new_user_list[0]
 
-                    # Inform other clients of client connection
-                    response = {'M': enc}
-                    jsonmsg = json.dumps(response)
-                    self.handler.write_message(jsonmsg)
                     clientsConnected += 1
                     datacon.mapper.create_user(new_user)
 
@@ -108,6 +104,7 @@ class JigsawRequestParser(Thread):
                 clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
                     datacon.mapper.disconnect_user(enc["UD"])
+                    del enc["SS"]
                     response = {'M': enc}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
@@ -341,9 +338,10 @@ class JigsawServer():
                     count = datacon.db.count("jigsaw")
                     if count > 0:
                             logging.info("[jigsawapp]: Recovering last game.")
-                            datacon.mapper.recover_last_game()
+                            #datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
+                        list_values = []
                         for r in range(grid['nrows']):
                             for  c in range(grid['ncols']):
                                 pid = str(uuid.uuid4()) # piece id
@@ -352,16 +350,15 @@ class JigsawServer():
                                 x = randint(0, board['w'] - grid['cellw'])
                                 y = randint(0, board['h'] - grid['cellh'])
                                 # Remove h later on!
-                                values = [pid, b, x, y, c, r, l]
-    
-                                datacon.mapper.insert(values, pid)                        
+                                list_values.append([pid, b, x, y, c, r, l])
+                                #datacon.mapper.insert(values, pid)
+                        datacon.mapper.insert_batch(list_values)
                 
-                        
+                    logging.info("[jigsawapp]: Game has loaded. Have fun!")
                     # Game end checker
                     t = Thread(target=self.check_game_end)
                     t.daemon = True
                     t.start()
-                    logging.info("[jigsawapp]: Game has loaded. Have fun!")
                     
                     # Tell servers that new game started
                     newmsg = {"BC":{"LOADED":True}}
