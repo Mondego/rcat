@@ -18,7 +18,11 @@
 		<!-- CSS hack to keep the footer at bottom of the page -->
 
 		<div id='header' class='lightWoodThemed'>
-			<h1>Online Jigsaw Puzzle</h1>
+			<h1>
+				Online Jigsaw Puzzle
+				<!-- <button type='button' onclick="$.removeCookie('jigsawPlayerName');">empty
+					cookie</button> -->
+			</h1>
 			<p id='disconnectArea'>
 				Hello, <span id='playerNameDisplay'></span>!
 				<button id="disconnect" class='darkWoodThemed'>Log out</button>
@@ -28,11 +32,11 @@
 		<div id='content'>
 
 			<div id='loadingScreen'>
-				<form id='connectForm'>
+				<form id='joinInForm'>
 					<p class='lightWoodThemed'>
 						Player name: <input type='text' value="Guest" id="playerName"
 							class='lightWoodThemed' /> <input type='submit' value='Join in!'
-							id="connect" class='darkWoodThemed' />
+							id="joinIn" class='darkWoodThemed' />
 					</p>
 				</form>
 			</div>

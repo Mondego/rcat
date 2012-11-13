@@ -9,27 +9,23 @@ function Network(host) {
 
   // var host = "ws://opensim.ics.uci.edu:8888/client";
   this.host = host;
-  var connected = false;
   var socket = new WebSocket(host);
   $('#connectionStatus').html("Connecting");
-  this.sendDelay = 100; // how often to send updates, in millis
+  this.sendDelay = 100; // how often to send piece move updates, in millis
 
   socket.onopen = function() {
     $('#connectionStatus').html("Connected.");
-    connected = true;
   };
 
   // receive handler
   socket.onmessage = function(msg) {
     m = JSON.parse(msg.data); // TODO: use json2.js for IE6 and 7
     // cf http://stackoverflow.com/a/4935684/856897
-
     if ('c' in m) { // init config
       model.init();
-      // var nclients = m.c.clients;
-      // model.setConnectedUsers(nclients);
       var scores = m.c.scores;
-      model.setScores(scores);
+      model.setOnlinePlayers(scores.connected);
+      model.setTopScores(scores.top20);
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
@@ -52,13 +48,11 @@ function Network(host) {
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
-    } else if ('pf' in m) {
-
+    } else if ('pf' in m) {// player frustum update
     } else if ('NU' in m) { // new user
-
     } else if ('UD' in m) { // user disconnected
-
     } else if ('go' in m) {// Game Over
+      // TODO: will contain the top scores in the future
       model.endGame();
     }
   };
@@ -66,14 +60,15 @@ function Network(host) {
   // TODO: try to get back the connection every 5-10 seconds a la gmail
   // TODO: re-init the board when the connection is back
   socket.onclose = function() {
-    if (connected == true)
-      alert("Lost connection to server");
+    // if (connected == true){
+    // alert("Lost connection to server");}
     $('#disconnect').hide();
     $('#connectionStatus').html('Disconnected.');
   };
 
   // Tell the server that the client's frustum changed.
   this.frustumTimerMsg = null; // frustum msg to send when the timer ends
+
   this.sendFrustum = function(frustum) {
     var msg = {
       'rp' : {
@@ -81,22 +76,27 @@ function Network(host) {
       }
     };
     if (this.frustumTimerMsg == null)
-      setTimeout('nw.sendFrustumStopTimer()', this.sendDelay);
+      setTimeout(function() {
+        nw.sendFrustumStopTimer()
+      }, this.sendDelay);
     this.frustumTimerMsg = msg;
     // sending is taken care of by the frustum timer
   };
+
   // Send the frustum and reset the timer
   this.sendFrustumStopTimer = function() {
     var msg = this.frustumTimerMsg;
-    if (msg) // just in case ...
-      socket.send(JSON.stringify(msg));
-    else
+    if (msg) { // just in case ...
+      this.sendMessage(msg);
+    } else {
       console.log("Warning: Frustum to send is null");
+    }
     this.frustumTimerMsg = null;
   }
 
   // Tell the server that the client moved a piece.
   this.pieceTimers = {}; // timer to send each piece's coords
+
   this.sendPieceMove = function(pid, x, y) {
     var msg = {
       'pm' : {
@@ -105,12 +105,14 @@ function Network(host) {
         'y' : y
       }
     };
-    // sending is taken care of by the frustum timer
-    if (pid in this.pieceTimers) {
-      this.pieceTimers[pid].msg = msg;
-    } else { // start the timeout sending the frustum
-      var funcCall = "nw.sendPieceStopTimer('" + pid + "')";
-      var tid = setTimeout(funcCall, this.sendDelay);
+    // sending is taken care of by each piece's timer callback
+    if (pid in this.pieceTimers) { // the piece was moved very recently
+      this.pieceTimers[pid].msg = msg; // update the piece coords in the msg
+    } else {// The piece is moved for the first time in a while:
+      this.sendMessage(msg);// send move right away
+      var tid = setTimeout(function() { // start periodic callback
+        nw.sendPieceMoveStopTimer(pid)
+      }, this.sendDelay);
       var pt = {
         'tid' : tid,
         'pid' : pid,
@@ -119,14 +121,16 @@ function Network(host) {
       this.pieceTimers[pid] = pt;
     }
   };
+
   // Send the piece and reset the timer
-  this.sendPieceStopTimer = function(pid) {
-    if (pid in this.pieceTimers) { // just in case ...
+  this.sendPieceMoveStopTimer = function(pid) {
+    if (pid in this.pieceTimers) {
       var msg = this.pieceTimers[pid].msg;
-      socket.send(JSON.stringify(msg));
+      this.sendMessage(msg);
       delete this.pieceTimers[pid];
-    } else
-      console.log("Warning: The timer for piece " + pid + " is missing.");
+    } else { // should never happen ...
+      console.log("Warning: Missing timer for piece " + pid);
+    }
   };
 
   // Send the piece drop and cancel the piece move msg timer.
@@ -143,26 +147,30 @@ function Network(host) {
       clearTimeout(this.pieceTimers[pid].tid); // stop the timer
       delete this.pieceTimers[pid];
     }
-    socket.send(JSON.stringify(msg));
+    this.sendMessage(msg);
   };
 
   this.sendGameOver = function() {
     var msg = {
       'go' : true
     };
-    socket.send(JSON.stringify(msg));
+    this.sendMessage(msg);
   };
 
   this.sendUserName = function(user) {
     var msg = {
       'usr' : user
     };
+    this.sendMessage(msg);
+  }
+
+  // Convert a message in JSON and send it right away.
+  this.sendMessage = function(msg) {
     socket.send(JSON.stringify(msg));
   }
+
   // close connection to the server
   this.close = function() {
-    connected = false; // This prevents the pop-up alert from coming up every
-    // time you intentionally disconnect
     socket.close();
   };
 

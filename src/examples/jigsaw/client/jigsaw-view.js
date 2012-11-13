@@ -38,7 +38,7 @@ $(function() {
   };
 
   // wire the JOIN GAME button + when ENTER is pushed in the text input field
-  $('#connectForm').submit(function() {
+  $('#joinInForm').submit(function() {
     var playerName = $('#playerName').val();
     $.cookie('jigsawPlayerName', playerName); // set the cookie
     triggerGame(playerName);
@@ -62,13 +62,21 @@ $(function() {
     $('#gameScreen').hide();
     $('#loadingScreen').show();
     $('#connectionStatus').html('Disconnected.');
-    $.removeCookie('jigsawUserName');
+    $.removeCookie('jigsawPlayerName');
   });
 
-  // splash image callback
+  // splash image callback: put it on the canvas, and show the "join in!" form
   SPLASHIMG.onload = function() {
     var ctx = $canvas.get(0).getContext('2d');
-    ctx.drawImage(SPLASHIMG, 10, 12);
+    var imgw = SPLASHIMG.width;
+    var imgh = SPLASHIMG.height;
+    var cw = $canvas.prop('width');
+    var ch = $canvas.prop('height');
+    ctx.drawImage(SPLASHIMG, 0, 0, imgw, imgh, 0, 0, cw, ch); // no margin
+    ctx.font = '25pt Calibri';
+    ctx.fillStyle = 'black';
+    ctx.fillText('Your game will start in a few seconds ...', 100, 100);
+    $('#joinInForm').show();
   };
   SPLASHIMG.src = "img/SplashImage.png";
 
@@ -76,12 +84,12 @@ $(function() {
   BGIMG.onload = function() {
     BGIMG.loaded = true;
   };
+  BGIMG.loaded = false;
   // http://static1.grsites.com/archive/textures/wood/wood004.jpg
   // wooden background from http://www.grsites.com/terms/
-  BGIMG.loaded = false;
   BGIMG.src = "img/wood004.jpg";
 
-});
+}); // end of onLoad
 
 // -------------------------- VIEW + CONTROLLER -----------------------------
 
@@ -89,20 +97,10 @@ function View() {
   // Display the puzzle in a canvas
   // and translate user inputs into model commands.
 
-  this.isGameOver = false;
-  this.newGame = function() {
-    this.isGameOver = false;
-  }
-
-  this.endGame = function() {
-    this.isGameOver = true;
-  }
-
   // ------------------ SCORE CONTROLLER ------------------
-  this.scoreDict = {};
 
   // Clean the score table and add the scores by ascending order.
-  this.initScores = function(scores) {
+  this.initTopScores = function(scores) {
     // init the table
     $('#scoreTable').html('<tr><th>Player name</th><th>Score</th></tr>');
     // sort the scores
@@ -124,6 +122,9 @@ function View() {
     });
   }
 
+  this.initOnlineScores = this.initTopScores;
+  
+  
   this.updateUserScore = function(user, newvalue) {
     // Update the score cell of that user's row.
     $row = $('#scoreTable tr#' + user);
@@ -452,24 +453,14 @@ function View() {
     ctx.fillRect(0, 0, w, h);
   }
 
-  // first clean the whole canvas,
-  // then draw in this order: grid, bound pieces, and loose pieces
-  // public method of view so that model can call it
+  // First clean the whole canvas,
+  // then draw in this order: grid, bound pieces, and loose pieces.
+  // This is called by the model whenever something changes on the board.
   this.drawAll = function() {
-    if (!this.isGameOver) {
-      this.cleanCanvas();
-      this.drawBoard();
-      drawGrid();
-      drawPieces();
-    }
+    this.cleanCanvas();
+    this.drawBoard();
+    drawGrid();
+    drawPieces();
   };
 
-  this.gameOver = function() {
-    this.isGameOver = true;
-    this.close();
-    ctx.font = "40pt Calibri";
-    ctx.fillStyle = "blue";
-    ctx.fillText("Game Over! Your score was " + model.getMyScore(), 100, 100);
-    ctx.fillText("Click on Screen to Restart Game", 100, 200);
-  }
 }

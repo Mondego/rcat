@@ -10,9 +10,8 @@ function Model(usr) {
   // -------- INITIALIZATION ---------------------------
   this.init = function() {
 
-    this.numPlayers = 0;
-    this.userName = usr;
-    this.scores = {}; // map user id to score
+    this.topScores = {}; // map user id to score; top 20 scores
+    this.onlineScores = {}; // scores for all the connected players
 
     this.BOARD = {// board = grid + empty space around the grid
       w : null,
@@ -30,6 +29,7 @@ function Model(usr) {
     };
     this.IMG = new Image(); // IMG.onload happens after model.startGame
 
+    this.myName = usr;
     this.myid = null; // the id given by the server to represent me
 
     // which part of the board is currently being viewed by the user
@@ -42,29 +42,99 @@ function Model(usr) {
     };
   };
 
-  // -------- GAME END ---------------------------
-  this.endGame = function() {
-    view.gameOver();
+  // -------- PLAYERS AND SCORES --------------------
+
+  // Show the top 20 scores.
+  this.setTopScores = function(playerScores) {
+    this.topScores = {};
+    var p = null; // temp player
+    for ( var i = 0; i < playerScores.length; i++) {
+      p = playerScores[i];
+      this.topScores[p.user] = p.score
+    }
+    view.initTopScores(this.topScores);
   }
 
-  // -------- USER MANAGEMENT AND SCORE --------------------
-
-  this.setScores = function(scores) {
-    this.scores = scores;
-    view.initScores(scores);
+  // Show who is online and their score.
+  this.setOnlinePlayers = function(playerScores) {
+    this.onlineScores = {};
+    var p = null; // temp player
+    for ( var i = 0; i < playerScores.length; i++) {
+      p = playerScores[i];
+      this.onlineScores[p.user] = p.score
+    }
+    view.initOnlineScores(this.onlineScores);
   }
 
   this.setUserScore = function(user, newScore) {
-    this.scores[user] = newScore;
+    this.topScores[user] = newScore;
     view.updateUserScore(user, newScore);
   }
 
   this.getUserScore = function(user) {
-    return this.scores[user];
+    return this.topScores[user];
   }
 
   this.getMyScore = function() {
-    return this.scores[this.userName];
+    return this.topScores[this.myName];
+  }
+
+  // -------- GAME START AND END ---------------------------
+
+  // Starting the game takes 3 steps:
+  // 1- Build the model right away with the most recent server data.
+  // This enables us to process incoming movement messages right away.
+  // 2- Start downloading the puzzle image.
+  // 3- Build the view when the heavy puzzle image has been received.
+  // That way, we only display the view when everything is ready.
+  this.startGame = function(board, grid, dfrus, piecesData, myid, img) {
+
+    // Init board, grid, and frustum from server config.
+    this.BOARD = board;
+    this.GRID = grid;
+    this.myid = myid;
+
+    // Send back the frustum's w and h to the server,
+    // as they are determined by the client's canvas size.
+    this.frustum.x = dfrus.x;
+    this.frustum.y = dfrus.y;
+    this.frustum.scale = dfrus.scale;
+    var dims = view.toBoardDims($canvas.prop('width'), $canvas.prop('height'));
+    this.frustum.w = dims.w;
+    this.frustum.h = dims.h;
+    nw.sendFrustum(this.frustum);
+
+    // Also create the pieces from server data.
+    this.loosePieces = {}; // hash table of movable pieces
+    this.boundPieces = {}; // pieces that have been dropped in the correct cell
+    var x, y; // coords of the piece on the board
+    var sx, sy; // dimensions of the slice from the original image
+    var w = grid.cellw;
+    var h = grid.cellh;
+    // each piece contains a sw * sh slice of the original image
+    var sw = img.img_w / grid.ncols;
+    var sh = img.img_h / grid.nrows;
+    var pdata, p, sx, sy;
+    var id;
+    for (id in piecesData) {
+      pd = piecesData[id];
+      sx = pd.c * sw; // coords of image sliced from original
+      sy = pd.r * sh;
+      p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
+    }
+    nw.sendUserName(this.myName);
+
+    // Only init the view when the puzzle image has been downloaded.
+    this.IMG.onload = function() {
+      // console.log('image loaded')
+      view.drawAll();
+    };
+    this.IMG.src = img.img_url;
+
+  };
+
+  // end the game:
+  this.endGame = function() {
   }
 
   // -------- GAME SETTINGS -------------------------
@@ -120,58 +190,6 @@ function Model(usr) {
       this.frustum.w /= factor;
       this.frustum.h /= factor;
     }
-  };
-
-  // Starting the game takes 3 steps:
-  // 1- Build the model right away with the most recent server data.
-  // This enables us to process incoming movement messages right away.
-  // 2- Start downloading the puzzle image.
-  // 3- Build the view when the heavy puzzle image has been received.
-  // That way, we only display the view when everything is ready.
-  this.startGame = function(board, grid, dfrus, piecesData, myid, img) {
-
-    // Init board, grid, and frustum from server config.
-    this.BOARD = board;
-    this.GRID = grid;
-    this.myid = myid;
-
-    // Send back the frustum's w and h to the server,
-    // as they are determined by the client's canvas size.
-    this.frustum.x = dfrus.x;
-    this.frustum.y = dfrus.y;
-    this.frustum.scale = dfrus.scale;
-    var dims = view.toBoardDims($canvas.prop('width'), $canvas.prop('height'));
-    this.frustum.w = dims.w;
-    this.frustum.h = dims.h;
-    nw.sendFrustum(this.frustum);
-
-    // Also create the pieces from server data.
-    this.loosePieces = {}; // hash table of movable pieces
-    this.boundPieces = {}; // pieces that have been dropped in the correct cell
-    var x, y; // coords of the piece on the board
-    var sx, sy; // dimensions of the slice from the original image
-    var w = grid.cellw;
-    var h = grid.cellh;
-    // each piece contains a sw * sh slice of the original image
-    var sw = img.img_w / grid.ncols;
-    var sh = img.img_h / grid.nrows;
-    var pdata, p, sx, sy;
-    var id;
-    for (id in piecesData) {
-      pd = piecesData[id];
-      sx = pd.c * sw; // coords of image sliced from original
-      sy = pd.r * sh;
-      p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
-    }
-    nw.sendUserName(this.userName);
-
-    // Only init the view when the puzzle image has been downloaded.
-    this.IMG.onload = function() {
-      view.newGame();
-      view.drawAll();
-    };
-    this.IMG.src = img.img_url;
-
   };
 
   // -------- COMMANDS ISSUED BY THE CONTROLLER --------------

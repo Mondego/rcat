@@ -84,11 +84,12 @@ input[type=text].lightWoodThemed:focus {
 	padding: 10px 0px;
 }
 
-#header p {
+#disconnectArea {
 	position: absolute;
 	bottom: 0px;
 	right: 10px;
 	font-size: 12px;
+	display: none; /* displayed when the user logs in */
 }
 
 button#disconnect {
@@ -108,7 +109,11 @@ button#disconnect {
 	padding: 15px 0;
 }
 
-#connect {
+#joinInForm {
+	display: none; /* shown when the splash image is ready/has loaded */
+}
+
+#joinIn {
 	height: 70px;
 	width: 200px;
 	font-size: 40px;
