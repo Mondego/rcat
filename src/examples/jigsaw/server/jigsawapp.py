@@ -75,7 +75,7 @@ class JigsawRequestParser(Thread):
         self.sched = IOLoop.instance().add_callback
         self.message = message
         self.evt = None
-    
+
     def run(self):
         global clientsConnected
         # TODO: userid and userid[0] is confusing 
@@ -91,14 +91,14 @@ class JigsawRequestParser(Thread):
                     new_user_list = enc["NU"]
                     if len(new_user_list) != 1:
                         raise Exception('Not supporting multiple new users')
-                    new_user = new_user_list[0]
+                    userid = new_user_list[0]
 
                     clientsConnected += 1
-                    datacon.mapper.create_user(new_user)
+                    datacon.mapper.create_user(userid)
 
                     if not game_loading:
-                        jigsaw.send_game_to_clients([new_user])
-                        
+                        jigsaw.send_game_to_clients([userid])
+
             elif "UD" in enc:
                 #User was disconnected. Inform other clients
                 clientsConnected -= 1
@@ -127,13 +127,16 @@ class JigsawRequestParser(Thread):
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
                     # TODO: send pieces located in the new frustum
-                    
-                elif 'usr' in m: # This message carries the username to be registered. It's sent after config is received on client
-                    if m['usr'] != 'Guest':
+
+                elif 'usr' in m: # 1- client connects to server/opens websocket
+                    # 2- server sends game state: 'c' config msg
+                    # 3- client answers with its user name: 'usr' msg
+                    # 4- server tells all clients about the new user: 'NU' msg 
+                    if m['usr'] != 'Guest': # guests don't have points 
                         update_res = datacon.mapper.new_user_connected(userid, m['usr'])
-                        response = {'M': {'scu':update_res}}
+                        response = {'M': {'NU':update_res}} # New User
                         jsonmsg = json.dumps(response)
-                        #self.handler.write_message(jsonmsg) # should not be sent when clients connect [tho]
+                        self.handler.write_message(jsonmsg)
 
                 elif 'pm' in m: # piece movement
                     pid = m['pm']['id']
@@ -174,7 +177,7 @@ class JigsawRequestParser(Thread):
                     lockid = piece['l']
                     if lockid and lockid == userid and not piece['b']: # I was the owner
                         # unlock piece and update piece coords
-                        datacon.mapper.update(x, y, [('l', None),('x', x), ('y', y)], pid)
+                        datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
 
                         # eventually bind piece 
                         bound = m['pd']['b']
@@ -248,15 +251,15 @@ class JigsawServer():
         msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
         pchandler.write_message(jsonmsg)
-        settings["abandon"] = True 
-        
+        settings["abandon"] = True
+
         self.start_game()
 
-    def send_game_to_clients(self,clients=None):
+    def send_game_to_clients(self, clients=None):
         #TODO: Not send all pieces
         pieces = datacon.mapper.select_all()
-        scores = datacon.mapper.get_user_scores()
-        
+        scores = datacon.mapper.get_user_scores(20) # top 20 and connected player scores
+
         # send the board config
         cfg = {'img':img_settings,
                'board': board,
@@ -316,7 +319,7 @@ class JigsawServer():
                 global img_settings
                 global grid
                 game_loading = True
-                
+
                 if "C" in msg["BC"]:
                     global coordinator
                     coordinator = msg["BC"]["C"]
@@ -328,7 +331,7 @@ class JigsawServer():
                 grid = newgame_settings["grid"]
                 datacon.mapper.join(newgame_settings)
                 if settings["main"]["start"] == "true":
-                    logging.info("[jigsawapp]: Starting game, please wait...")                    
+                    logging.info("[jigsawapp]: Starting game, please wait...")
                     # Restarting the game at the user's command, or at game over             
                     if settings["abandon"]:
                         logging.info("[jigsawapp]: Abandoning old game.")
@@ -338,7 +341,7 @@ class JigsawServer():
                     count = datacon.db.count("jigsaw")
                     if count > 0:
                             logging.info("[jigsawapp]: Recovering last game.")
-                            #datacon.mapper.recover_last_game()
+                            datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
                         list_values = []
@@ -353,23 +356,23 @@ class JigsawServer():
                                 list_values.append([pid, b, x, y, c, r, l])
                                 #datacon.mapper.insert(values, pid)
                         datacon.mapper.insert_batch(list_values)
-                
+
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")
                     # Game end checker
                     t = Thread(target=self.check_game_end)
                     t.daemon = True
                     t.start()
-                    
+
                     # Tell servers that new game started
                     newmsg = {"BC":{"LOADED":True}}
                     json_message = json.dumps(newmsg)
                     proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
                     proxy_admin.send(json_message)
-                    
+
                     # Tell clients about new game
                     self.send_game_to_clients()
-                    
-                    
+
+
             elif "LOADED" in msg["BC"]:
                 game_loading = False
 
