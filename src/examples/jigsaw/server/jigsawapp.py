@@ -247,7 +247,7 @@ class JigsawServer():
             time.sleep(3)
             res = datacon.db.execute_one(cmd)
             n = int(res['count(*)'])
-        scores = datacon.mapper.get_user_scores()
+        scores = datacon.mapper.get_user_scores(20) # top 20 and connected player scores
         msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
         pchandler.write_message(jsonmsg)

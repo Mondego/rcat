@@ -10,8 +10,11 @@ function Model(usr) {
   // -------- INITIALIZATION ---------------------------
   this.init = function() {
 
-    this.topScores = {}; // map user id to score; top 20 scores
-    this.onlineScores = {}; // scores for all the connected players
+    this.topOfflineUsers = {}; // map user name to score for the top 20 scores.
+    this.sortedTopOfflineUsers = new Array(); // array, max 20 users, ordered by
+    // score
+    this.onlineUsers = {}; // map user name to id+score for connected players.
+    this.sortedOnlineUsers = new Array(); // ordered by score
 
     this.BOARD = {// board = grid + empty space around the grid
       w : null,
@@ -44,31 +47,211 @@ function Model(usr) {
 
   // -------- PLAYERS AND SCORES --------------------
 
-  // Show the top 20 scores.
-  this.setTopScores = function(playerScores) {
-    this.topScores = {};
-    var p = null; // temp player
-    for ( var i = 0; i < playerScores.length; i++) {
-      p = playerScores[i];
-      this.topScores[p.user] = p.score
+  // topScores is a list of 20 or less players and scores,
+  // numTopScores is the number of top scores known by the server among top 20.
+  // If numTopScores == 20 and topScores.length == 13,
+  // it means that only 13 players ever connected, and 7 new players connect,
+  // the client will consider them in the top20 directly.
+  this.setUsers = function(givenOnlineUsers, givenTopUsers, numTopScores) {
+
+    // fill online users
+    this.onlineUsers = {};// user name -> id and score
+    this.sortedOnlineUsers = new Array(); // ordered by score
+    var len = givenOnlineUsers.length, user = null;
+    for ( var i = 0; i < len; i++) {
+      user = givenOnlineUsers[i];
+      this.onlineUsers[user.user] = {
+        'uid' : user.uid,
+        'score' : user.score
+      };
+      this.sortedOnlineUsers.push({
+        'name' : user.user,
+        'score' : user.score,
+        'uid' : user.uid
+      });
     }
-    view.initTopScores(this.topScores);
+    // Sort from larger to smaller score, then alphabetically by user name.
+    this.sortedOnlineUsers.sort(function(user1, user2) {
+      var scoreComp = user2.score - user1.score;
+      if (scoreComp != 0) { // different scores: no need to look at names
+        return scoreComp;
+      } else { // same score: look at names, ignoring case
+        var nameComp = null;
+        var n1 = user1.name.toLowerCase(), n2 = user2.name.toLowerCase();
+        if (n1 < n2) {
+          nameComp = -1;
+        } else if (n1 > n2) {
+          nameComp = 1;
+        } else {
+          nameComp = 0; // Same name and same score.
+        }
+        return nameComp;
+      }
+    });
+    // Fill top offline users.
+    // Remove any online user from the top offline list.
+    this.topOfflineUsers = {}; // map user id to score for the top 20 scores
+    var len = givenTopUsers.length, user = null;
+    this.sortedTopOfflineUsers = new Array();
+    for ( var i = 0; i < len; i++) {
+      user = givenTopUsers[i];
+      if (!this.onlineUsers[user.user]) {
+        this.topOfflineUsers[user.user] = user.score; // index by name
+        this.sortedTopOfflineUsers.push({
+          'name' : user.user,
+          'score' : user.score
+        });
+      }
+    }
+    // Sort from larger to smaller score, then alphabetically by user name.
+    this.sortedTopOfflineUsers.sort(function(user1, user2) {
+      var scoreComp = user2.score - user1.score;
+      if (scoreComp != 0) { // different scores: no need to look at names
+        return scoreComp;
+      } else { // same score: look at names
+        var nameComp = null;
+        var n1 = user1.name.toLowerCase(), n2 = user2.name.toLowerCase();
+        if (n1 < n2) {
+          nameComp = -1;
+        } else if (n1 > n2) {
+          nameComp = 1;
+        } else {
+          nameComp = 0; // Same name and same score.
+        }
+        return nameComp;
+      }
+    });
+    this.numTopScores = numTopScores;
+    // display
+    view.initUserScores(this.sortedOnlineUsers, this.sortedTopOfflineUsers);
   }
 
-  // Show who is online and their score.
-  this.setOnlinePlayers = function(playerScores) {
-    this.onlineScores = {};
-    var p = null; // temp player
-    for ( var i = 0; i < playerScores.length; i++) {
-      p = playerScores[i];
-      this.onlineScores[p.user] = p.score
+  // User joined: add him to online scores.
+  this.userJoined = function(uid, name, score) {
+    // Remove user from the top offline lists if needed.
+    if (name in this.topOfflineUsers) { // user was in the top 20
+      delete this.topOfflineUsers[name];
+      var len = this.sortedTopOfflineUsers.length;
+      for ( var i = 0; i < len; i++) {
+        if (this.sortedTopOfflineUsers[i].name == name) {
+          this.sortedTopOfflineUsers.splice(i, 1); // remove user from array
+          break;
+        }
+      }
     }
-    view.initOnlineScores(this.onlineScores);
+    // Add user to the online list.
+    this.onlineUsers[name] = {
+      'uid' : uid,
+      'score' : score
+    };
+    // Add user to the sorted online array.
+    var user = {
+      'name' : name,
+      'score' : score,
+      'uid' : uid
+    };
+    // Compute rank of the user's score among online users.
+    var rank = null; // index of the user in the online users array
+    var len = this.sortedOnlineUsers.length;
+    if (len == 0) { // no one was connected before
+      rank = 0;
+    } else { // iterate down the list
+      for ( var i = 0; i < len; i++) {
+        // TODO: index online users by rank to avoid linear search
+        if (score >= this.sortedOnlineUsers[i].score) {
+          rank = i;
+        }
+      }
+      if (rank == null) {
+        // A score that is not greater or equal than any other online score
+        // is a strict minimum; place it at the bottom.
+        rank = len;
+      }
+    }
+    this.sortedOnlineUsers.splice(rank, 0, user);// insert at position #rank
+    view.userJoined(name, score, rank);
   }
 
-  this.setUserScore = function(user, newScore) {
-    this.topScores[user] = newScore;
-    view.updateUserScore(user, newScore);
+  // User left: remove him from the online scores.
+  // Add him to top scores if his score is high enough or there is room.
+  this.userLeft = function(uid) {
+    // find and remove user from online users
+    var len = this.sortedOnlineUsers.length, name = null, score = null;
+    for ( var i = 0; i < len; i++) {
+      if (this.sortedOnlineUsers[i].uid == uid) {
+        name = this.sortedOnlineUsers[i].name;
+        score = this.sortedOnlineUsers[i].score;
+        this.sortedOnlineUsers.splice(i, 1); // remove user from the array
+        delete this.onlineUsers[name];
+        break; // names are unique
+      }
+    }
+    if (name != null) {
+      // Compute rank of the user's score among offline users.
+      var rank = null; // position of the user in the top20
+      var len = this.sortedTopOfflineUsers.length;
+      if (len == 0) { // no one was offline
+        rank = 0;
+      } else {// Iterate down the list.
+        for ( var i = 0; i < len; i++) {
+          if (score >= this.sortedTopOfflineUsers[i].score) {
+            rank = i;
+          }
+        }
+        if (rank == null) { // lower score than any score in current top
+          if (len < this.numTopScores) { // take the empty spot(s)
+            rank = len;
+          }
+        }
+      }
+      // Add user to offline top scores.
+      if (rank != null) { // score was high enough, or there was room
+        var user = {
+          'name' : name,
+          'score' : score
+        };
+        this.sortedTopOfflineUsers.splice(rank, 0, user);// insert at pos #rank
+        this.topOfflineUsers[name] = score;
+      }
+      // Keep the offline top score list down to 20 rows.
+      var numRemoved = this.sortedTopOfflineUsers.length - this.numTopScores;
+      if (numRemoved > 0) {
+        var removedUsers = this.sortedTopOfflineUsers.splice(this.numTopScores,
+            numRemoved);
+        // Adjust the view and the model's mapping of user name -> user score.
+        var name = null, score = null;
+        for ( var i = 0; i < numRemoved; i++) {
+          name = removedUsers[i].name;
+          score = removedUsers[i].score;
+          delete this.topOfflineUsers[name];
+          view.removeUserFromTopList(name, score);
+        }
+      }
+      // Tell the view about the user disconnection.
+      // If rank is null, the view won't add a row about the user.
+      view.userLeft(user.name, user.score, rank);
+    } else {
+      console.log('Error: could not find user with uid = ' + uid
+          + ' in model.sortedOnlineUsers');
+    }
+  }
+
+  // Update the score of a user.
+  this.setUserScore = function(user) {
+    var userName = user.user, newScore = user.score;
+    if (this.topUsers[userName]) {
+      this.topUsers[userName] = newScore;
+    }
+    var curIndex = this.sortedTopUsers.length - 1;
+    // curIndex starts at 5 if there's a total of 6 players who ever connected.
+    var brokeInTop = false; // whether the score changes the top 20 list.
+    while (newScore > this.sortedTopUsers[curIndex].score) {
+      // better score than last user of top 20: pass him
+      // bottomIndex // TODO: HERE
+    }
+    this.topScores[userName] = newScore;
+
+    view.updateUserScore(userName, newScore);
   }
 
   this.getUserScore = function(user) {
@@ -130,7 +313,6 @@ function Model(usr) {
       view.drawAll();
     };
     this.IMG.src = img.img_url;
-
   };
 
   // end the game:

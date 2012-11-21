@@ -99,32 +99,64 @@ function View() {
 
   // ------------------ SCORE CONTROLLER ------------------
 
-  // Clean the score table and add the scores by ascending order.
-  this.initTopScores = function(scores) {
-    // init the table
-    $('#scoreTable').html('<tr><th>Player name</th><th>Score</th></tr>');
-    // sort the scores
-    var sortedScores = new Array();
-    $.each(scores, function(name, score) {
-      sortedScores.push({
-        'n' : name,
-        's' : score
-      });
-    });
-    sortedScores.sort(function(pair1, pair2) {
-      return pair2['s'] - pair1['s']; // descending order
-    });
-    // fill the table
-    $.each(sortedScores, function(index, pair) {
+  // Add the header for the offline players at the bottom of the table
+  // if it's not in the table already.
+  var addTopUsersHeaderIfMissing = function() {
+    // find the rows that contain 'Top offline players'
+    var $headerRow = $('#scoreTable tr#topScoresHeader');
+    if ($headerRow.length == 0) { // no match
+      $('#scoreTable tbody').append(
+          $('<tr class="lightWoodThemed"' + ' id="topScoresHeader">'
+              + '<td colspan=2>Top offline players</td></tr>'));
+    }
+  }
+
+  // Remove the header for the offline players at bottom of the score table.
+  var removeTopUsersHeaderIfEmpty = function() {
+    var $firstTopOfflineRow = $('#scoreTable tr#topScoresHeader').next();
+    if ($firstTopOfflineRow.length == 0) { // no offline scores: remove header
+      $('#scoreTable tr#topScoresHeader').remove();
+    }
+  }
+
+  // return the jqueryfied row representing a user, based on that user's name.
+  var getUserRow = function(name) {
+    var $tr = $('#scoreTable td:first-child').filter(function() {
+      return $(this).text() == name
+    }).parent('tr');
+    return $tr;
+  }
+
+  // Display the online users with their scores at the top of the table.
+  // Display the top scores by ascending order at the bottom of the table.
+  // Also init the mapping userName -> table row.
+  this.initUserScores = function(sortedOnlineUsers, sortedTopUsers) {
+    // Init the table.
+    $('#scoreTable').html(
+        '<tr  class="lightWoodThemed" id="onlineScoresHeader"><td colspan=2>'
+            + 'Leaderboard</td></tr>');
+    // Add the online users. There are always 1+ user connected: myself!
+    $.each(sortedOnlineUsers, function(index, pair) {
       $('#scoreTable').find('tbody').append(
-          $('<tr id="' + pair['n'] + '"><td>' + pair['n'] + '</td><td>'
-              + pair['s'] + '</td></tr>'));
+          $('<tr class="onlinePlayerScore playerScore"><td>' + pair.name
+              + '</td><td>' + pair.score + '</td></tr>'));
+    });
+    // Add the "best offline players" header if there are offline players.
+    if (sortedTopUsers.length > 0) {
+      addTopUsersHeaderIfMissing();
+    }
+    // Add the top 20 offline players (there may be none).
+    $.each(sortedTopUsers, function(index, pair) {
+      $('#scoreTable').find('tbody').append(
+          $('<tr class="offlinePlayerScore playerScore"><td>' + pair.name
+              + '</td><td>' + pair.score + '</td></tr>'));
     });
   }
 
-  this.initOnlineScores = this.initTopScores;
-  
-  
+  // ---------------
+  // TODO
+  // -----------------
+  // A connected player scored a point.
   this.updateUserScore = function(user, newvalue) {
     // Update the score cell of that user's row.
     $row = $('#scoreTable tr#' + user);
@@ -132,11 +164,53 @@ function View() {
       $row.children('td:nth-child(2)').html(newvalue);
     } else { // create the row
       // TODO: how do I know which row to insert it?
-      // TODO: need to rethink the server message too
     }
-
   }
 
+  // User joined: add a row in online users.
+  // Remove user from the top 20 rows if it were in the top 20.
+  // Remove the "top offline players" header if no user in top20 is offline.
+  this.userJoined = function(name, score, rank) {
+    // find the top20 row that contains the name of the user
+    var $tr = getUserRow(name);
+    if ($tr.length == 0) { // row doesn't exist among top20 rows: build the row
+      $tr = $('<tr class="onlinePlayerScore playerScore"><td>' + name
+          + '</td><td>' + score + '</td></tr>');
+    }
+    $('#scoreTable tr:nth-child(' + (rank + 1) + ')').after($tr);
+    removeTopUsersHeaderIfEmpty();
+  }
+
+  // User logged out: remove the row from online users,
+  // and eventually add the row to top 20.
+  // Add the "top offline players" header if no user was already offline.
+  // If rank is null, do not display the user and his score.
+  this.userLeft = function(name, score, rank) {
+    if (rank != null) {
+      addTopUsersHeaderIfMissing();
+      // find the "online" row containing the user's name
+      var $userTr = $('#scoreTable td:first-child').filter(function() {
+        return $(this).text() == name
+      }).parent('tr');
+      // find the "offline" row to insert after
+      var $targetTr = null;
+      if (rank == 0) { // insert just after the header
+        $targetTr = $('#scoreTable tr#topScoresHeader');
+      } else {
+        $targetTr = $('#scoreTable tr#topScoresHeader').nextAll().get(rank);
+      }
+      // move the user's row to the offline section
+      $targetTr.after($userTr);
+    }
+  }
+
+  // The model trimmed the top score list by removing an offline user with a low
+  // score. Remove this user from the table too.
+  this.removeUserFromTopList = function(name, score) {
+    // find the "online" row containing the user's name
+    var $userTr = getUserRow(name);
+    $userTr.remove();
+  }
   // ------------------ MOUSE CONTROLLER ------------------
 
   // Convert screen coordinates to board coordinates.

@@ -88,7 +88,7 @@ input[type=text].lightWoodThemed:focus {
 	position: absolute;
 	bottom: 0px;
 	right: 10px;
-	font-size: 12px;
+	font-size: 14px;
 	display: none; /* displayed when the user logs in */
 }
 
@@ -152,34 +152,43 @@ table#scoreTable {
 	text-align: center;
 }
 
-table#scoreTable th {
+tr.playerScore th,tr.playerScore td {
 	padding: 3px;
 }
 
-table#scoreTable td {
-	padding: 3px;
-}
-
-table#scoreTable td:nth-child(1),table#scoreTable th:nth-child(1) {
-	/* first column = player names */
+/* first column = player names */
+tr.playerScore td:nth-child(1),tr.playerScore th:nth-child(1) {
 	padding-right: 10px;
-	text-align: right;
-	max-width: 180px; /* dont get too wide with long names */
+	text-align: left;
+	max-width: 180px; /* prevent from getting too wide with long names */
 	overflow: hidden; /* cut long names */
+	border: 0px solid;
+	border-left: 1px solid;
 }
 
-table#scoreTable td:nth-child(2),table#scoreTable th:nth-child(2) {
-	/* 2nd column = score*/
+/* second column = score*/
+tr.playerScore td:nth-child(2),tr.playerScore th:nth-child(2) {
 	max-width: 80px;
 	overflow: hidden;
+	border: 0px solid;
+	border-right: 1px solid;
+	padding-left: 10px;
 }
 
-tr.onlinePlayerScore {
-	color: #feb;
+tr#onlineScoresHeader,tr#topScoresHeader {
+	text-align: center;
 }
 
-tr.offlinePlayerScore {
-	color: #bbb;
+tr#onlineScoresHeader {
+	font-size: 1.2em;
+}
+
+tr#topScoresHeader {
+	font-size: 0.75em;
+}
+
+tr.playerScore:last-child { /* :last-child does not work with IE<9? */
+	border-bottom: 1px solid;
 }
 
 /************************ footer ***************/

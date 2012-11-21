@@ -23,9 +23,14 @@ function Network(host) {
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // init config
       model.init();
-      var scores = m.c.scores;
-      model.setOnlinePlayers(scores.connected);
-      model.setTopScores(scores.top20);
+      var topUsers = m.c.scores.top;
+      var numTopScores = m.c.scores.numTop;
+      var connectedUsers = m.c.scores.connected;
+
+      console.log(m.c)
+
+      model.setUsers(connectedUsers, topUsers, numTopScores);
+
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
@@ -34,9 +39,12 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
+      console.log(m)
+
       var scoreUpdates = m.scu;
-      for ( var key in scoreUpdates) {
-        model.setUserScore(key, scoreUpdates[key]);
+      var len = scoreUpdates.length;
+      for ( var i = 0; i < len; i++) {
+        model.setUserScore(scoreUpdates[i]);
       }
     } else if ('pm' in m) { // Received piece movement
       var id = m.pm.id; // piece id
@@ -49,10 +57,25 @@ function Network(host) {
       var owner = m.pd.l; // player who dropped the piece
       model.dropRemotePiece(id, x, y, bound, owner);
     } else if ('pf' in m) {// player frustum update
-    } else if ('NU' in m) { // new user
+    } else if ('NU' in m) { // new user(s): 1+ players just logged in
+
+      console.log(m)
+      
+      var len = m.NU.length;
+      var name, score, uid;
+      for ( var i = 0; i < len; i++) {
+        uid = m.NU[i].uid;
+        name = m.NU[i].user;
+        score = m.NU[i].score;
+        model.userJoined(uid, name, score);
+      }
     } else if ('UD' in m) { // user disconnected
+
+      console.log(m)
+
+      var userId = m.UD;
+      model.userLeft(userId);
     } else if ('go' in m) {// Game Over
-      // TODO: will contain the top scores in the future
       model.endGame();
     }
   };
@@ -64,6 +87,7 @@ function Network(host) {
     // alert("Lost connection to server");}
     $('#disconnect').hide();
     $('#connectionStatus').html('Disconnected.');
+    // TODO: close the model and view
   };
 
   // Tell the server that the client's frustum changed.
