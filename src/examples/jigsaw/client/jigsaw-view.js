@@ -153,42 +153,31 @@ function View() {
     });
   }
 
-  // ---------------
-  // TODO
-  // -----------------
-  // A connected player scored a point.
-  this.updateUserScore = function(user, newvalue) {
-    // Update the score cell of that user's row.
-    $row = $('#scoreTable tr#' + user);
-    if ($row.length) { // the row exists already: replace the score
-      $row.children('td:nth-child(2)').html(newvalue);
-    } else { // create the row
-      // TODO: how do I know which row to insert it?
-    }
-  }
-
-  // User joined: add a row in online users.
-  // Remove user from the top 20 rows if it were in the top 20.
+  // User scored while online or just logged in.
+  // Create his row, or move it from the offline top 20 to the online rows.
   // Remove the "top offline players" header if no user in top20 is offline.
-  this.userJoined = function(name, score, rank) {
+  this.userScoredOnline = function(name, score, rank) {
     // find the top20 row that contains the name of the user
     var $tr = getUserRow(name);
-    if ($tr.length == 0) { // row doesn't exist among top20 rows: build the row
+    if ($tr.length == 0) { // row doesn't exist among online users: build it
       $tr = $('<tr class="onlinePlayerScore playerScore"><td>' + name
           + '</td><td>' + score + '</td></tr>');
+    } else { // row existed already: update the score
+      $tr.children('td:nth-child(2)').html(score);
     }
     $('#scoreTable tr:nth-child(' + (rank + 1) + ')').after($tr);
     removeTopUsersHeaderIfEmpty();
   }
 
-  // User logged out: remove the row from online users,
-  // and eventually add the row to top 20.
+  // User scored while offline or just logged out.
+  // Find the row about this user (in online or offline rows).
+  // If his score is high enough, ie rank != null, relocate the row
+  // to the top20 opffline users.
   // Add the "top offline players" header if no user was already offline.
-  // If rank is null, do not display the user and his score.
-  this.userLeft = function(name, score, rank) {
+  this.userScoredOffline = function(name, score, rank) {
     if (rank != null) {
       addTopUsersHeaderIfMissing();
-      // find the "online" row containing the user's name
+      // find the "online" or "offline" row containing the user's name
       var $userTr = $('#scoreTable td:first-child').filter(function() {
         return $(this).text() == name
       }).parent('tr');

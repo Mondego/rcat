@@ -42,9 +42,10 @@ function Network(host) {
       console.log(m)
 
       var scoreUpdates = m.scu;
-      var len = scoreUpdates.length;
+      var len = scoreUpdates.length, update = null;
       for ( var i = 0; i < len; i++) {
-        model.setUserScore(scoreUpdates[i]);
+        update = scoreUpdates[i];
+        model.setUserScore(update.uid, update.user, update.score);
       }
     } else if ('pm' in m) { // Received piece movement
       var id = m.pm.id; // piece id
