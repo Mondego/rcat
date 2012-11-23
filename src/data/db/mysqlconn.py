@@ -17,11 +17,11 @@ from threading import Timer
 obm = None
 conns = []
 cursors = None
-#tables = {}
+# tables = {}
 object_list = {}
 logger = logging.getLogger()
 mysqlconn = None
-#pubsubs = {}
+# pubsubs = {}
 
 class MySQLConnector():
     tables_meta = {}
@@ -29,7 +29,7 @@ class MySQLConnector():
     db_inserts = {}
     db = None
 
-    def __init__(self,datacon):
+    def __init__(self, datacon):
         global mysqlconn
         global obm
         logger.debug("[mysqlconn]: Starting MySQL Connector.")
@@ -40,7 +40,7 @@ class MySQLConnector():
         global cursors
         return cursors.next()
         
-    def open_connections(self,host,user,password,db,poolsize=None):
+    def open_connections(self, host, user, password, db, poolsize=None):
         global conns
         global cursors
         global ps_socket
@@ -52,7 +52,7 @@ class MySQLConnector():
             poolsize = 10
             
         for _ in range(poolsize):
-            con = mdb.connect(host,user,password,db)
+            con = mdb.connect(host, user, password, db)
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
@@ -79,19 +79,21 @@ class MySQLConnector():
         ka.start()
         
         
-    def execute(self,cmd):
+    def execute(self, cmd):
         cur = self.cur
         cur.execute(cmd)
         cur.connection.commit()
-        return cur.fetchall()
+        res = cur.fetchall()
+        return res
     
-    def execute_one(self,cmd):
+    def execute_one(self, cmd):
         cur = self.cur
         cur.execute(cmd)
         cur.connection.commit()
-        return cur.fetchone()
+        res = cur.fetchone()
+        return res
     
-    def count(self,table):
+    def count(self, table):
         cur = self.cur
         cur.execute("select count(*) from " + table)
         res = cur.fetchone()
@@ -99,11 +101,11 @@ class MySQLConnector():
 
 
     # TODO: Make this create based on arguments, not on entire SQL command
-    def create_table(self,table,cmd,ridname):
+    def create_table(self, table, cmd, ridname):
         self.execute(cmd)
         self.retrieve_table_meta(table, ridname)
     
-    def retrieve_table_meta(self, table, ridname,cols=None):
+    def retrieve_table_meta(self, table, ridname, cols=None):
         self.tables_meta[table] = {}
         self.tables_meta[table]["ridname"] = ridname
         
@@ -119,36 +121,36 @@ class MySQLConnector():
     """
     __retrieve_column_names(self,table): Retrieves column names from the database
     """
-    def retrieve_column_names(self,table):
+    def retrieve_column_names(self, table):
         metadata = self.execute("SHOW COLUMNS FROM " + table)
         fields = {}
         i = 0
         for tup in metadata:
             fields[tup['Field']] = i
-            i+=1 
-        return metadata,fields
+            i += 1 
+        return metadata, fields
 
     """
     __retrieve_object_from_db(self,table,RID):
     """
-    def retrieve_object_from_db(self,table,RID):
+    def retrieve_object_from_db(self, table, RID):
         cur = self.cur
         try:
             rid_name = self.tables_meta[table]["ridname"]
-            mystr = "SELECT * from %s WHERE `%s` = '%s'" % (table,rid_name,RID)
+            mystr = "SELECT * from %s WHERE `%s` = '%s'" % (table, rid_name, RID)
             cur.execute(mystr)
             return cur.fetchone()
-        except mdb.cursors.Error,e:
+        except mdb.cursors.Error, e:
             logger.error(e)
             return False
         
-    def retrieve_multiple_from_db(self,table,param,param_name):
+    def retrieve_multiple_from_db(self, table, param, param_name):
         cur = self.cur
         try:
-            mystr = "SELECT * from %s WHERE `%s` = '%s'" % (table,param_name,param)
+            mystr = "SELECT * from %s WHERE `%s` = '%s'" % (table, param_name, param)
             cur.execute(mystr)
             return cur.fetchall()
-        except mdb.cursors.Error,e:
+        except mdb.cursors.Error, e:
             logger.error(e)
             return False
         
@@ -163,7 +165,7 @@ class MySQLConnector():
                     loc_update = deepcopy(self.db_updates[table])
                     self.db_updates[table].clear()
                     while loc_update:
-                        rid,row = loc_update.popitem()
+                        rid, row = loc_update.popitem()
                         try:
                             mystr = ("UPDATE %s SET " % table)
                             mystr += ','.join([' = '.join([`str(key)`.replace("'", "`"), `str(val)`]) for key, val in row.items()])
@@ -193,27 +195,27 @@ class MySQLConnector():
     def select(self, table, RID, names=None):
         return self.retrieve_object_from_db(table, RID)
     
-    def delete(self,table,RID):
+    def delete(self, table, RID):
         cur = self.cur
         try:
-            mystr = "DELETE from %s WHERE `%s` = '%s'" % (table,self.tables_meta[table]["ridname"],RID)
+            mystr = "DELETE from %s WHERE `%s` = '%s'" % (table, self.tables_meta[table]["ridname"], RID)
             cur.execute(mystr)
             cur.connection.commit()
             return True
-        except mdb.cursors.Error,e:
+        except mdb.cursors.Error, e:
             logger.error(e)
             return False
 
     # schedules an update to be pushed to the database at next iteration. 
     # Takes in the table name, the primary key (rid), and a dictionary of tuples (property,newvalue).
     # e.g. schedule_update("people","SSN",{"age":12,"name":"john"}]
-    def schedule_update(self,table,rid,data):
+    def schedule_update(self, table, rid, data):
         logger.debug("[mysqlconn]: Scheduling an update for " + table + ". Data is :" + str(data))
         self.db_updates[table][rid] = data
         return True
 
 
-    def insert_batch(self,table,list_values):
+    def insert_batch(self, table, list_values):
         mystr = ''
         try:
             mystr = ("INSERT INTO %s VALUES(" % table) + ',('.join([','.join([`str(val)` for val in values]) + ")" for values in list_values])
@@ -251,11 +253,11 @@ class MySQLConnector():
     def clear_table(self, table):
         self.execute("delete * from " + table)
 
-    def insert_dict_to_list(self,table,dic):
+    def insert_dict_to_list(self, table, dic):
         cols = self.tables_meta[table]["columns"]
         insert_list = [None] * len(cols)
         for item in cols.keys():
-            insert_list[cols[item]] =  dic[item]
+            insert_list[cols[item]] = dic[item]
         return insert_list
         
         

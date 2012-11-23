@@ -33,6 +33,7 @@ location = {}
 pchandler = None
 game_loading = True
 coordinator = None
+total_pieces = 0
 
 img_settings = {}
 board = {}
@@ -78,29 +79,26 @@ class JigsawRequestParser(Thread):
 
     def run(self):
         global clientsConnected
+        global game_loading
         # TODO: userid and userid[0] is confusing 
         try:
             enc = json.loads(self.message)
 
             # send the config when the user joins
             if "NU" in enc:
-                if enc["SS"] != rcat.pc.adm_id:
-                    clientsConnected += 1
-                else:
-                    # get the user id
-                    new_user_list = enc["NU"]
-                    if len(new_user_list) != 1:
-                        raise Exception('Not supporting multiple new users')
-                    userid = new_user_list[0]
+                clientsConnected += 1
+                # get the user id
+                new_user_list = enc["NU"]
+                if len(new_user_list) != 1:
+                    raise Exception('Not supporting multiple new users')
+                userid = new_user_list[0]
 
-                    clientsConnected += 1
-                    datacon.mapper.create_user(userid)
-
-                    if not game_loading:
-                        jigsaw.send_game_to_clients([userid])
+                # datacon.mapper.create_user(userid)
+                if not game_loading:
+                    jigsaw.send_game_to_clients(userid)
 
             elif "UD" in enc:
-                #User was disconnected. Inform other clients
+                # User was disconnected. Inform other clients
                 clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
                     datacon.mapper.disconnect_user(enc["UD"])
@@ -121,50 +119,52 @@ class JigsawRequestParser(Thread):
                 m = json.loads(enc["M"])
                 userid = enc["U"][0]
 
-                if 'rp' in m: # frustum update
-                    pf = datacon.mapper.set_user_frustrum(userid, m['rp']['v'])
+                if 'rp' in m:  # frustum update
+                    # pf = datacon.mapper.set_user_frustrum(userid, m['rp']['v'])
+                    # NOT YET IMPLEMENTED
+                    pf = ''
                     response = {'M': {'pf':pf}, 'U':[userid]}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)
                     # TODO: send pieces located in the new frustum
 
-                elif 'usr' in m: # 1- client connects to server/opens websocket
+                elif 'usr' in m:  # 1- client connects to server/opens websocket
                     # 2- server sends game state: 'c' config msg
                     # 3- client answers with its user name: 'usr' msg
                     # 4- server tells all clients about the new user: 'NU' msg 
-                    if m['usr'] != 'Guest': # guests don't have points 
+                    if m['usr'] != 'Guest':  # guests don't have points 
                         update_res = datacon.mapper.new_user_connected(userid, m['usr'])
-                        response = {'M': {'NU':update_res}} # New User
+                        response = {'M': {'NU':update_res}}  # New User
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
 
-                elif 'pm' in m: # piece movement
+                elif 'pm' in m:  # piece movement
                     pid = m['pm']['id']
                     x = m['pm']['x']
                     y = m['pm']['y']
                     piece = datacon.mapper.select(x, y, pid)
 
                     lockid = piece['l']
-                    if (not lockid or lockid == "None") and not piece['b']: # lock the piece if nobody owns it
+                    if (not lockid or lockid == "None") and not piece['b']:  # lock the piece if nobody owns it
                         lockid = userid
                         datacon.mapper.update(x, y, [('l', lockid)], pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
-                    #TODO: Better detect conflict. Right now I privilege the latest attempt, not the first.
-                    #if lockid == userid: # change location if I'm the owner
+                    # TODO: Better detect conflict. Right now I privilege the latest attempt, not the first.
+                    # if lockid == userid: # change location if I'm the owner
                     # update piece coords
                     loc = datacon.mapper.update(x, y, [('x', x), ('y', y)], pid)
                     if loc != "LOCAL":
                         rcat.pc.move_user(userid, loc)
                     # add lock owner to msg to broadcast
-                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}} #  no 'U' = broadcast
+                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}}  #  no 'U' = broadcast
                     # broadcast
                     jsonmsg = json.dumps(response)
                     # TODO: Only send updates to concerned users
                     self.handler.write_message(jsonmsg)
-                    #else:
+                    # else:
                     #    logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))
 
-                elif 'pd' in m: # piece drop
+                elif 'pd' in m:  # piece drop
                     pid = m['pd']['id']
                     x = m['pd']['x']
                     y = m['pd']['y']
@@ -175,13 +175,13 @@ class JigsawRequestParser(Thread):
                         logging.warning("[jigsawapp]: Got something weird: " + str(piece))
                         return
                     lockid = piece['l']
-                    if lockid and lockid == userid and not piece['b']: # I was the owner
+                    if lockid and lockid == userid and not piece['b']:  # I was the owner
                         # unlock piece and update piece coords
                         datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
 
                         # eventually bind piece 
                         bound = m['pd']['b']
-                        if bound:# we know the piece is not bound yet
+                        if bound:  # we know the piece is not bound yet
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
                             datacon.mapper.update(x, y, [('b', 1)], pid)
@@ -198,7 +198,7 @@ class JigsawRequestParser(Thread):
                             logging.debug('%s dropped piece %s at %d,%d'
                                       % (userid, pid, x, y))
                         # add lock owner to msg to broadcast
-                        response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}} #  no 'U' = broadcast
+                        response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
                 elif 'ng' in m:
@@ -227,38 +227,40 @@ class JigsawServer():
         database = settings["db"]["db"]
 
         datacon.db.open_connections(address, user, password, database)
-        # DEBUG ONLY: Delete for deployment
-        if len(rcat.pc.admins) == 1:
-            datacon.mapper.create_table("jigsaw", "pid", True)
-            logging.debug("[jigsawapp]: First server up, resetting table..")
-            #datacon.db.execute("truncate jigsaw")
-        else:
-            datacon.mapper.create_table("jigsaw", "pid")
+        datacon.mapper.create_table("jigsaw", "pid")
 
         if settings["main"]["start"] == "true":
-            settings["abandon"] = False
+            settings["main"]["abandon"] = False
             self.start_game()
 
     def check_game_end(self):
         global settings
-        n = -1
-        cmd = "select count(*) from " + datacon.mapper.table + " where `b` = 0"
-        while (n != 0):
+        global game_loading
+        global total_pieces 
+        num_not_bound = -1
+        total_pieces = int(grid['nrows']) * int(grid['ncols'])
+        cmd = "select count(*) from " + datacon.mapper.table + " where `b` = 1"
+        while (num_not_bound < total_pieces):
             time.sleep(3)
-            res = datacon.db.execute_one(cmd)
-            n = int(res['count(*)'])
-        scores = datacon.mapper.get_user_scores(20) # top 20 and connected player scores
+            if game_loading:
+                num_not_bound = -1
+            else:
+                res = datacon.db.execute_one(cmd)
+                num_not_bound = int(res['count(*)'])
+                
+        game_loading = True
+        scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
         msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
         pchandler.write_message(jsonmsg)
-        settings["abandon"] = True
+        settings["main"]["abandon"] = True
 
         self.start_game()
 
-    def send_game_to_clients(self, clients=None):
-        #TODO: Not send all pieces
+    def send_game_to_clients(self, client=None):
+        # TODO: Not send all pieces
         pieces = datacon.mapper.select_all()
-        scores = datacon.mapper.get_user_scores(20) # top 20 and connected player scores
+        scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
 
         # send the board config
         cfg = {'img':img_settings,
@@ -269,10 +271,14 @@ class JigsawServer():
                'clients': clientsConnected,
                'scores' : scores
                }
-        if not clients:
-            clients = datacon.mapper.user_list()
-
-        for client in clients:
+        
+        if not client:
+            for client in scores['connected']:
+                cfg['myid'] = client['uid'] 
+                response = {'M': {'c': cfg}, 'U': [client['uid']]}
+                jsonmsg = json.dumps(response)
+                pchandler.write_message(jsonmsg)
+        else:
             cfg['myid'] = client
             response = {'M': {'c': cfg}, 'U': [client]}
             jsonmsg = json.dumps(response)
@@ -333,10 +339,10 @@ class JigsawServer():
                 if settings["main"]["start"] == "true":
                     logging.info("[jigsawapp]: Starting game, please wait...")
                     # Restarting the game at the user's command, or at game over             
-                    if settings["abandon"]:
+                    if settings["main"]["abandon"]:
                         logging.info("[jigsawapp]: Abandoning old game.")
-                        datacon.mapper.dump_last_game()
-                        settings["abandon"] = False
+                        datacon.mapper.dump_last_game(keep_users=True)
+                        settings["main"]["abandon"] = False
 
                     count = datacon.db.count("jigsaw")
                     if count > 0:
@@ -347,14 +353,14 @@ class JigsawServer():
                         list_values = []
                         for r in range(grid['nrows']):
                             for  c in range(grid['ncols']):
-                                pid = str(uuid.uuid4()) # piece id
-                                b = 0 # bound == correctly placed, can't be moved anymore
-                                l = None # lock = id of the player moving the piece
+                                pid = str(uuid.uuid4())  # piece id
+                                b = 0  # bound == correctly placed, can't be moved anymore
+                                l = None  # lock = id of the player moving the piece
                                 x = randint(0, board['w'] - grid['cellw'])
                                 y = randint(0, board['h'] - grid['cellh'])
                                 # Remove h later on!
                                 list_values.append([pid, b, x, y, c, r, l])
-                                #datacon.mapper.insert(values, pid)
+                                # datacon.mapper.insert(values, pid)
                         datacon.mapper.insert_batch(list_values)
 
                     logging.info("[jigsawapp]: Game has loaded. Have fun!")

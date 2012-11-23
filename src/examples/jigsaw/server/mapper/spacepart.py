@@ -131,6 +131,8 @@ class SpacePartitioning():
     ####################################
     """
 
+    """
+    NOT YET IMPLEMENTED
     def create_user(self, uid):
         if not uid in self.users:
             self.users[uid] = User(uid)
@@ -156,10 +158,11 @@ class SpacePartitioning():
             for pieceid in set_pieces:
                 pieces.append(self.datacon.obm.select("jigsaw", pieceid))
         return pieces
+    
 
     def get_user_frustrum(self, uid):
         return self.users[uid].frustrum
-
+    """
 
 
     """
@@ -167,6 +170,9 @@ class SpacePartitioning():
     DATA MANAGEMENT SECTION
     ####################################
     """
+
+    def connected_users(self):
+        return self.datacon.db.execute("SELECT * FROM " + self.table_score + " WHERE `uid` <> ''")
 
     def create_table(self, table, ridname, clear=False):
         if clear:
@@ -184,11 +190,15 @@ class SpacePartitioning():
         self.table_score = self.table + "_score"
         self.datacon.db.create_table(table + "_score", cmd, "user")
 
-    def dump_last_game(self, keep_score=False):
+    def dump_last_game(self, keep_score=False, keep_users=False):
         self.datacon.db.execute("delete from " + self.table)
         self.datacon.db.execute("delete from " + self.table_obm)
         if not keep_score:
-            self.datacon.db.execute("delete from " + self.table_score)
+            if not keep_users:
+                self.datacon.db.execute("delete from " + self.table_score)
+            else:
+                self.datacon.db.execute("update " + self.table_score + " set `score` = 0")
+                self.datacon.db.execute("delete from " + self.table_score + " where `uid` = ''")
         else:
             # Clear users connected at the time
             self.datacon.db.execute("update " + self.table_score + " set `uid` = ''")
