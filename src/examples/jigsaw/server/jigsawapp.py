@@ -326,6 +326,7 @@ class JigsawServer():
                 global img_settings
                 global grid
                 game_loading = True
+                terminal.pause_terminal()
 
                 if "C" in msg["BC"]:
                     global coordinator

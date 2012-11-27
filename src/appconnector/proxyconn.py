@@ -119,9 +119,7 @@ class ProxyConnector():
             logger.error("[proxyconn]: Admin request failed! Request was " + str(msg["Failed"]))
         elif self.admin_hook:
             self.admin_hook(msg)
-                
-        logger.debug("List of users: " + str(self.client_proxy))
-    
+
     def Admin_on_error(self,ws, error):
         logger.exception("Exception in admin message channel: " + str(error))
     

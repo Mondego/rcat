@@ -115,16 +115,21 @@ class Terminal():
     def show_terminal(self):
         if self.lock.locked():
             self.lock.release()
-        
+            
+    def pause_terminal(self):
+        if not self.lock.locked():
+            self.lock.acquire()
+
     def run_terminal(self):
         with self.lock:
             printc("\n\nInput commands to RCAT below. Type help for list for commands.", "blue")
         while(1):
-            with self.lock: 
-                sys.stdout.write(ansi_codes["green"] + "[rcat]: ")
-                line = sys.stdin.readline()
-                if line.startswith("quit"):
-                    printc("Quitting RCAT....", "yellow")
-                    sys.exit(0)
-                if line.startswith("help"):
-                    print "quit: (Force) quits RCAT"
+            self.lock.acquire()
+            sys.stdout.write(ansi_codes["green"] + "[rcat]: ")
+            line = sys.stdin.readline()
+            if line.startswith("quit"):
+                printc("Quitting RCAT....", "yellow")
+                sys.exit(0)
+            if line.startswith("help"):
+                print "quit: (Force) quits RCAT"
+            self.show_terminal()
