@@ -14,14 +14,15 @@ import time
 from threading import Timer
 
 
-obm = None
 conns = []
 cursors = None
-# tables = {}
-object_list = {}
+
+#datacon: Parent data connector
+datacon = None
+
+# persist_timer: Interval where all updates are pushed to the database/persistent media
+persist_timer = None
 logger = logging.getLogger()
-mysqlconn = None
-# pubsubs = {}
 
 class MySQLConnector():
     tables_meta = {}
@@ -29,24 +30,26 @@ class MySQLConnector():
     db_inserts = {}
     db = None
 
-    def __init__(self, datacon):
-        global mysqlconn
-        global obm
+    def __init__(self, dataconnector):
+        global datacon
+        datacon = dataconnector
         logger.debug("[mysqlconn]: Starting MySQL Connector.")
-        mysqlconn = self
 
     @ property
     def cur(self):
         global cursors
         return cursors.next()
         
-    def open_connections(self, host, user, password, db, poolsize=None):
+    def open_connections(self, host, user, password, db, poolsize=None, pt=3):
+        # pt: persist timer
         global conns
         global cursors
         global ps_socket
+        global persist_timer
         curs = []
 
         self.db = db
+        persist_timer = pt
         # Default connection pool = 10
         if not poolsize:
             poolsize = 10
@@ -186,7 +189,7 @@ class MySQLConnector():
                         except mdb.cursors.Error, e:
                             print e
 
-            time.sleep(3)
+            time.sleep(persist_timer)
     
 
     """

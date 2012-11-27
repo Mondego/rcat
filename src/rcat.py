@@ -37,10 +37,12 @@ class RCAT():
         t.start()
         
         self.pc = ProxyConnector(proxies, "ws://" + ip + ':' + port) # app server
-        self.datacon = DataConnector("ChatManagerByID",self.pc.adm_id)
+        self.datacon = DataConnector("RCAT",self.pc.adm_id)
         self.datacon.host = ip+":"+port
         if db:
             self.datacon.db = db(self.datacon)
+            if "persist_timer" in rcat_config:
+                self.datacon.db.persist_timer = int(rcat_config["persist_timer"])
         if mapper:
             self.datacon.mapper = mapper(self.datacon)
         if obm:

@@ -43,12 +43,13 @@ class Bot():
         print "### on_open"
     
     def start_game(self,cfg):
-        self.imgurl = cfg['imgurl']
+        self.imgset = cfg['img']
         self.board = cfg['board']
         self.grid = cfg['grid']
         self.dfrus = cfg['frus']
         self.pieces = cfg['pieces']
         self.myid = cfg['myid']
+        self.imgurl = cfg['img']['img_url']
         threading.Thread(target=self.automate_bot,args=[ws]).start()
         
     def automate_bot(self,ws):
@@ -73,7 +74,6 @@ class Bot():
         return jsonmsg
 
 if __name__ == '__main__':
-    websocket.enableTrace(True)
     bot = Bot()
     ip,port = common.helper.parse_bot_input()
     ws = websocket.WebSocketApp("ws://" + ip + ":" + port + "/client",

@@ -73,6 +73,11 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         if self.sticky_server:
             newmsg["SS"] = proxyref.back.get_admid(self.sticky_server)
 
+        try:
+            del clients[self.myid]
+        except:
+            pass
+        
         proxyref.back.broadcast_admins(json.dumps(newmsg))
         logger.debug("WebSocket closed")
         

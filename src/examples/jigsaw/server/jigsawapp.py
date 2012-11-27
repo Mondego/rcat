@@ -102,8 +102,13 @@ class JigsawRequestParser(Thread):
                 # User was disconnected. Inform other clients
                 clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
-                    datacon.mapper.disconnect_user(enc["UD"])
                     del enc["SS"]
+                    piece = datacon.mapper.disconnect_user(enc["UD"])
+                    # add lock owner to msg to broadcast
+                    response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
+                    
                     response = {'M': enc}
                     jsonmsg = json.dumps(response)
                     self.handler.write_message(jsonmsg)

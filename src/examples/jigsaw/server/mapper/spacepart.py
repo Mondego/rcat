@@ -352,7 +352,15 @@ class SpacePartitioning():
 
     def disconnect_user(self, userid):
         self.datacon.db.execute("update " + self.table_score + " set `uid`='' where `uid`=" + "'" + userid + "'")
-
+        res = self.datacon.db.execute("select * from " + self.table + " where `l`='" + userid + "'")
+        logging.info(res)
+        if len(res) == 0:
+            return None
+        if len(res) > 1:
+            raise Exception("[spacepart]: User id had more than one lock.")
+        else:
+            self.datacon.db.execute("update " + self.table + " set `l`='' where `l`='" + userid + "'")
+            return res[0]
 
     """
     ####################################
