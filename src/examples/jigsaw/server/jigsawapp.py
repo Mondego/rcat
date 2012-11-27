@@ -23,6 +23,7 @@ global settings
 global datacon
 global jigsaw
 
+terminal = None
 jigsaw = None
 settings = {}
 db = None
@@ -363,7 +364,6 @@ class JigsawServer():
                                 # datacon.mapper.insert(values, pid)
                         datacon.mapper.insert_batch(list_values)
 
-                    logging.info("[jigsawapp]: Game has loaded. Have fun!")
                     # Game end checker
                     t = Thread(target=self.check_game_end)
                     t.daemon = True
@@ -381,6 +381,8 @@ class JigsawServer():
 
             elif "LOADED" in msg["BC"]:
                 game_loading = False
+                logging.info("[jigsawapp]: Game has loaded. Have fun!")
+                terminal.show_terminal()
 
     def start_game(self):
         global settings
@@ -403,4 +405,5 @@ if __name__ == "__main__":
     time.sleep(2)
 
     jigsaw = JigsawServer()
-    helper.terminal()
+    terminal = helper.Terminal()
+    terminal.run_terminal()

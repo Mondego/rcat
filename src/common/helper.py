@@ -1,6 +1,6 @@
+from threading import Lock
 import ConfigParser
 import argparse
-#import fcntl
 import json
 import logging
 import os
@@ -8,6 +8,7 @@ import socket
 import struct
 import sys
 import time
+#import fcntl
 
 paths = {}
 
@@ -103,14 +104,27 @@ def close_configuration(path):
 def printc(msg, color):
     print ansi_codes[color] + msg + ansi_codes["endc"]
 
-def terminal():
-    time.sleep(4)
-    printc("\n\nInput commands to RCAT below. Type help for list for commands.", "blue")
-    while(1):
-        sys.stdout.write(ansi_codes["green"] + "[rcat]: ")
-        line = sys.stdin.readline()
-        if line.startswith("quit"):
-            printc("Quitting RCAT....", "yellow")
-            sys.exit(0)
-        if line.startswith("help"):
-            print "quit: (Force) quits RCAT"
+
+class Terminal():
+    lock = None
+    
+    def __init__(self):
+        self.lock = Lock()
+        self.lock.acquire()
+    
+    def show_terminal(self):
+        if self.lock.locked():
+            self.lock.release()
+        
+    def run_terminal(self):
+        with self.lock:
+            printc("\n\nInput commands to RCAT below. Type help for list for commands.", "blue")
+        while(1):
+            with self.lock: 
+                sys.stdout.write(ansi_codes["green"] + "[rcat]: ")
+                line = sys.stdin.readline()
+                if line.startswith("quit"):
+                    printc("Quitting RCAT....", "yellow")
+                    sys.exit(0)
+                if line.startswith("help"):
+                    print "quit: (Force) quits RCAT"
