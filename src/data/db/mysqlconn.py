@@ -20,8 +20,6 @@ cursors = None
 #datacon: Parent data connector
 datacon = None
 
-# persist_timer: Interval where all updates are pushed to the database/persistent media
-persist_timer = None
 logger = logging.getLogger()
 
 class MySQLConnector():
@@ -29,9 +27,12 @@ class MySQLConnector():
     db_updates = {}
     db_inserts = {}
     db = None
+    # persist_timer: Interval where all updates are pushed to the database/persistent media.    
+    persist_timer = None
 
-    def __init__(self, dataconnector):
+    def __init__(self, dataconnector, persist_timer=3):
         global datacon
+        self.persist_timer = persist_timer
         datacon = dataconnector
         logger.debug("[mysqlconn]: Starting MySQL Connector.")
 
@@ -40,16 +41,16 @@ class MySQLConnector():
         global cursors
         return cursors.next()
         
-    def open_connections(self, host, user, password, db, poolsize=None, pt=3):
+    def open_connections(self, host, user, password, db, poolsize=None):
         # pt: persist timer
         global conns
         global cursors
         global ps_socket
-        global persist_timer
+
+
         curs = []
 
         self.db = db
-        persist_timer = pt
         # Default connection pool = 10
         if not poolsize:
             poolsize = 10
@@ -59,7 +60,7 @@ class MySQLConnector():
             conns.append(con);
             curs.append(con.cursor(mdb.cursors.DictCursor))
         cursors = itertools.cycle(curs)
-        dtd = Timer(5.0, self.__dump_to_database__)
+        dtd = Timer(5.0, self.__dump_to_database__,[self.persist_timer])
         dtd.daemon = True
         dtd.start()
         
@@ -160,7 +161,7 @@ class MySQLConnector():
     """
     __dump_to_database__: Dumps updated locally owned objects to database
     """
-    def __dump_to_database__(self):
+    def __dump_to_database__(self, persist_timer):
         while(1):
             cur = self.cur
             for table in self.tables_meta.keys():

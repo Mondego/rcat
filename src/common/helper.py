@@ -61,6 +61,7 @@ def parse_input(cfg_file='app.cfg'):
                 myip = config.get('Main', 'apphost')
                 myport = config.get('Main', 'appport')
                 proxies = json.loads(config.get('Main', 'proxies'))
+                persist_timer = config.get('Main', 'persist_timer')
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ", e)
                 #myip = get_ip_address('eth0')
@@ -71,6 +72,7 @@ def parse_input(cfg_file='app.cfg'):
         settings['ip'] = myip
         settings['port'] = myport
         settings['proxies'] = proxies
+        settings['persist_timer'] = int(persist_timer)
         return settings
     else:
         return {}
@@ -104,13 +106,15 @@ def close_configuration(path):
 def printc(msg, color):
     print ansi_codes[color] + msg + ansi_codes["endc"]
 
-
 class Terminal():
     lock = None
+    app = None
     
-    def __init__(self):
+    def __init__(self, app):
         self.lock = Lock()
         self.lock.acquire()
+        self.app = app
+        self.app.debug_print = lambda cmd: eval(cmd)
     
     def show_terminal(self):
         if self.lock.locked():
@@ -131,5 +135,16 @@ class Terminal():
                 printc("Quitting RCAT....", "yellow")
                 sys.exit(0)
             if line.startswith("help"):
-                print "quit: (Force) quits RCAT"
+                printc("quit: (Force) quits RCAT\nprint arg: Runs a 'print arg' in the application. Application represented by 'app' (e.g. print app)", "endc")
+            if line.startswith("print"):
+                try:
+                    cmd = line.split()
+                    if len(cmd) > 2:
+                        logging.warn("Only one variable at a time.")
+                    else:
+                        app = self.app
+                        print eval(cmd[1])
+                except Exception,e:
+                    logging.error("Could not read variable.")
+                    print e
             self.show_terminal()

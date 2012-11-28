@@ -222,6 +222,8 @@ class JigsawServer():
         global settings
         # Hooks up to get messages coming in admin channel. 
         # Used to know about new users, servers, and their disconnections.
+        self.datacon = datacon
+        self.game_loading = game_loading
         rcat.pc.set_admin_handler(self.admin_parser)
         config = helper.open_configuration('jigsaw.cfg')
         settings = self.jigsaw_parser(config)
@@ -400,7 +402,7 @@ class JigsawServer():
         json_message = json.dumps(newmsg)
         proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
         proxy_admin.send(json_message)
-
+        
 
 if __name__ == "__main__":
     logging.config.fileConfig("connector_logging.conf")
@@ -411,5 +413,6 @@ if __name__ == "__main__":
     time.sleep(2)
 
     jigsaw = JigsawServer()
-    terminal = helper.Terminal()
+    jigsaw._debug = lambda cmd: eval(cmd)
+    terminal = helper.Terminal(jigsaw)
     terminal.run_terminal()

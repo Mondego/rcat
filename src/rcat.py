@@ -40,9 +40,11 @@ class RCAT():
         self.datacon = DataConnector("RCAT",self.pc.adm_id)
         self.datacon.host = ip+":"+port
         if db:
-            self.datacon.db = db(self.datacon)
-            if "persist_timer" in rcat_config:
-                self.datacon.db.persist_timer = int(rcat_config["persist_timer"])
+            if "persist_timer" in rcat_config and rcat_config["persist_timer"]:
+                self.datacon.db = db(self.datacon,rcat_config["persist_timer"])
+            else:
+                self.datacon.db = db(self.datacon)
+            
         if mapper:
             self.datacon.mapper = mapper(self.datacon)
         if obm:
