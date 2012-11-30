@@ -97,28 +97,31 @@ class ProxyConnector():
     """
     
     def Admin_on_message(self,ws, message):
-        logger.debug("Admin received message " + message)
-        msg = json.loads(message)
-        # New user
-        if "NU" in msg:
-            for user in msg["NU"]:
-                self.client_proxy[user] = self.admin_proxy[ws]
-                self.client_admin[user] = ws
+        try:
+            logger.debug("Admin received message " + message)
+            msg = json.loads(message)
+            # New user
+            if "NU" in msg:
+                for user in msg["NU"]:
+                    self.client_proxy[user] = self.admin_proxy[ws]
+                    self.client_admin[user] = ws
+                    self.app.send(message)
+            # User disconnected
+            elif "UD" in msg:
+                if msg["UD"] in self.client_proxy:
+                    del self.client_proxy[msg["UD"]]
+                if msg["UD"] in self.client_admin:
+                    
+                    del self.client_admin[msg["UD"]]
                 self.app.send(message)
-        # User disconnected
-        elif "UD" in msg:
-            if msg["UD"] in self.client_proxy:
-                del self.client_proxy[msg["UD"]]
-            if msg["UD"] in self.client_admin:
-                
-                del self.client_admin[msg["UD"]]
-            self.app.send(message)
-        elif "NS" in msg:
-            self.admins.update(set(msg["NS"]))
-        elif "Failed" in msg:
-            logger.error("[proxyconn]: Admin request failed! Request was " + str(msg["Failed"]))
-        elif self.admin_hook:
-            self.admin_hook(msg)
+            elif "NS" in msg:
+                self.admins.update(set(msg["NS"]))
+            elif "Failed" in msg:
+                logger.error("[proxyconn]: Admin request failed! Request was " + str(msg["Failed"]))
+            elif self.admin_hook:
+                self.admin_hook(msg)
+        except:
+            logging.error("[proxyconn]: Error receiving message through admin.")
 
     def Admin_on_error(self,ws, error):
         logger.exception("Exception in admin message channel: " + str(error))
@@ -128,14 +131,17 @@ class ProxyConnector():
     
     def Admin_on_open(self,ws):
         logger.debug("### Admin opened ###")
-        # Register Admin channel with the proxy
-        msg = {}
-        msg["REG"] = self.adm_id
-        json_msg = json.dumps(msg)
-        # Register admid with the Proxy's admin channel
-        ws.send(json_msg)
-        # Register admid with the Proxy message channel
-        self.admin_proxy[ws].send(json_msg)
+        try:
+            # Register Admin channel with the proxy
+            msg = {}
+            msg["REG"] = self.adm_id
+            json_msg = json.dumps(msg)
+            # Register admid with the Proxy's admin channel
+            ws.send(json_msg)
+            # Register admid with the Proxy message channel
+            self.admin_proxy[ws].send(json_msg)
+        except:
+            logging.error("[proxyconn]: Error opening admin connection.")
     
     """
     App websocket events
@@ -147,16 +153,22 @@ class ProxyConnector():
         if "U" in msg:
             for client in msg["U"]:
                 logger.debug("Sending message " + message + " to client " + client)
-                self.client_proxy[client].send(message)
+                try:
+                    self.client_proxy[client].send(message)
+                except:
+                    logging.error("[proxyconn]: Failed to send message to user " + client + ". Maybe he's gone?")
         else:
             for proxy in self.proxies:
-                proxy.send(message)
+                try:
+                    proxy.send(message)
+                except:
+                    logging.error("[proxyconn]: Failed to send message to proxy. Maybe it disconnected?")
    
     def App_on_error(self,ws, error):
         logger.debug(error)
     
     def App_on_close(self,ws):
-        logger.debug("### closed ###")
+        logger.debug("### App closed ###")
     
     def App_on_open(self,ws):
         logger.debug("### App open ###")

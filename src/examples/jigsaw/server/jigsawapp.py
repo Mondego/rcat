@@ -105,9 +105,10 @@ class JigsawRequestParser(Thread):
                     del enc["SS"]
                     piece = datacon.mapper.disconnect_user(enc["UD"])
                     # add lock owner to msg to broadcast
-                    response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
-                    jsonmsg = json.dumps(response)
-                    self.handler.write_message(jsonmsg)
+                    if piece:
+                        response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
+                        jsonmsg = json.dumps(response)
+                        self.handler.write_message(jsonmsg)
                     
                     response = {'M': enc}
                     jsonmsg = json.dumps(response)
