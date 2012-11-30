@@ -27,6 +27,7 @@ terminal = None
 jigsaw = None
 settings = {}
 db = None
+locks = {}
 datacon = None
 rcat = None
 tables = {}
@@ -103,9 +104,10 @@ class JigsawRequestParser(Thread):
                 clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
                     del enc["SS"]
-                    piece = datacon.mapper.disconnect_user(enc["UD"])
-                    # add lock owner to msg to broadcast
-                    if piece:
+                    datacon.mapper.disconnect_user(enc["UD"])
+                    if enc["UD"] in locks:
+                        piece = locks[enc["UD"]]
+                        datacon.mapper.update(piece['x'], piece['y'], [('l', None), ('x', piece['x']), ('y', piece['y'])], piece['pid'])
                         response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
@@ -153,7 +155,9 @@ class JigsawRequestParser(Thread):
 
                     lockid = piece['l']
                     if (not lockid or lockid == "None") and not piece['b']:  # lock the piece if nobody owns it
+                        global locks
                         lockid = userid
+                        locks[userid] = piece
                         datacon.mapper.update(x, y, [('l', lockid)], pid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
                     # TODO: Better detect conflict. Right now I privilege the latest attempt, not the first.
@@ -185,6 +189,8 @@ class JigsawRequestParser(Thread):
                     if lockid and lockid == userid and not piece['b']:  # I was the owner
                         # unlock piece and update piece coords
                         datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
+                        if userid in locks:
+                            del locks[userid]
 
                         # eventually bind piece 
                         bound = m['pd']['b']
@@ -268,7 +274,9 @@ class JigsawServer():
 
     def send_game_to_clients(self, client=None):
         # TODO: Not send all pieces
-        pieces = datacon.mapper.select_all()
+        pieces = []
+        while(not pieces):
+            pieces = datacon.mapper.select_all()
         scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
 
         # send the board config

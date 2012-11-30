@@ -236,6 +236,9 @@ class SpacePartitioning():
     def select_all(self):
         pieces = {}
         objs = self.datacon.db.execute("select * from " + self.table)
+        if len(objs) == 0:
+            logging.error("[spacepart]: Returned 0 pieces from jigsaw. Weird!")
+            return None
         for item in objs:
             pieces[item["pid"]] = item
         return pieces
@@ -353,13 +356,18 @@ class SpacePartitioning():
     def disconnect_user(self, userid):
         self.datacon.db.execute("update " + self.table_score + " set `uid`='' where `uid`=" + "'" + userid + "'")
         res = self.datacon.db.execute("select * from " + self.table + " where `l`='" + userid + "'")
-        logging.info(res)
         if len(res) == 0:
-            return None
+            time.sleep(self.datacon.db.persist_timer*2)
+            res = self.datacon.db.execute("select * from " + self.table + " where `l`='" + userid + "'")
+            if len(res) == 1:
+                self.datacon.db.execute_one("update " + self.table + " set `l`='' where `l`='" + userid + "'")
+                return res[0]
+            else:
+                return None
         if len(res) > 1:
             raise Exception("[spacepart]: User id had more than one lock.")
         else:
-            self.datacon.db.execute("update " + self.table + " set `l`='' where `l`='" + userid + "'")
+            self.datacon.db.execute_one("update " + self.table + " set `l`='' where `l`='" + userid + "'")
             return res[0]
 
     """

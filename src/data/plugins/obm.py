@@ -241,6 +241,7 @@ class ObjectManager():
             # Piece is not owned or created by anyone yet
             if not res:
                 self.location[table][rid] = self.myhost
+                self.setowner(table,rid,None,None,True)
             else:
                 self.location[table][rid] = res
         
