@@ -218,7 +218,20 @@ class MySQLConnector():
         self.db_updates[table][rid] = data
         return True
 
-
+    def immediate_update(self,table,rid,obj):
+        cur = self.cur
+        try:
+            mystr = ("UPDATE %s SET " % table)
+            mystr += ','.join([' = '.join([`str(key)`.replace("'", "`"), `str(val)`]) for key, val in obj.items()])
+            mystr += " WHERE %s = '%s'" % (str(self.tables_meta[table]["ridname"]), rid)
+            logger.debug("[mysqlconn]: Dumping to database: " + mystr)
+            cur.execute(mystr)
+            cur.connection.commit()
+            return True
+        except mdb.cursors.Error, e:
+            logger.error(e)
+            return False
+        
     def insert_batch(self, table, list_values):
         mystr = ''
         try:

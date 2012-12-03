@@ -39,8 +39,9 @@ class OBMParser(Thread):
         tbl = self.handler.get_argument("tbl",None)
         op = self.handler.get_argument("op",None)
         if op == "update":
+            immediate = self.handler.get_argument("immediate",False)
             tuples = json.loads(self.handler.get_argument("tuples"),None)
-            obm.update(tbl,tuples,rid)
+            obm.update(tbl,tuples,rid,immediate)
             IOLoop.instance().add_callback(self.reply("OK"))
         elif op == "insert":
             values = json.loads(self.handler.get_argument("values"),None)
@@ -200,7 +201,7 @@ class ObjectManager():
                 self.indexes[table][idx][value] = [rid]
         return self.tables[table][rid]
 
-    def update(self,table,update_tuples,rid):
+    def update(self,table,update_tuples,rid,immediate=False):
         # If I don't know where it is, find it in the database
         if rid not in self.location[table]:
             self.location[table][rid] = self.get_host_from_rid(table,rid)
@@ -230,8 +231,12 @@ class ObjectManager():
             self.tables[table][rid][item[0]] = item[1]
         
         # Schedules update to be persisted.
-        self.datacon.db.schedule_update(table,rid,self.tables[table][rid])
-        
+        if not immediate:
+            self.datacon.db.schedule_update(table,rid,self.tables[table][rid])
+        else:
+            # Critical message, needs immediate consistency
+            self.datacon.db.immediate_update(table,rid,self.tables[table][rid])
+        logging.debug("updating OBM for object " + rid + " to " + str(self.tables[table][rid]))
         return self.tables[table][rid]
     
     def select(self,table,rid):
@@ -295,7 +300,7 @@ class ObjectManager():
         if res == "OK":
             return True
         
-    def update_remote(self,table,admid,tuples,rid):
+    def update_remote(self,table,admid,tuples,rid,immediate=False):
         remotehost = self.get_host_from_admin(table,admid)
         # If I don't have the owner of this rid cached, store it
         if rid not in self.location[table]:
@@ -307,7 +312,7 @@ class ObjectManager():
         elif remotehost != self.location[table][rid]:
             self.relocate(table,rid,remotehost)
         
-        self.send_request_owner(remotehost, table, rid, "update",tuples)
+        self.send_request_owner(remotehost, table, rid, "update",tuples,params="immediate="+str(immediate))
         logging.debug("[obm]: Remote update request.")
             
     def select_remote(self,table,admid,rid):
@@ -352,7 +357,7 @@ class ObjectManager():
         cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
         res = self.datacon.db.execute_one(cmd)
         if res:
-            return ['host']
+            return res['host']
         else:
             None
     
@@ -388,7 +393,7 @@ class ObjectManager():
     """
     __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def send_request_owner(self,obj_location,table,RID,op,data=None,names=None):
+    def send_request_owner(self,obj_location,table,RID,op,data=None,names=None,params=[]):
         host,port = obj_location.split(':')
         if op == "update":
             cmd = "&op=update&tuples=" + urllib.quote(json.dumps(data))
@@ -400,6 +405,9 @@ class ObjectManager():
             cmd = "&op=relocate&no=" + self.myhost
         elif op == "insert":
             cmd = "&op=insert&values=" + urllib.quote(json.dumps(data))
+        
+        if params:
+            cmd += '&' + '&'.join([param for param in params]) 
         # TODO: catch exception on timeout
         conn = httplib.HTTPConnection(host,port,timeout=4)
         logging.debug("[obm]: Sending request to " + obj_location)

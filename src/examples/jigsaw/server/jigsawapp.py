@@ -187,8 +187,6 @@ class JigsawRequestParser(Thread):
                         return
                     lockid = piece['l']
                     if lockid and lockid == userid and not piece['b']:  # I was the owner
-                        # unlock piece and update piece coords
-                        datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
                         if userid in locks:
                             del locks[userid]
 
@@ -197,7 +195,7 @@ class JigsawRequestParser(Thread):
                         if bound:  # we know the piece is not bound yet
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
-                            datacon.mapper.update(x, y, [('b', 1)], pid)
+                            datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y), ('b', 1)], pid, True)
 
                             # Update score board. Separate from 'pd' message because this is always broadcasted.
                             update_res = datacon.mapper.add_to_user_score(userid)
@@ -208,6 +206,8 @@ class JigsawRequestParser(Thread):
                                 self.handler.write_message(jsonmsg)
 
                         else:
+                            # unlock piece and update piece coords
+                            datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
                             logging.debug('%s dropped piece %s at %d,%d'
                                       % (userid, pid, x, y))
                         # add lock owner to msg to broadcast

@@ -221,18 +221,21 @@ class SpacePartitioning():
             if not res:
                 logging.error("[spacepart]: Could not insert. Response: " + str(res))
 
-    def update(self, x, y, tuples, pid):
+    def update(self, x, y, tuples, pid, bind=False):
         owner = self.quadtree.find_owner((x, y))
         if owner == self.myid:
             curpiece = self.datacon.obm.select(self.table, pid)
             self.delete_object(curpiece["x"], curpiece["y"], pid)
-            newpiece = self.datacon.obm.update(self.table, tuples, pid)
+            if not bind:
+                newpiece = self.datacon.obm.update(self.table, tuples, pid)
+            else:
+                newpiece = self.datacon.obm.update(self.table, tuples, pid, True)
             self.position_object(x, y, newpiece)
             return "LOCAL"
         else:
             self.datacon.obm.update_remote(self.table, owner, tuples, pid)
             return owner
-
+        
     def select_all(self):
         pieces = {}
         objs = self.datacon.db.execute("select * from " + self.table)
