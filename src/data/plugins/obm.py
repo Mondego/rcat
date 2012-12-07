@@ -3,15 +3,19 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-import json
-import tornado.web
-import urllib
-import httplib
-import logging
+from data.db.sqlalchemyconn import ObjectManager, Host
+from examples.jigsaw.server_alchemy.mapper.dbobjects import Piece
+from multiprocessing.pool import ThreadPool
+from sqlalchemy.orm.exc import NoResultFound
 from threading import Thread
 from tornado.ioloop import IOLoop
-from multiprocessing.pool import ThreadPool
 from tornado.web import asynchronous
+import httplib
+import json
+import logging
+import tornado.web
+import urllib
+from sqlalchemy.ext.serializer import loads, dumps
 
 obm = None
 logger = logging.getLogger()
@@ -29,46 +33,69 @@ class OBMHandler(tornado.web.RequestHandler):
         
 
 class OBMParser(Thread):
+    failmsg = None
+    
     def __init__(self,handler):
         Thread.__init__(self)
         self.daemon = True
         self.handler = handler
+        
+        # Template fail message
+        fail = {'status':400,'resp':None}
+        self.failmsg = json.dumps(fail)
                 
     def run(self):
-        rid = self.handler.get_argument("rid",None)
-        tbl = self.handler.get_argument("tbl",None)
-        op = self.handler.get_argument("op",None)
-        if op == "update":
-            immediate = self.handler.get_argument("immediate",False)
-            tuples = json.loads(self.handler.get_argument("tuples"),None)
-            obm.update(tbl,tuples,rid,immediate)
-            IOLoop.instance().add_callback(self.reply("OK"))
-        elif op == "insert":
-            values = json.loads(self.handler.get_argument("values"),None)
-            res = obm.insert(tbl,values,rid)
-            if res:
-                IOLoop.instance().add_callback(self.reply("OK"))
-            else:
-                IOLoop.instance().add_callback(self.reply("FAIL"))
-        elif op == "select":
-            #names = self.get_argument("names",None)
-            #if names:
-            #    jnames = json.loads(names)
-            obj = obm.select(tbl,rid)
-            jsonmsg = json.dumps(obj)
-            IOLoop.instance().add_callback(self.reply(jsonmsg))
-        elif op == "relocate":
-            newowner = self.handler.get_argument("no",None)
-            obj = obm.relocate(tbl,rid,newowner)
-            jsonmsg = json.dumps(obj)
-            IOLoop.instance().add_callback(self.reply(jsonmsg))
-        elif op == "subscribe":
-            ip =  self.handler.request.remote_ip
-            port = self.handler.get_argument("port",None)
-            interests = json.loads(self.handler.get_argument("interests",None))
-            loc = (ip,port)
-            if pubsubs:
-                pubsubs[tbl].add_subscriber(loc,interests) 
+        try:
+            rid = self.handler.get_argument("rid",None)
+            otype = self.handler.get_argument("type",None)
+            op = self.handler.get_argument("op",None)
+            response = {'status':None,'result':None}
+            
+            if op == "post":
+                immediate = self.handler.get_argument("immediate",False)
+                obj = loads(self.handler.get_argument("obj"),None)
+                if obj:
+                    res = obm.post_local(otype,obj,rid,immediate)
+                    response['status'] = 200
+                    response['result'] = res
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(jsonmsg)
+                else:
+                    IOLoop.instance().add_callback(self.failmsg)
+            elif op == "put":
+                obj = loads(self.handler.get_argument("obj"),None)
+                res = obm.put_local(otype,obj,rid)
+                if res:
+                    response['status'] = 200
+                    response['result'] = res
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(jsonmsg)
+                else:
+                    IOLoop.instance().add_callback(self.failmsg)
+            elif op == "get":
+                obj = obm.get_local(otype,rid)
+                if obj:
+                    response['status'] = 200
+                    response['result'] = dumps(obj)
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(jsonmsg)
+            elif op == "relocate":
+                newowner = self.handler.get_argument("no",None)
+                obj = obm.relocate_to(otype,rid,newowner)
+                if obj:
+                    response['status'] = 200
+                    response['result'] = dumps(obj)
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(self.reply(jsonmsg))
+            elif op == "subscribe":
+                ip =  self.handler.request.remote_ip
+                port = self.handler.get_argument("port",None)
+                interests = json.loads(self.handler.get_argument("interests",None))
+                loc = (ip,port)
+                if pubsubs:
+                    pubsubs[otype].add_subscriber(loc,interests)
+        except:
+            logger.exception("[obmparser]: Error parsing request:") 
     
     def reply(self,message):
         def _write():
@@ -85,7 +112,8 @@ class ObjectManager():
     datacon = None
     myid = None
     myhost = None
-    tables = {}
+    host = None
+    cache = {}
     location = {}
     ridnames = {}
     indexes = {}
@@ -98,323 +126,409 @@ class ObjectManager():
         self.myid = datacon.myid
         self.myhost = datacon.host
         self.datacon = datacon
-        self.tables = {}
+        self.cache = {}
         self.location = {}
-        
-    def register_node(self,adm,table,ridname,rid_type=None,autoinc=None):
+
+    # Registers OBM in the database. Also prepares caching for all object types.        
+    def register_node(self,adm,otypes,ridname,rid_type=None,autoinc=None):
         if not rid_type:
             rid_type = "varchar(255)"
-        if autoinc != None:
-            self.autoinc[table] = autoinc
-        """
-        cmd = "create table if not exists " + table + "_obm(rid " + rid_type + " not null,host varchar(255) not null, primary key(rid))"
-        self.datacon.db.execute(cmd)
-        cmd = "create table if not exists " + table + "_reg(admid varchar(255) not null,host varchar(255) not null, primary key(admid))"
-        self.datacon.db.execute(cmd)
-        cmd = "insert into " + table + "_reg values('" + adm + "','" + self.datacon.host + "')"
-        self.datacon.db.execute(cmd)
-        self.datacon.db.retrieve_table_meta(table+"_obm", "rid")
-        self.datacon.db.retrieve_table_meta(table+"_reg", "admid")
-        """
         
-        cmd = "create table if not exists " + table + "_obm(rid " + rid_type + " not null,host varchar(255) not null, primary key(rid))"
-        self.datacon.db.create_table(table+"_obm",cmd,"rid")
-        cmd = "create table if not exists " + table + "_reg(admid varchar(255) not null,host varchar(255) not null, primary key(admid))"
-        self.datacon.db.create_table(table+"_reg",cmd,"admid")
-        cmd = "insert into " + table + "_reg values('" + adm + "','" + self.datacon.host + "')"
-        self.datacon.db.execute(cmd)
+        self.host = Host(adm, self.datacon.host)
         
-        self.tables[table] = {}
-        self.location[table] = {}
-        self.ridnames[table] = ridname
-        self.indexes[table] = {}
-        self.columns[table] = self.datacon.db.tables_meta[table]["columns"]
+        for otype in otypes:
+            self.cache[otype] = {}
+            self.location[otype] = {}
+            #self.ridnames[otype] = ridname
+            #self.indexes[otype] = {}
     
     def clear(self,table):
-        cmd = "drop table if exists " + table + "_obm"
-        self.datacon.db.execute(cmd)
-        cmd = "drop table if exists " + table + "_reg"
-        self.datacon.db.execute(cmd)
-        return True
-    
-    def find_all(self,table):
+        return self.datacon.db.obm_clear()
+        
+    def find_all(self,otype):
         # TODO: There is still possible inconsistency, current frustrum must be subscribing to updates
         # maybe also we need timestamps..
-        cmd = "select * from " + table
-        result = self.datacon.db.execute(cmd)
-        logger.debug("[obm]: Result from select all in table_obm: " + str(result))
+        result = self.datacon.db.return_all(otype)
         return result
         
     def create_index(self,table,idxname):
         self.indexes[table][idxname] = {}
             
-    def setowner(self,table,rid,values=None,owner=None,insert=None):
+    def setowner(self,otype,rid,owner=None):
         if not owner:
-            owner = self.myhost
-#        else:
-#            owner = self.get_host_from_admin(table,owner)
+            owner = self.myid
         try:
-            if not self.tables[table]:
-                self.tables[table] = {}
-            if not insert:
-                self.datacon.db.schedule_update(table+"_obm",rid,{'host':owner})
-            else:
-                self.datacon.db.insert(table+"_obm",[rid,owner])
-            self.tables[table][rid] = {}
-            
-            if values:
-                if type(values) is dict:
-                    self.tables[table][rid] = values
-                else:
-                    for name,idx in self.columns[table].items():
-                        self.tables[table][rid][name] = values[idx]
-            self.location[table][rid] = owner
+            obj,host = self.datacon.db.get([[ObjectManager,rid],[Host,owner]])
+            obj.host = host
+            self.datacon.db.insert_update(obj)
+            self.location[otype][rid] = host
         except Exception, e:
             logger.exception("[obm]: Failed to set owner in database.")
             return False
-        
-    """
-    Local requests. When called, they will relocate objects locally if needed
-    """
-    def insert(self,table,values,rid=None):
-        if table in self.autoinc:
-            values.insert(self.autoinc[table],'NULL')
-            res = self.datacon.db.insert(table,values,True)
-            # rid is in autoinc
-            if not rid:
-                rid = res
-            values[self.autoinc[table]] = res 
-        else:
-            if not rid:
-                raise
-            self.datacon.db.insert(table,values,False)
-
-        # SetOwner sets location and tables caches
-        self.setowner(table,rid,values,None,True)
-        
-        # Updates secondary indexes
-        for idx in self.indexes[table].keys():
-            value = values[self.columns[table][idx]]
-            if value in self.indexes[table][idx]:
-                self.indexes[table][idx][value].append(rid)
-            else:
-                self.indexes[table][idx][value] = [rid]
-        return self.tables[table][rid]
-
-    def update(self,table,update_tuples,rid,immediate=False):
-        # If I don't know where it is, find it in the database
-        if rid not in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-        
-        if not self.location[table][rid] == self.myhost:
-            # If I don't own it, but I should! Request relocation
-            result = "Failed"
-            while (result == "Failed"):
-                self.location[table][rid] = self.get_host_from_rid(table,rid)
-                if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
-                    break
-                else:
-                    result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
-            self.location[table][rid] = self.myhost
-            
-            if result != "Failed":
-                # We got a reply! Lets decode it
-                self.tables[table][rid] = json.loads(result)
-            
-        # If I own it but I don't have it in memory, fetch from database
-        if not rid in self.tables[table]:
-            cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
-            # TODO: This will only return one result in every select! 
-            self.tables[table][rid] = self.datacon.db.execute_one(cmd)
-        
-        for item in update_tuples:
-            self.tables[table][rid][item[0]] = item[1]
-        
-        # Schedules update to be persisted.
-        if not immediate:
-            self.datacon.db.schedule_update(table,rid,self.tables[table][rid])
-        else:
-            # Critical message, needs immediate consistency
-            self.datacon.db.immediate_update(table,rid,self.tables[table][rid])
-        logging.debug("updating OBM for object " + rid + " to " + str(self.tables[table][rid]))
-        return self.tables[table][rid]
     
-    def select(self,table,rid):
-        # If I don't know where it is, find it in the database
-        if rid not in self.location[table]:
-            res = self.get_host_from_rid(table,rid)
-            # Piece is not owned or created by anyone yet
-            if not res:
-                self.location[table][rid] = self.myhost
-                self.setowner(table,rid,None,None,True)
+    """
+    update_cache(self,otype,rid,hid): Checks if location of object is cached and if it matches the hid requested. Otherwise, update the cache. If it is still inconsistent,
+    performs relocation.
+    """
+    def update_cache(self,otype,rid,hid,relocate=True):
+        try:
+            ret_object = self.datacon.db.get(ObjectManager,rid)
+            if ret_object:
+                # Found it, update the cache
+                self.location[otype][rid] = ret_object.host
             else:
-                self.location[table][rid] = res
-        
-        if not self.location[table][rid] == self.myhost:
-            # If I don't own it, but I should! Request relocation
-            result = "Failed"
-            while (result == "Failed"):
-                self.location[table][rid] = self.get_host_from_rid(table,rid)
-                if self.location[table][rid] == self.myhost: # we were just outdated, its here now, so all is good!
-                    break
+                # Didn't find it. Retrieve the data from database
+                dbobj = self.datacon.db.get(otype,rid)
+                if not dbobj:
+                    # Object doesn't exist! Return an error
+                    logger.error("[obm]: Object does not exist in database.")
+                    return False
                 else:
-                    result = self.send_request_owner(self.location[table][rid],table,rid,"relocate")
-            self.location[table][rid] = self.myhost            
-            if result != "Failed":
-                # We got a reply! Lets decode it 
-                self.tables[table][rid] = json.loads(result)
-    
-        # If I own it but I don't have it in memory, fetch from database
-        if not rid in self.tables[table] or not self.tables[table][rid]:
-            cmd = "select * from " + table + " where `" + str(self.ridnames[table]) + "` = '" + rid + "'"
-            # TODO: This will only return one result in every select! 
-            self.tables[table][rid] = self.datacon.db.execute_one(cmd)
+                    # Instantiate it here
+                    self.setowner(otype, rid, hid)
+        except:
+            logging.exception("[obm]: Error in update:")
 
-        return self.tables[table][rid]
-        
-    def delete(self,table,rid):
-        # If I don't know where it is, find it in the database
-        if rid not in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-        
-        if not self.location[table][rid] == self.myhost:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-            if not self.location[table][rid] == self.myhost:
-                return "Failed"
-            else:
-                self.datacon.db.delete(table,rid)
-                del self.location[table][rid]
-                if rid in self.tables[table]:
-                    del self.tables[table][rid]
-                return True
+        if relocate:        
+            if not self.location[otype][rid].hid == hid:
+                # Object isn't where it is supposed to be. Means I need to first relocate it to the new server, then update it!
+                logging.warn("[obm]: Attempting to relocate object to correct place...")
+                result = self.relocate(otype, rid, hid)
+                if result['status'] != 200:
+                    logger.error("[obm]: Could not relocate to perform update.")
+                    return False
+        return True
+            
         
     """
-    Remote requests
+    PUT methods for OBM. (aka INSERT)
+    otype: Type of object. Defined as a SQLAlchemy object
+    newobj: New object to be inserted
+    rid: Object identification. Commonly a UUID.
+    hid: Host id of the intended destination. If none is given, assumed to be a local insert.
     """
-        
-    def insert_remote(self,table,admid,values,rid):
-        remotehost = self.get_host_from_admin(table,admid)
-        self.location[table][rid] = remotehost
-        res = self.send_request_owner(remotehost, table, rid, "insert",values)
-        logging.debug("[obm]: Inserting remotely at " + remotehost + " the values: " + str(values))
+    def put(self,otype,newobj,rid,hid=None):
+        if not hid or hid==self.myhost.hid:
+            return self.put_local(otype, newobj, rid)
+        else:
+            return self.put_remote(otype, newobj, rid, hid)
+            
+    def put_local(self,otype,newobj,rid):
+        self.datacon.db.insert_update(newobj)
+        self.setowner(otype,rid,newobj)
+        self.cache[otype][rid] = newobj
+
+        return self.cache[otype][rid]
+
+    def put_remote(self,otype,obj,rid,hid):
+        remotehost = self.datacon.db.get(Host,hid)
+        self.location[otype][rid] = remotehost
+        res = self.send_request_owner(remotehost, otype.__name__, rid, "put",dumps(obj))
+        logger.debug("[obm]: Inserting remotely at " + remotehost + " the object: " + str(obj))
         if res == "OK":
             return True
+        else:
+            logger.error(res)
+         
+    """
+    POST methods for OBM. (aka UPDATE)
+    Arguments:
+    otype: Type of object. Defined as a SQLAlchemy object
+    obj: Object to be updated.
+    rid: Object identification. Commonly a UUID.
+    hid: Host id of the intended destination. If none is given, a lookup is performed to find the host that has it (if any). If not yet assigned,
+    assign it to the current instance and apply local update.
+    immediate: If true, pushes to database immediate, otherwise, schedules for future update.
+    
+    Methods:
+    """
+    def post(self,otype,obj,rid,hid=None,immediate=False):
+        if hid==self.myhost.hid:
+            # Update locally
+            return self.post_local(otype, obj, rid, immediate)
         
-    def update_remote(self,table,admid,tuples,rid,immediate=False):
-        remotehost = self.get_host_from_admin(table,admid)
-        # If I don't have the owner of this rid cached, store it
-        if rid not in self.location[table]:
-            self.location[table][rid] = remotehost
-        # If the owner is supposed to be myself, set it
-        elif self.location[table][rid] == self.myhost:
-            self.setowner(table,rid,None,remotehost)
-        # If the owner doesn't match the one I currently have stored, tell the current owner to relocate there
-        elif remotehost != self.location[table][rid]:
-            self.relocate(table,rid,remotehost)
-        
-        self.send_request_owner(remotehost, table, rid, "update",tuples,params="immediate="+str(immediate))
-        logging.debug("[obm]: Remote update request.")
-            
-    def select_remote(self,table,admid,rid):
-        remotehost = self.get_host_from_admin(table,admid)
-        # If I don't have the owner of this rid cached, store it
-        if rid not in self.location[table]:
-            res = self.get_host_from_rid(table,rid)
-            # Piece is not owned or created by anyone yet
-            if not res:
-                self.location[table][rid] = remotehost
+        elif hid:
+            # Update remotely
+            return self.post_remote(otype, obj, rid, hid, immediate)
+
+        else:
+            # Find where it is and update it
+            ret = self.datacon.db.get(ObjectManager,rid)
+            if ret:
+                # It is somewhere. If it is here, update local, otherwise update remote.
+                if ret.host.hid != self.myhost.hid:
+                    return self.post_remote(otype, obj, rid, ret.host.hid, immediate)
+                elif ret.host.hid == self.myhost.hid:
+                    return self.post_local(otype, obj, rid, immediate)
             else:
-                self.location[table][rid] = res
-                
-        # If the owner is supposed to be myself, set it
-        elif self.location[table][rid] == self.myhost:
-            self.setowner(table,rid,None,remotehost)
-        # If the owner doesn't match the one I currently have stored, tell the current owner to relocate there
-        elif remotehost != self.location[table][rid]:
-            self.relocate(table,rid,remotehost)
-            
-        resp = self.send_request_owner(remotehost,table,rid,"select")
-        logging.debug("[obm]: Response from select: " + str(resp))
-        self.tables[table][rid] = json.loads(resp)  
-        return self.tables[table][rid]
-            
-    def select_diff_index(self,table,value,idxname):
-        if idxname in self.indexes[table]:
-            rids = self.indexes[table][idxname][value]
-            result = []
-            for rid in rids:
-                result.append(self.select(table,rid))
-            return result
+                # It has not yet been assigned. Might as well assign it here.
+                return self.post_local(otype, obj, rid, immediate)
+    
+    def post_local(self,otype,obj,rid,immediate=False):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != self.myhost.hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, self.myhost.hid)
+            if not ret:
+                logger.error("[obm]: Could not retrieve object for post.")
+                return False
+
+        # Schedules update to be persisted.
+        if not immediate:
+            logger.debug("[obm]: Scheduling update.")
+            ret = self.datacon.db.schedule_update(obj)
         else:
-            logging.error("[obm]: Index not created! Please create index first.")
+            # Critical message, needs immediate consistency
+            logger.debug("[obm]: Performing immediate update.")
+            ret = self.datacon.db.insert_update(obj)
+        return ret
+    
+    def post_remote(self,otype,obj,rid,hid,immediate=False):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, hid)
+            if not ret:
+                logger.error("[obm]: Could not find object for post.")
+                return False
+                
+        remotehost = self.datacon.db.get(Host,hid)
+        res = self.send_request_owner(remotehost, otype, rid, "post",dumps(obj),params="immediate="+str(immediate))
+        if res['status'] == 200:
+            logger.debug("[obm]: Remote update request.")
+            ret = True
+        else:
+            logger.error("[obm]: Failed to update remotely.")
+            ret = False
+        return ret
+    
+    
+    """
+    GET methods for OBM. (aka SELECT)
+    Arguments:
+    otype: Type of object. Defined as a SQLAlchemy object
+    rid: Object identification. Commonly a UUID.
+    hid: Host id of the intended destination. If none is given, a lookup is performed to find the host that has it (if any). If not yet assigned,
+    assign it to the current instance.
+    """
+    def get(self,otype,rid,hid=None):
+        if hid == self.myhost.hid:
+            return self.get_local(otype,rid)
+        if hid and hid != self.myhost.hid:
+            return self.get_remote(otype,rid,hid)
+        else:
+            # Find where it is and retrieve it
+            ret = self.datacon.db.get(ObjectManager,rid)
+            if ret:
+                # It is somewhere. If it is here, get local, otherwise get remote.
+                if ret.host.hid != self.myhost.hid:
+                    return self.get_remote(otype, rid, ret.host.hid)
+                elif ret.host.hid == self.myhost.hid:
+                    return self.get_local(otype, rid)
+            else:
+                # It has not yet been assigned. Might as well assign it here.
+                return self.get_local(otype, rid)
+                
+    def get_local(self,otype,rid):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != self.myhost.hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, self.myhost.hid)
+            if not ret:
+                logger.error("[obm]: Could not retrieve object.")
+                return False
+            
+        return self.cache[otype][rid]
+
+        
+    def get_remote(self,otype,rid,hid):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, hid)
+            if not ret:
+                logger.error("[obm]: Could not retrieve data from %s." % (hid))
+                return False
+            
+        res = self.send_request_owner(self.location[otype][rid], otype, rid, "get")
+        if res['status'] == 200:
+            logger.debug("[obm]: Remote get request. successful")
+            self.cache[otype][rid] = res['result']
+            ret = res['result']
+        else:
+            logger.error("[obm]: Failed to update remotely.")
+            ret = False
+        return ret
+       
+    """
+    DELETE methods for OBM.
+    Arguments:
+    otype: Type of object. Defined as a SQLAlchemy object
+    rid: Object identification. Commonly a UUID.
+    hid: Host id of the intended destination. If none is given, a lookup is performed to find the host that has it (if any). If not yet assigned,
+    assign it to the current instance.
+    """
+    def delete(self,otype,rid,hid=None):
+        if hid == self.myhost.hid:
+            return self.delete_local(otype,rid)
+        if hid and hid != self.myhost.hid:
+            return self.delete_remote(otype,rid,hid)
+        else:
+            # Find where it is and retrieve it
+            ret = self.datacon.db.get(ObjectManager,rid)
+            if ret:
+                # It is somewhere. If it is here, delete local, otherwise delete remote.
+                if ret.host.hid != self.myhost.hid:
+                    return self.delete_remote(otype, rid, ret.host.hid)
+                elif ret.host.hid == self.myhost.hid:
+                    return self.delete_local(otype, rid)
+            else:
+                # It has not yet been assigned. Might as well assign it here.
+                return self.delete_local(otype, rid)
+    
+    def delete_local(self,otype,rid):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != self.myhost.hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, self.myhost.hid)
+            if not ret:
+                logger.error("[obm]: Could not retrieve object locally to delete.")
+                return False
+            
+        #  I own the object! I'm cleared to delete! Clear myself as the owner first.
+        self.datacon.db.delete(ObjectManager,rid)
+        self.datacon.db.delete(otype,rid)
+        del self.location[otype][rid]
+        if rid in self.cache[otype]:
+            del self.cache[otype][rid]
+        return True
+
+    def delete_remote(self,otype,rid,hid):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, self.myhost.hid)
+            if not ret:
+                logger.error("[obm]: Could not find object to delete.")
+                return False
+            
+        res = self.send_request_owner(self.location[otype][rid], otype, rid, "delete")
+        if res['status'] == 200:
+            logger.debug("[obm]: Remote delete request. successful")
+            if rid in self.cache[otype]:
+                del self.cache[otype][rid]
+            ret = True
+        else:
+            logger.error("[obm]: Failed to delete remotely.")
+            ret = False
+        return ret
+
+    """
+    RELOCATE methods for OBM.
+    Arguments:
+    otype: Type of object. Defined as a SQLAlchemy object
+    rid: Object identification. Commonly a UUID.
+    source: Host id of the source of the relocation. If none is given, a lookup is performed to find the host that has it (if any).
+    dest: Host id of the intended destination for the object. 
+    """  
+    def relocate(self,otype,rid,source=None,dest=None):
+        if not dest:
+            # Must have a destination
             return False
-
-    def get_host_from_admin(self,table,admid):
-        cmd = "select host from " + table + "_reg where `admid` = '" + admid + "'"
-        return self.datacon.db.execute_one(cmd)['host']
-    
-    def get_host_from_rid(self,table,rid):
-        cmd = "select host from " + table + "_obm where `rid` = '" + rid + "'"
-        res = self.datacon.db.execute_one(cmd)
-        if res:
-            return res['host']
+        if source == self.myhost.hid:
+            # If source is here, relocate to destination 
+            return self.relocate_to(otype,rid,dest)
+        if dest == self.myhost.hid:
+            # If destination is here, relocate from source
+            return self.relocate_from(otype,rid,source)
+        elif not source and dest == self.myhost.hid:
+            # Want to transfer object here, but don't know where it is.
+            ret = self.datacon.db.get(ObjectManager,rid)
+            if ret:
+                # It is somewhere. If it is here, just return the value, otherwise perform relocation to here.
+                if ret.host.hid == self.myhost.hid:
+                    return self.get(otype,rid,self.myhost.hid)
+                elif ret.host.hid != self.myhost.hid:
+                    return self.relocate_from(otype, rid, ret.host.hid)
+            else:
+                # It has not yet been assigned. Might as well assign it here.
+                return self.get(otype,rid,self.myhost.hid)
         else:
-            None
+            # TODO: Thomas told me not to!
+            logger.error("[obm]: Destination or source must be local node.")
+            return False
     
-    def relocate(self,table,rid,newowner):
-        if not rid in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-        if self.location[table][rid] != self.myhost:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-            # Update location just in case
-            if self.location[table][rid] != self.myhost:
-                logger.info("[obm]: Object is not here, sorry!")
-                return "Failed"
-        else:
-            if not rid in self.tables[table]:
-                cmd = "select * from " + table + " where " + self.ridnames[table] + " = " + rid
-                # TODO: This will only return one result in every select! 
-                self.tables[table][rid] = self.datacon.db.execute_one(cmd)
-            if not self.tables[table][rid]:
-                logging.warning("[obm/relocate]: Could not retrieve data")
-            self.setowner(table,rid,self.tables[table][rid],newowner)
-
-            return self.tables[table][rid]
+    def relocate_from(self,otype,rid,source):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != source):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, source, False)
+            if not ret:
+                logger.error("[obm]: Could not relocate object because object does not exist.")
+                return False
+        
+        # Either object is in the source, or the actual location of the object has been updated. Either way, attempting to relocate.
+        result = self.send_request_owner(self.location[otype][rid],otype,rid,"relocate")
+        count = 0        
+        while (result['status'] != 200 and count < 10):
+            # Failed to retrieve it. Update cache and try again.
+            count+=1
+            ret = self.update_cache(otype,rid,source,False)
+            if not ret:
+                logger.error("[obm]: Could not relocate object because object does not exist.")
+                return False
+            else:
+                result = self.send_request_owner(self.location[otype][rid],otype,rid,"relocate")
                 
-    """
-    request_relocate_to_local(self,table,rid): Requests that an object with rid is stored locally (i.e. same place as where
-    the client is currently making requests to.
-    """
-    def request_relocate_to_local(self,table,rid):
-        if not rid in self.location[table]:
-            self.location[table][rid] = self.get_host_from_rid(table,rid)
-        self.send_request_owner(self.location[table][rid],table,rid,"relocate")
+        if count == 10:
+            logger.error("[obm]: Too many attempts to relocate. Giving up!")
+            return False
+        
+        # All went well. Set location cache and object cache, and return the state of the relocated data.
+        self.cache[otype][rid] = result['result']
+        self.location[otype][rid] = self.myhost.hid
+        
+        return result['result']
+    
+    def relocate_to(self,otype,rid,dest):
+        if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != self.myhost.hid):
+            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+            ret = self.update_cache(otype, rid, self.myhost.hid,False)
+            if (not ret or (self.location[otype][rid].hid != self.myhost.hid)):
+                logger.error("[obm]: Could not relocate object because I could not own it.")
+                return False
+            
+        # Object is surely located here. Proceed with the relocation.
+        # TODO: Lock this method
+        try:
+            obj = self.datacon.db.get(ObjectManager,rid)
+            newhost = self.datacon.db.get(Host,dest)
+            obj.host = newhost
+            self.datacon.db.insert_update(obj)
+        except:
+            logger.exception("[obm]: Error relocating:")
+        
+        return self.cache[otype][rid]
         
     """
-    __send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
+    send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
     """    
-    def send_request_owner(self,obj_location,table,RID,op,data=None,names=None,params=[]):
+    def send_request_owner(self,obj_location,otype,rid,op,obj=None,params=[]):
         host,port = obj_location.split(':')
-        if op == "update":
-            cmd = "&op=update&tuples=" + urllib.quote(json.dumps(data))
+        if op == "post":
+            cmd = "&op=post&obj=" + urllib.quote(obj)
         elif op == "select":
-            cmd = "&op=select"
-            if names:
-                cmd += "&names=" + urllib.quote(json.dumps(names))
+            cmd = "&op=get"
         elif op == "relocate":
-            cmd = "&op=relocate&no=" + self.myhost
-        elif op == "insert":
-            cmd = "&op=insert&values=" + urllib.quote(json.dumps(data))
+            cmd = "&op=relocate&no=" + self.myhost.hid
+        elif op == "put":
+            cmd = "&op=put&obj=" + urllib.quote(obj)
         
         if params:
             cmd += '&' + '&'.join([param for param in params]) 
-        # TODO: catch exception on timeout
-        conn = httplib.HTTPConnection(host,port,timeout=4)
-        logging.debug("[obm]: Sending request to " + obj_location)
-        conn.request("GET", "/obm?rid="+str(RID)+"&tbl="+table+cmd)
-        resp = conn.getresponse()
-        if resp.status == 200:
-            result = resp.read()
-            return result
-        else:
-            logging.error("[obm]: Received a bad status from HTTP.")
+        try:
+            conn = httplib.HTTPConnection(host,port,timeout=4)
+            logging.debug("[obm]: Sending request to " + obj_location)
+            conn.request("GET", "/obm?rid=%s&type=%s%s" % (rid,otype,cmd))
+            resp = conn.getresponse()
+            if resp.status == 200:
+                res = resp.read()
+                return json.loads(res)
+            else:
+                logging.error("[obm]: Received a bad status from HTTP.")
+                return resp.status
+        except:
+            logger.exception("[obm]: Failed send requesting to owner:")
