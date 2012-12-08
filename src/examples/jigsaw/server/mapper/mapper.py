@@ -193,6 +193,14 @@ class JigsawMapper():
             logging.error("[mapper]: Could not update piece.")
             return False
         return True
+
+    def drop_piece(self, pid, tuples):
+        res = self.datacon.obm.post(Piece,pid,tuples)
+        if not res:
+            logging.error("[mapper]: Could not drop piece.")
+            return False
+        else:
+            return True
         
     def lock_piece(self, pid, uid):
         piece = self.datacon.obm.get(pid)
@@ -217,6 +225,18 @@ class JigsawMapper():
     def select_all(self):
         # TODO: From database?
         return self.datacon.obm.find_all(Piece)
+    
+    def game_over(self, total_pieces):
+        try:
+            session = self.datacon.db.Session()
+            res = session.query(Piece).filter(Piece.b==1).count()
+            if res < total_pieces:
+                return False
+            else:
+                return True
+        except:
+            logging.exception("[mapper]: Counting pieces went wrong:")
+            return False
 
 
     """
@@ -305,7 +325,7 @@ class JigsawMapper():
                 session.add(user)
                 session.commit()
             else:
-                logging.error("[mapper]: User could not be found in database.")
+                logging.debug("[mapper]: User could not be found in database. Probably a Guest. User id was %s" % (userid))
                 return False
             session.close()
             return [{'user':user.name, 'uid':userid, 'score':user.score}]

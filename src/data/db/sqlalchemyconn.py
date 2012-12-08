@@ -74,7 +74,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
     
     def update(self,otype,rid,tuples):
@@ -88,7 +88,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
         
     def insert_update(self,obj):
@@ -99,7 +99,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
     
     def delete(self,otype,rid):
@@ -114,7 +114,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
         
     def delete_object(self,obj):
@@ -125,7 +125,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
         
     # Takes a list of object types to clear the table
@@ -138,7 +138,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
 
     def return_all(self,otype):
@@ -148,7 +148,7 @@ class SQLAlchemyConnector():
             session.close()
             return res
         except:
-            logger.exception["[sqlalchemyconn]: Error returning all:"]
+            logger.exception("[sqlalchemyconn]: Error returning all:")
             return []
     
     # Returns all value of object type otype where param == value.
@@ -159,6 +159,16 @@ class SQLAlchemyConnector():
             session.close()
             return res
         except:
-            logger.exception["[sqlalchemyconn]: Error filtering:"]
+            logger.exception("[sqlalchemyconn]: Error filtering:")
             return []
+        
+    def count(self,otype):
+        try:
+            session = self.Session()
+            res = session.query(otype).count()
+            session.close()
+            return res
+        except:
+            logger.exception("[sqlalchemyconn]: Error filtering:")
+            return -1
         

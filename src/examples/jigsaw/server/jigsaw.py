@@ -1,14 +1,14 @@
+from collections import defaultdict
 from copy import deepcopy
 from data.db.sqlalchemyconn import SQLAlchemyConnector
-from examples.jigsaw.server.mapper.mapper import JigsawMapper
-from examples.jigsaw.server.mapper.dbobjects import Piece, User
 from data.plugins.obm import ObjectManager
+from examples.jigsaw.server.mapper.dbobjects import Piece, User
+from examples.jigsaw.server.mapper.mapper import JigsawMapper
 from random import randint
 from rcat import RCAT
 from threading import Thread
 from tornado import websocket
 from tornado.ioloop import IOLoop
-from collections import defaultdict
 import ConfigParser
 import common.helper as helper
 import json
@@ -52,8 +52,6 @@ dfrus = {'x': 0,
 
 pieces = {}
 
-clientsConnected = 0
-
 class JigsawServerHandler(websocket.WebSocketHandler):
     def open(self):
         global pchandler
@@ -81,34 +79,29 @@ class JigsawRequestParser(Thread):
         self.evt = None
 
     def run(self):
-        global clientsConnected
         global game_loading
         # TODO: userid and userid[0] is confusing 
         try:
             enc = json.loads(self.message)
-
             # send the config when the user joins
             if "NU" in enc:
-                clientsConnected += 1
                 # get the user id
                 new_user_list = enc["NU"]
                 if len(new_user_list) != 1:
                     raise Exception('Not supporting multiple new users')
                 userid = new_user_list[0]
 
-                # datacon.mapper.create_user(userid)
                 if not game_loading:
                     jigsaw.send_game_to_clients(userid)
 
             elif "UD" in enc:
                 # User was disconnected. Inform other clients
-                clientsConnected -= 1
                 if enc["SS"] == rcat.pc.adm_id:
                     del enc["SS"]
                     datacon.mapper.disconnect_user(enc["UD"])
                     if enc["UD"] in locks:
-                        piece = locks[enc["UD"]]
-                        datacon.mapper.update(piece['x'], piece['y'], [('l', None), ('x', piece['x']), ('y', piece['y'])], piece['pid'])
+                        pid = locks[enc["UD"]]
+                        piece = datacon.mapper.get_piece(pid)
                         response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
@@ -129,16 +122,7 @@ class JigsawRequestParser(Thread):
                 m = json.loads(enc["M"])
                 userid = enc["U"][0]
 
-                if 'rp' in m:  # frustum update
-                    # pf = datacon.mapper.set_user_frustrum(userid, m['rp']['v'])
-                    # NOT YET IMPLEMENTED
-                    pf = ''
-                    response = {'M': {'pf':pf}, 'U':[userid]}
-                    jsonmsg = json.dumps(response)
-                    self.handler.write_message(jsonmsg)
-                    # TODO: send pieces located in the new frustum
-
-                elif 'usr' in m:  # 1- client connects to server/opens websocket
+                if 'usr' in m:  # 1- client connects to server/opens websocket
                     # 2- server sends game state: 'c' config msg
                     # 3- client answers with its user name: 'usr' msg
                     # 4- server tells all clients about the new user: 'NU' msg 
@@ -169,7 +153,7 @@ class JigsawRequestParser(Thread):
                     """
                         
                     # update piece coords
-                    loc = datacon.mapper.move_piece(x, y, [('x', x), ('y', y)], pid)
+                    datacon.mapper.move_piece(x, y, [('x', x), ('y', y)], pid)
                     
                     # add lock owner to msg to broadcast
                     response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
@@ -183,11 +167,12 @@ class JigsawRequestParser(Thread):
                     x = m['pd']['x']
                     y = m['pd']['y']
 
-                    piece = datacon.mapper.select(x, y, pid)
+                    piece = datacon.mapper.get_piece(pid)
 
                     if not 'l' in piece:
                         logging.warning("[jigsawapp]: Got something weird: " + str(piece))
                         return
+                    
                     lockid = piece['l']
                     if lockid and lockid == userid and not piece['b']:  # I was the owner
                         if userid in locks:
@@ -198,7 +183,7 @@ class JigsawRequestParser(Thread):
                         if bound:  # we know the piece is not bound yet
                             logging.debug('%s bound piece %s at %d,%d'
                                       % (userid, pid, x, y))
-                            datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y), ('b', 1)], pid, True)
+                            datacon.mapper.bind_piece(pid,{'l':None, 'x':x, 'y':y, 'b':1})
 
                             # Update score board. Separate from 'pd' message because this is always broadcasted.
                             update_res = datacon.mapper.add_to_user_score(userid)
@@ -210,9 +195,12 @@ class JigsawRequestParser(Thread):
 
                         else:
                             # unlock piece and update piece coords
-                            datacon.mapper.update(x, y, [('l', None), ('x', x), ('y', y)], pid)
-                            logging.debug('%s dropped piece %s at %d,%d'
-                                      % (userid, pid, x, y))
+                            res = datacon.mapper.drop_piece(pid, {'l':None, 'x':x, 'y':y})
+                            if res:
+                                logging.debug('%s dropped piece %s at %d,%d'
+                                          % (userid, pid, x, y))
+                            else:
+                                logging.error("[jigsaw]: Error dropping piece")
                         # add lock owner to msg to broadcast
                         response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
@@ -257,14 +245,11 @@ class JigsawServer():
         global total_pieces 
         num_not_bound = -1
         total_pieces = int(grid['nrows']) * int(grid['ncols'])
-        cmd = "select count(*) from " + datacon.mapper.table + " where `b` = 1"
-        while (num_not_bound < total_pieces):
+        
+        game_over = False
+        while (not game_over):
+            game_over = self.datacon.db.mapper.game_over(total_pieces)
             time.sleep(3)
-            if game_loading:
-                num_not_bound = -1
-            else:
-                res = datacon.db.execute_one(cmd)
-                num_not_bound = int(res['count(*)'])
                 
         game_loading = True
         scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
@@ -288,7 +273,6 @@ class JigsawServer():
                'grid': grid,
                'frus': dfrus,
                'pieces': pieces,
-               'clients': clientsConnected,
                'scores' : scores
                }
         
@@ -365,24 +349,26 @@ class JigsawServer():
                         datacon.mapper.dump_last_game(keep_users=True)
                         settings["main"]["abandon"] = False
 
-                    count = datacon.db.count("jigsaw")
+                    count = datacon.db.count(Piece)
                     if count > 0:
                             logging.info("[jigsawapp]: Recovering last game.")
                             datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
-                        list_values = []
+                        pieces = []
                         for r in range(grid['nrows']):
                             for  c in range(grid['ncols']):
+                                
                                 pid = str(uuid.uuid4())  # piece id
                                 b = 0  # bound == correctly placed, can't be moved anymore
-                                l = None  # lock = id of the player moving the piece
+                                # l: lock = id of the player moving the piece
                                 x = randint(0, board['w'] - grid['cellw'])
                                 y = randint(0, board['h'] - grid['cellh'])
-                                # Remove h later on!
-                                list_values.append([pid, b, x, y, c, r, l])
-                                # datacon.mapper.insert(values, pid)
-                        datacon.mapper.insert_batch(list_values)
+                                
+                                #list_values.append([pid, b, x, y, c, r, l])
+                                pieces.append(Piece(pid, x, y, c, r, b))
+                                
+                        datacon.mapper.create_pieces(pieces)
 
                     # Game end checker
                     t = Thread(target=self.check_game_end)
@@ -418,7 +404,7 @@ class JigsawServer():
 
 if __name__ == "__main__":
     logging.config.fileConfig("connector_logging.conf")
-    rcat = RCAT(JigsawServerHandler, SQLAlchemyConnector, SpacePartitioning, ObjectManager)
+    rcat = RCAT(JigsawServerHandler, SQLAlchemyConnector, JigsawMapper, ObjectManager)
     datacon = rcat.datacon
     logging.debug('[jigsawapp]: Starting jigsaw..')
 
