@@ -59,11 +59,38 @@ class SQLAlchemyConnector():
     def get_multiple(self,pairs):
         session = self.Session()
         ret_list = []
+        # TODO: Can this be improved by chaining a filter? Seems like it
         for otype,rid in pairs:
             ret_list.append(session.query(otype).get(rid))
         session.close()
         return ret_list
     
+    def insert_update_multiple(self,objs):
+        try:
+            session = self.Session()
+            for obj in objs:
+                session.add(obj)
+            session.commit()
+            session.close()
+            return True
+        except:
+            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            return False
+    
+    def update(self,otype,rid,tuples):
+        try:
+            session = self.Session()
+            obj = session.query(otype).get(rid)
+            for k,v in tuples:
+                obj[k] = v
+            session.add
+            session.commit()
+            session.close()
+            return True
+        except:
+            logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
+            return False
+        
     def insert_update(self,obj):
         try:
             session = self.Session()
@@ -101,18 +128,19 @@ class SQLAlchemyConnector():
             logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
             return False
         
-    def obm_clear(self):
+    # Takes a list of object types to clear the table
+    def clear(self,objtypes):
         try:
             session = self.Session()
-            session.query(ObjectManager).all().delete()
-            session.query(Host).all().delete()
-            session.commit()
+            for otype in objtypes:
+                session.query(otype).delete()
+                session.commit()
             session.close()
             return True
         except:
             logger.exception["[sqlalchemyconn]: Error inserting/updating:"]
             return False
-        
+
     def return_all(self,otype):
         try:
             session = self.Session()
@@ -122,3 +150,15 @@ class SQLAlchemyConnector():
         except:
             logger.exception["[sqlalchemyconn]: Error returning all:"]
             return []
+    
+    # Returns all value of object type otype where param == value.
+    def filter(self,otype,param,value):
+        try:
+            session = self.Session()
+            res = session.query(otype).filter(param==value).all()
+            session.close()
+            return res
+        except:
+            logger.exception["[sqlalchemyconn]: Error filtering:"]
+            return []
+        

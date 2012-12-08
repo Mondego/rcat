@@ -130,20 +130,15 @@ class ObjectManager():
         self.location = {}
 
     # Registers OBM in the database. Also prepares caching for all object types.        
-    def register_node(self,adm,otypes,ridname,rid_type=None,autoinc=None):
-        if not rid_type:
-            rid_type = "varchar(255)"
-        
+    def register_node(self,adm,otypes):
         self.host = Host(adm, self.datacon.host)
         
         for otype in otypes:
             self.cache[otype] = {}
             self.location[otype] = {}
-            #self.ridnames[otype] = ridname
-            #self.indexes[otype] = {}
     
     def clear(self,table):
-        return self.datacon.db.obm_clear()
+        return self.datacon.db.clear([ObjectManager,Host])
         
     def find_all(self,otype):
         # TODO: There is still possible inconsistency, current frustrum must be subscribing to updates
@@ -166,11 +161,14 @@ class ObjectManager():
             logger.exception("[obm]: Failed to set owner in database.")
             return False
     
+    def whereis(self,otype,rid):
+        return self.location[otype][rid]
+    
     """
     update_cache(self,otype,rid,hid): Checks if location of object is cached and if it matches the hid requested. Otherwise, update the cache. If it is still inconsistent,
     performs relocation.
     """
-    def update_cache(self,otype,rid,hid,relocate=True):
+    def update_cache(self,otype,rid,hid,relocate=False):
         try:
             ret_object = self.datacon.db.get(ObjectManager,rid)
             if ret_object:
@@ -189,11 +187,12 @@ class ObjectManager():
         except:
             logging.exception("[obm]: Error in update:")
 
-        if relocate:        
-            if not self.location[otype][rid].hid == hid:
-                # Object isn't where it is supposed to be. Means I need to first relocate it to the new server, then update it!
+        if relocate:
+            if not self.location[otype][rid].hid == hid and hid == self.myhost.hid:
+                # Object is supposed to be here, but its somewhere else. Means I need to first relocate it here!
                 logging.warn("[obm]: Attempting to relocate object to correct place...")
-                result = self.relocate(otype, rid, hid)
+                # Transfer from cached location to here:
+                result = self.relocate(otype, rid, self.location[otype][rid].hid,self.myhost.hid)
                 if result['status'] != 200:
                     logger.error("[obm]: Could not relocate to perform update.")
                     return False
@@ -242,14 +241,14 @@ class ObjectManager():
     
     Methods:
     """
-    def post(self,otype,obj,rid,hid=None,immediate=False):
+    def post(self,otype,rid,tuples,hid=None,immediate=False):
         if hid==self.myhost.hid:
             # Update locally
-            return self.post_local(otype, obj, rid, immediate)
+            return self.post_local(otype, tuples, rid, immediate)
         
         elif hid:
             # Update remotely
-            return self.post_remote(otype, obj, rid, hid, immediate)
+            return self.post_remote(otype, tuples, rid, hid, immediate)
 
         else:
             # Find where it is and update it
@@ -257,14 +256,14 @@ class ObjectManager():
             if ret:
                 # It is somewhere. If it is here, update local, otherwise update remote.
                 if ret.host.hid != self.myhost.hid:
-                    return self.post_remote(otype, obj, rid, ret.host.hid, immediate)
+                    return self.post_remote(otype, tuples, rid, ret.host.hid, immediate)
                 elif ret.host.hid == self.myhost.hid:
-                    return self.post_local(otype, obj, rid, immediate)
+                    return self.post_local(otype, tuples, rid, immediate)
             else:
                 # It has not yet been assigned. Might as well assign it here.
-                return self.post_local(otype, obj, rid, immediate)
+                return self.post_local(otype, tuples, rid, immediate)
     
-    def post_local(self,otype,obj,rid,immediate=False):
+    def post_local(self,otype,tuples,rid,immediate=False):
         if rid not in self.location[otype] or (rid in self.location[otype] and self.location[otype][rid].hid != self.myhost.hid):
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
             ret = self.update_cache(otype, rid, self.myhost.hid)
@@ -275,11 +274,11 @@ class ObjectManager():
         # Schedules update to be persisted.
         if not immediate:
             logger.debug("[obm]: Scheduling update.")
-            ret = self.datacon.db.schedule_update(obj)
+            ret = self.datacon.db.schedule_update(tuples)
         else:
             # Critical message, needs immediate consistency
             logger.debug("[obm]: Performing immediate update.")
-            ret = self.datacon.db.insert_update(obj)
+            ret = self.datacon.db.update(otype,rid,tuples)
         return ret
     
     def post_remote(self,otype,obj,rid,hid,immediate=False):
@@ -424,6 +423,10 @@ class ObjectManager():
     rid: Object identification. Commonly a UUID.
     source: Host id of the source of the relocation. If none is given, a lookup is performed to find the host that has it (if any).
     dest: Host id of the intended destination for the object. 
+    
+    Methods:
+    relocate_from(self,otype,rid,source): Relocate object `rid` of type `otype` from `source` to here.
+    relocate_to(self,otype,rid,dest): Relocate object `rid` of type `otype` from here to destination `dest`.
     """  
     def relocate(self,otype,rid,source=None,dest=None):
         if not dest:
@@ -435,7 +438,7 @@ class ObjectManager():
         if dest == self.myhost.hid:
             # If destination is here, relocate from source
             return self.relocate_from(otype,rid,source)
-        elif not source and dest == self.myhost.hid:
+        elif not source and (not dest or dest == self.myhost.hid):
             # Want to transfer object here, but don't know where it is.
             ret = self.datacon.db.get(ObjectManager,rid)
             if ret:
@@ -460,13 +463,18 @@ class ObjectManager():
                 logger.error("[obm]: Could not relocate object because object does not exist.")
                 return False
         
+        # If the relocation already happened, just return True    
+        if self.location[otype][rid].hid == self.myhost.hid:
+            return True
+        
         # Either object is in the source, or the actual location of the object has been updated. Either way, attempting to relocate.
         result = self.send_request_owner(self.location[otype][rid],otype,rid,"relocate")
         count = 0        
-        while (result['status'] != 200 and count < 10):
+        while (result['status'] != 200 and count < 10 and self.location[otype][rid].hid != self.myhost.hid):
             # Failed to retrieve it. Update cache and try again.
             count+=1
             ret = self.update_cache(otype,rid,source,False)
+            
             if not ret:
                 logger.error("[obm]: Could not relocate object because object does not exist.")
                 return False
@@ -488,7 +496,7 @@ class ObjectManager():
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
             ret = self.update_cache(otype, rid, self.myhost.hid,False)
             if (not ret or (self.location[otype][rid].hid != self.myhost.hid)):
-                logger.error("[obm]: Could not relocate object because I could not own it.")
+                logger.warn("[obm]: Could not relocate object because I could not own it. Maybe it moved.")
                 return False
             
         # Object is surely located here. Proceed with the relocation.
@@ -504,7 +512,7 @@ class ObjectManager():
         return self.cache[otype][rid]
         
     """
-    send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object to update the current value of object with id=RID
+    send_request_owner(self,host,table,RID,name,update_value): Sends message to authoritative owner of object with an obm command.
     """    
     def send_request_owner(self,obj_location,otype,rid,op,obj=None,params=[]):
         host,port = obj_location.split(':')

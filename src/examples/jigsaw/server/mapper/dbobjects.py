@@ -29,8 +29,10 @@ class User(Base):
     __tablename__ = 'users'
     uid = Column(String(255))
     name = Column(String(255), primary_key=True)
+    score = Column(Integer,default=0,nullable=False)
     
-    def __init__(self,uid,name):
+    def __init__(self,uid,name,score):
         self.uid = uid
         self.name = name
+        self.score = score
             

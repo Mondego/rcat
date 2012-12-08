@@ -1,6 +1,7 @@
 from copy import deepcopy
 from data.db.sqlalchemyconn import SQLAlchemyConnector
-from examples.jigsaw.server.mapper.spacepart import SpacePartitioning
+from examples.jigsaw.server.mapper.mapper import JigsawMapper
+from examples.jigsaw.server.mapper.dbobjects import Piece, User
 from data.plugins.obm import ObjectManager
 from random import randint
 from rcat import RCAT
@@ -151,30 +152,32 @@ class JigsawRequestParser(Thread):
                     pid = m['pm']['id']
                     x = m['pm']['x']
                     y = m['pm']['y']
-                    piece = datacon.mapper.select(x, y, pid)
+                    
+                    ret = datacon.mapper.lock_piece(pid,userid)
+                    if ret:
+                        global locks
+                        locks[userid] = pid
 
+                    """
                     lockid = piece['l']
                     if (not lockid or lockid == "None") and not piece['b']:  # lock the piece if nobody owns it
                         global locks
                         lockid = userid
                         locks[userid] = piece
-                        datacon.mapper.update(x, y, [('l', lockid)], pid)
+                        datacon.mapper.lock_piece(pid,lockid)
                         logging.debug('%s starts dragging piece %s' % (userid, pid))
-                    # TODO: Better detect conflict. Right now I privilege the latest attempt, not the first.
-                    # if lockid == userid: # change location if I'm the owner
+                    """
+                        
                     # update piece coords
-                    loc = datacon.mapper.update(x, y, [('x', x), ('y', y)], pid)
-                    if loc != "LOCAL":
-                        rcat.pc.move_user(userid, loc)
+                    loc = datacon.mapper.move_piece(x, y, [('x', x), ('y', y)], pid)
+                    
                     # add lock owner to msg to broadcast
-                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':lockid}}}  #  no 'U' = broadcast
+                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
+                    
                     # broadcast
                     jsonmsg = json.dumps(response)
-                    # TODO: Only send updates to concerned users
                     self.handler.write_message(jsonmsg)
-                    # else:
-                    #    logging.debug("[jigsawapp]: Weird value for lockid: " + str(lockid))
-
+                    
                 elif 'pd' in m:  # piece drop
                     pid = m['pd']['id']
                     x = m['pd']['x']
