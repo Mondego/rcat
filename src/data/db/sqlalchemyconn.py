@@ -47,20 +47,16 @@ class SQLAlchemyConnector():
         
     def __perform_updates__(self,persist_timer):
         while(1):
-            logging.info("Starting persisting thread")
             try:
                 if self.engine:
                     conn = self.engine.connect()
                     trans = conn.begin()
-                    logging.info("self.updates = %s" % self.updates)
                     for typeob,list_updates in self.updates.items():
                         for oid,updates in list_updates.items():
                             try:
                                 conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
-                                logging.info("Persisting object %s with update values %s" % (oid,updates))
                             except:
                                 logger.exception("[sqlalchemyconn]: Error commiting scheduled updates:")
-                    logging.info("Committing...")
                     trans.commit()
                     # Closing this connection does not mean closing the actual connection to then database.
                     # http://docs.sqlalchemy.org/en/latest/core/connections.html#sqlalchemy.engine.Connection.connect
