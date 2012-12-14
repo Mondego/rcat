@@ -23,6 +23,7 @@ function Network(host) {
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // init config
       model.init();
+      console.log(m.c.scores);
       var topUsers = m.c.scores.top;
       var numTopScores = m.c.scores.numTop;
       var connectedUsers = m.c.scores.connected;

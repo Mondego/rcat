@@ -5,10 +5,13 @@ Created on May 18, 2012
 '''
 from collections import defaultdict, deque
 from copy import deepcopy
-from examples.jigsaw.server.mapper.dbobjects import User, Piece
+from examples.jigsaw.server.mapper.dbobjects import User, Piece, dumps_piece, \
+    loads_piece, dumps_userscore
 from sqlalchemy import desc
+from sqlalchemy.ext.serializer import dumps
 from sqlalchemy.orm.exc import NoResultFound
 from threading import Timer
+import json
 import logging
 import time
 
@@ -126,7 +129,7 @@ class JigsawMapper():
     """
 
     def connected_users(self):
-        session = self.datacon.db.Session()
+        session = self.datacon.db.Session(expire_on_commit=False)
         res = session.query(User).filter(User.uid != None).all()
         session.close()
         return res
@@ -138,8 +141,12 @@ class JigsawMapper():
 
     def dump_pieces(self):
         self.datacon.db.clear([Piece])
+        
+    def clear_cache(self):
+        return self.datacon.obm.clear_cache([Piece])
 
-    def reset_players(self, keep_score, keep_users):
+    def reset_game(self, keep_score=False, keep_users=False, keep_pieces=False):
+        session = self.datacon.db.Session(expire_on_commit=False)
         try:
             if not keep_score:
                 if not keep_users:
@@ -147,22 +154,25 @@ class JigsawMapper():
                     self.datacon.db.clear([User])
                 else:
                     # Keep the connected users on the table and change their scores to 0.
-                    session = self.datacon.db.Session()
                     session.query(User).filter(User.uid==None).delete()
                     session.query(User).update({'score':0})
                     session.commit()
-                    session.close()
             else:
                 # Keep the connected users and their scores.
-                session = self.datacon.db.Session()
                 session.query(User).filter(User.uid==None).delete()
                 session.commit()
-                session.close()
+                
                 self.datacon.db.execute("update " + self.table_score + " set `uid` = ''")
-            return True
+
+            if not keep_pieces:
+                session.query(Piece).delete()
+                session.commit()
+                self.clear_cache()
         except:
             logging.exception("[mapper]: Failed to reset players:")
             return False
+        session.close()
+        return True
 
     def get_piece(self, pid):
         piece = self.datacon.obm.get(Piece,pid)
@@ -178,24 +188,24 @@ class JigsawMapper():
         if not res:
             logging.error("[mapper]: Could not insert. Response: " + str(res))
 
-    def move_piece(self, pid, tuples):
+    def move_piece(self, pid, newpos):
         # TODO: Determine what server should start treating this piece movement (load balance function). For now, treat it here.
         # Transfer piece locally, as I expect new move piece requests soon
-        if self.datacon.obm.whereis(Piece,pid) != self.myhostid:
+        if self.datacon.obm.whereis(Piece,pid) != self.myid:
             res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
         
         if not res:
             logging.error("[mapper]: Could not find piece.")
             return False
         
-        res = self.datacon.obm.post(Piece,pid,tuples,self.myid)
+        res = self.datacon.obm.post(Piece,pid,newpos,self.myid)
         if not res:
             logging.error("[mapper]: Could not update piece.")
             return False
         return True
 
-    def drop_piece(self, pid, tuples):
-        res = self.datacon.obm.post(Piece,pid,tuples)
+    def drop_piece(self, pid, update_dict):
+        res = self.datacon.obm.post(Piece,pid,update_dict,None,True)
         if not res:
             logging.error("[mapper]: Could not drop piece.")
             return False
@@ -203,10 +213,10 @@ class JigsawMapper():
             return True
         
     def lock_piece(self, pid, uid):
-        piece = self.datacon.obm.get(pid)
-        user = self.datacon.obm.get(uid)
+        piece = self.datacon.obm.get(Piece,pid)
+        user = self.datacon.mapper.get_user(uid)
         if not piece.l and not piece.b:
-            ret = self.datacon.obm.post(Piece,piece['pid'],{'l':user},None,True)
+            ret = self.datacon.obm.post(Piece,piece.pid,{'l':user.uid},None,True)
             if not ret:
                 logging.error("[mapper]: Could not lock piece.")
                 return False
@@ -221,14 +231,27 @@ class JigsawMapper():
             return False
         else:
             return True
-        
+    
+    def get_user(self, uid):
+        try:
+            session = self.datacon.db.Session(expire_on_commit=False)
+            res = session.query(User).filter(User.uid==uid).one()
+            return res
+        except:
+            logging.exception("[mapper]: Retrieving user returned an error:")
+            return False
+    
     def select_all(self):
         # TODO: From database?
-        return self.datacon.obm.find_all(Piece)
+        all_pieces = self.datacon.obm.find_all(Piece)
+        enc_pieces = {}
+        for piece in all_pieces:
+            enc_pieces[piece.pid] = dumps_piece(piece)
+        return enc_pieces
     
     def game_over(self, total_pieces):
         try:
-            session = self.datacon.db.Session()
+            session = self.datacon.db.Session(expire_on_commit=False)
             res = session.query(Piece).filter(Piece.b==1).count()
             if res < total_pieces:
                 return False
@@ -262,10 +285,12 @@ class JigsawMapper():
         self.board["bs"] = bucket_size
         self.board["w"] = m_boardw
         self.board["h"] = m_boardh
+        
+        self.clear_cache()
 
     def recover_last_game(self):
         try:
-            session = self.datacon.db.Session()
+            session = self.datacon.db.Session(expire_on_commit=False)
             session.query(User).update({'uid':None})
             session.query(Piece).update({'l':None})
             session.commit()
@@ -285,9 +310,13 @@ class JigsawMapper():
         """ Return the top X player scores """
         scores = {}
         try:
-            session = self.datacon.db.Session()
-            scores["numTop"] = session.query(User).order_by(desc(User.score)).limit(num_top).all()
-            scores["connected"] = session.query(User).filter(User.uid!=None).all()
+            session = self.datacon.db.Session(expire_on_commit=False)
+            scores["numTop"] = num_top
+            # These queries return User objects, they need to be serialized for client.
+            top_users = session.query(User).order_by(desc(User.score)).limit(num_top).all()
+            conn_users = session.query(User).filter(User.uid!=None).all()
+            scores["top"] = dumps_userscore(top_users)
+            scores["connected"] = dumps_userscore(conn_users)
         except:
             logging.exception("[mapper]: Could not retrieve scores:")
             return False
@@ -298,7 +327,7 @@ class JigsawMapper():
         if username == "Guest":
             return None
         try:
-            session = self.datacon.db.Session()
+            session = self.datacon.db.Session(expire_on_commit=False)
             user = session.query(User).get(username)
             if user:
                 user.uid = userid
@@ -309,16 +338,17 @@ class JigsawMapper():
                 
             session.add(user)
             session.commit()
-            session.close()    
+            session.close()
+            return [{'user':username, 'uid':userid, 'score':score}]    
         except:
             logging.exception("[mapper]: Could not add new user to score table.")
+        return False
         
-        return [{'user':username, 'uid':userid, 'score':score}]
 
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self, userid):
         try:
-            session = self.datacon.db.Session()
+            session = self.datacon.db.Session(expire_on_commit=False)
             user = session.query(User).filter(User.uid==userid).one()
             if user:
                 user.score += 1
@@ -341,6 +371,7 @@ class JigsawMapper():
             user.uid = None
             
             locked_pieces = session.query(Piece).filter(Piece.l==userid).all()
+            session.commit()
             
             if not locked_pieces:
                 # Lets wait a bit if another node is taking its time to persist the locked object

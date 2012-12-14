@@ -121,7 +121,7 @@ class ProxyConnector():
             elif self.admin_hook:
                 self.admin_hook(msg)
         except:
-            logging.error("[proxyconn]: Error receiving message through admin.")
+            logging.exception("[proxyconn]: Error receiving message through admin:")
 
     def Admin_on_error(self,ws, error):
         logger.exception("Exception in admin message channel: " + str(error))

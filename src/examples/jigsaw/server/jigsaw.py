@@ -2,7 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 from data.db.sqlalchemyconn import SQLAlchemyConnector
 from data.plugins.obm import ObjectManager
-from examples.jigsaw.server.mapper.dbobjects import Piece, User
+from examples.jigsaw.server.mapper.dbobjects import Piece, User, dumps_piece, loads_piece
 from examples.jigsaw.server.mapper.mapper import JigsawMapper
 from random import randint
 from rcat import RCAT
@@ -102,7 +102,7 @@ class JigsawRequestParser(Thread):
                     if enc["UD"] in locks:
                         pid = locks[enc["UD"]]
                         piece = datacon.mapper.get_piece(pid)
-                        response = {'M': {'pd': {'id': piece['pid'], 'x':piece['x'], 'y':piece['y'], 'b':piece['b'], 'l':None}}}  #  no 'U' = broadcast
+                        response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b, 'l':None}}}  #  no 'U' = broadcast
                         jsonmsg = json.dumps(response)
                         self.handler.write_message(jsonmsg)
                     
@@ -153,7 +153,7 @@ class JigsawRequestParser(Thread):
                     """
                         
                     # update piece coords
-                    datacon.mapper.move_piece(x, y, [('x', x), ('y', y)], pid)
+                    datacon.mapper.move_piece(pid, {'x':x, 'y':y})
                     
                     # add lock owner to msg to broadcast
                     response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
@@ -168,13 +168,14 @@ class JigsawRequestParser(Thread):
                     y = m['pd']['y']
 
                     piece = datacon.mapper.get_piece(pid)
-
-                    if not 'l' in piece:
-                        logging.warning("[jigsawapp]: Got something weird: " + str(piece))
+                    if not piece:
+                        raise Exception("Could not retrieve piece for lock check.")
+                    if not piece.l:
+                        logging.warning("[jigsawapp]: Got something weird: %s" % piece)
                         return
                     
-                    lockid = piece['l']
-                    if lockid and lockid == userid and not piece['b']:  # I was the owner
+                    lockid = piece.l
+                    if lockid and lockid == userid and not piece.b:  # I was the owner
                         if userid in locks:
                             del locks[userid]
 
@@ -233,11 +234,13 @@ class JigsawServer():
         database = settings["db"]["db"]
 
         datacon.db.open_connections(address, user, password, database)
-        datacon.mapper.start()
-
+        # Must tell mapper what objects it should cache
         if settings["main"]["start"] == "true":
+            datacon.mapper.start([User,Piece],True)
             settings["main"]["abandon"] = False
             self.start_game()
+        else:
+            datacon.mapper.start([User,Piece])
 
     def check_game_end(self):
         global settings
@@ -248,7 +251,7 @@ class JigsawServer():
         
         game_over = False
         while (not game_over):
-            game_over = self.datacon.db.mapper.game_over(total_pieces)
+            game_over = self.datacon.mapper.game_over(total_pieces)
             time.sleep(3)
                 
         game_loading = True
@@ -346,7 +349,7 @@ class JigsawServer():
                     # Restarting the game at the user's command, or at game over             
                     if settings["main"]["abandon"]:
                         logging.info("[jigsawapp]: Abandoning old game.")
-                        datacon.mapper.dump_last_game(keep_users=True)
+                        datacon.mapper.reset_game(keep_users=True)
                         settings["main"]["abandon"] = False
 
                     count = datacon.db.count(Piece)
@@ -358,15 +361,13 @@ class JigsawServer():
                         pieces = []
                         for r in range(grid['nrows']):
                             for  c in range(grid['ncols']):
-                                
                                 pid = str(uuid.uuid4())  # piece id
                                 b = 0  # bound == correctly placed, can't be moved anymore
-                                # l: lock = id of the player moving the piece
+                                l = None # lock = id of the player moving the piece
                                 x = randint(0, board['w'] - grid['cellw'])
                                 y = randint(0, board['h'] - grid['cellh'])
                                 
-                                #list_values.append([pid, b, x, y, c, r, l])
-                                pieces.append(Piece(pid, x, y, c, r, b))
+                                pieces.append(Piece(pid, x, y, c, r, b, l))
                                 
                         datacon.mapper.create_pieces(pieces)
 

@@ -1,25 +1,28 @@
+from copy import deepcopy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, backref, sessionmaker
+from sqlalchemy.orm import relationship, backref, sessionmaker, subqueryload
 from sqlalchemy.schema import Column, ForeignKey
 from sqlalchemy.types import String, Integer
+from threading import Timer
 import logging
 import sqlalchemy
+import time
 
 logger = logging.getLogger()
 Base = declarative_base()
 
 # Object Manager tables 
 class ObjectManager(Base):
-    __tablename__ = '__om__'
-    oid = Column(String(255))
-    hid = Column(Integer, ForeignKey("hosts.hid"))
-    host = relationship("Host",backref="objects",cascade="all, delete, delete-orphan")
+    __tablename__ = 'objectmanager'
+    oid = Column(String(255),primary_key=True)
+    hid = Column(String(255), ForeignKey("hosts.hid"))
+    host = relationship("Host",backref="objects",cascade="all, delete",single_parent=True)
     
     def __init__(self,oid):
-        self.oid = oid 
-            
+        self.oid = oid
+                    
 class Host(Base):
-    __tablename__ = '__hosts__'
+    __tablename__ = 'hosts'
     hid = Column(String(255), primary_key=True)
     address = Column(String(255))
     
@@ -30,19 +33,56 @@ class Host(Base):
 class SQLAlchemyConnector():
     db = None
     engine = None
+    updates = None
+    
     def __init__(self, dataconnector, persist_timer=3):
         global datacon
         self.persist_timer = persist_timer
         datacon = dataconnector
+        update = Timer(5.0, self.__perform_updates__,[self.persist_timer])
+        update.daemon = True
+        update.start()
+        self.updates = {}
         logger.debug("[sqlalchemyconn]: Starting MySQL Connector.")
         
+    def __perform_updates__(self,persist_timer):
+        while(1):
+            logging.info("Starting persisting thread")
+            try:
+                if self.engine:
+                    conn = self.engine.connect()
+                    trans = conn.begin()
+                    logging.info("self.updates = %s" % self.updates)
+                    for typeob,list_updates in self.updates.items():
+                        for oid,updates in list_updates.items():
+                            try:
+                                conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
+                                logging.info("Persisting object %s with update values %s" % (oid,updates))
+                            except:
+                                logger.exception("[sqlalchemyconn]: Error commiting scheduled updates:")
+                    logging.info("Committing...")
+                    trans.commit()
+                    # Closing this connection does not mean closing the actual connection to then database.
+                    # http://docs.sqlalchemy.org/en/latest/core/connections.html#sqlalchemy.engine.Connection.connect
+                    conn.close()
+            except:
+                logger.exception("[sqlalchemyconn]: Error executing update thread:")
+            time.sleep(persist_timer)
+        
+    
+    def schedule_update(self,otype,oid,update_dict):
+        if not otype in self.updates:
+            self.updates[otype] = {}
+        self.updates[otype][oid] = deepcopy(update_dict)
+        return True
+        
     def open_connections(self, host, user, password, db, poolsize=20, dbtype="mysql"):
-        engine = sqlalchemy.create_engine('%s://%s:%s@%s' % (dbtype,user,password,host),pool_size=poolsize) # connect to server
+        engine = sqlalchemy.create_engine('%s://%s:%s@%s' % (dbtype,user,password,host),pool_size=poolsize,echo=False) # connect to server
         if dbtype =="mysql":
             engine.execute("CREATE DATABASE IF NOT EXISTS %s" % (db)) #create db
         else:
             engine.execute("CREATE DATABASE %s" % (db)) #create db
-        engine.execute("USE %s" % (db)) # select new db
+        engine = sqlalchemy.create_engine('%s://%s:%s@%s/%s' % (dbtype,user,password,host,db),pool_size=poolsize,echo=False) # connect to server
         
         # Set the Session class
         Session = sessionmaker(bind=engine)
@@ -50,50 +90,67 @@ class SQLAlchemyConnector():
         self.Session = Session
         Base.metadata.create_all(self.engine)
         
-    def get(self,otype,rid):
+    def get(self,otype,rid,eager_list=False):
         session = self.Session()
-        ret = session.query(otype).get(rid)
+        qry = session.query(otype)
+        if eager_list:
+            for rel in eager_list:
+                qry = qry.options(subqueryload(rel))
+        ret = qry.get(rid)
         session.close()
         return ret
     
     def get_multiple(self,pairs):
-        session = self.Session()
-        ret_list = []
-        # TODO: Can this be improved by chaining a filter? Seems like it
-        for otype,rid in pairs:
-            ret_list.append(session.query(otype).get(rid))
-        session.close()
-        return ret_list
-    
-    def insert_update_multiple(self,objs):
         try:
             session = self.Session()
+            ret_list = []
+            # TODO: Can this be improved by chaining a filter? Seems like it
+            for otype,rid in pairs:
+                ret_list.append(session.query(otype).get(rid))
+            session.close()
+            return ret_list
+        except:
+            logger.exception("[sqlalchemyconn]: Error getting multiple:")
+            return False
+    
+    def insert_update_multiple(self,objs,expire=False):
+        try:
+            session = self.Session(expire_on_commit=expire)
             for obj in objs:
                 session.add(obj)
             session.commit()
             session.close()
             return True
         except:
-            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
+            logger.exception("[sqlalchemyconn]: Error inserting multiple:")
             return False
     
-    def update(self,otype,rid,tuples):
+    def update(self,otype,oid,update_dict,expire=False):
         try:
-            session = self.Session()
-            obj = session.query(otype).get(rid)
-            for k,v in tuples:
-                obj[k] = v
-            session.add
+            session = self.Session(expire_on_commit=expire)
+            conn = self.engine.connect()
+            conn.execute(otype.__table__.update().where(list(otype.__table__.primary_key)[0]==oid).values(update_dict))
             session.commit()
             session.close()
             return True
         except:
-            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
+            logger.exception("[sqlalchemyconn]: Error updating:")
             return False
         
-    def insert_update(self,obj):
+    def merge(self,source_obj,expire=False):
         try:
-            session = self.Session()
+            session = self.Session(expire_on_commit=expire)
+            session.merge(source_obj)
+            session.commit()
+            session.close()
+            return True
+        except:
+            logger.exception("[sqlalchemyconn]: Error updating:")
+            return False
+        
+    def insert(self,obj,expire=False):
+        try:
+            session = self.Session(expire_on_commit=expire)
             session.add(obj)
             session.commit()
             session.close()
@@ -101,10 +158,22 @@ class SQLAlchemyConnector():
         except:
             logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
-    
-    def delete(self,otype,rid):
+        
+    def insert_update(self,obj,expire=False):
         try:
-            session = self.Session()
+            session = self.Session(expire_on_commit=expire)
+            session.add(obj)
+            session.commit()
+            session.close()
+            logger.info("x: %s, y: %s" % (obj.x,obj.y))
+            return True
+        except:
+            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
+            return False
+    
+    def delete(self,otype,rid,expire=False):
+        try:
+            session = self.Session(expire_on_commit=expire)
             obj = session.query(otype).get(rid)
             if obj:
                 session.delete(obj)
@@ -117,9 +186,9 @@ class SQLAlchemyConnector():
             logger.exception("[sqlalchemyconn]: Error inserting/updating:")
             return False
         
-    def delete_object(self,obj):
+    def delete_object(self,obj,expire=False):
         try:
-            session = self.Session()
+            session = self.Session(expire_on_commit=expire)
             session.delete(obj)
             session.commit()
             session.close()
@@ -138,7 +207,7 @@ class SQLAlchemyConnector():
             session.close()
             return True
         except:
-            logger.exception("[sqlalchemyconn]: Error inserting/updating:")
+            logger.exception("[sqlalchemyconn]: Error clearing:")
             return False
 
     def return_all(self,otype):
@@ -169,6 +238,22 @@ class SQLAlchemyConnector():
             session.close()
             return res
         except:
-            logger.exception("[sqlalchemyconn]: Error filtering:")
+            logger.exception("[sqlalchemyconn]: Error counting:")
             return -1
         
+    """
+    Object Manager Methods (private)
+    """
+    def _obm_replace_host(self,oid,hid):
+        try:
+            session = self.Session()
+            obj = session.query(ObjectManager).get(oid)
+            newhost = session.query(Host).get(hid)
+            obj.host = newhost
+            session.add(obj)
+            session.commit()
+            session.close()
+            return True
+        except:
+            logger.exception("[sqlalchemyconn]: Error transferring host.")
+            return False
