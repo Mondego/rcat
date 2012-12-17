@@ -2,7 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 from data.db.sqlalchemyconn import SQLAlchemyConnector
 from data.plugins.obm import ObjectManager
-from examples.jigsaw.server.mapper.dbobjects import Piece, User, dumps_piece, loads_piece
+from examples.jigsaw.server.mapper.dbobjects import Piece, User
 from examples.jigsaw.server.mapper.mapper import JigsawMapper
 from random import randint
 from rcat import RCAT
@@ -14,7 +14,6 @@ import common.helper as helper
 import json
 import logging.config
 import random
-import threading
 import time
 import uuid
 
@@ -236,17 +235,16 @@ class JigsawServer():
         datacon.db.open_connections(address, user, password, database)
         # Must tell mapper what objects it should cache
         if settings["main"]["start"] == "true":
-            datacon.mapper.start([User,Piece],True)
+            # Leader is responsible to clear out all previous host data, and register as the first node 
+            # Other nodes will only start after the leader is done clearing and registering. This happens when leader sends NEW game.
+            datacon.mapper.init_obm()
             settings["main"]["abandon"] = False
             self.start_game()
-        else:
-            datacon.mapper.start([User,Piece])
 
     def check_game_end(self):
         global settings
         global game_loading
         global total_pieces 
-        num_not_bound = -1
         total_pieces = int(grid['nrows']) * int(grid['ncols'])
         
         game_over = False
@@ -333,6 +331,7 @@ class JigsawServer():
                 global grid
                 game_loading = True
                 terminal.pause_terminal()
+                datacon.mapper.start([User,Piece])
 
                 if "C" in msg["BC"]:
                     global coordinator

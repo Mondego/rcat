@@ -51,7 +51,11 @@ class SQLAlchemyConnector():
                 if self.engine:
                     conn = self.engine.connect()
                     trans = conn.begin()
-                    for typeob,list_updates in self.updates.items():
+                    # Copy the updates to a new dictionary so they can be iterated
+                    current_updates = deepcopy(self.updates)
+                    # Free the update list for new schedulings
+                    self.updates = {}
+                    for typeob,list_updates in current_updates.items():
                         for oid,updates in list_updates.items():
                             try:
                                 conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
@@ -69,8 +73,19 @@ class SQLAlchemyConnector():
     def schedule_update(self,otype,oid,update_dict):
         if not otype in self.updates:
             self.updates[otype] = {}
-        self.updates[otype][oid] = deepcopy(update_dict)
+        if oid in self.updates[otype]:
+            # If this id is already scheduled for update, merge the old update with the new one
+            self.updates[otype][oid] = dict(update_dict.items() + self.updates[otype][oid].items())
+        else:
+            # If there is no schedule updates for this id, just schedule them.
+            self.updates[otype][oid] = deepcopy(update_dict)
         return True
+
+    def remove_scheduled_update(self,otype,oid):
+        if oid in self.updates[otype]:
+            update = self.updates[otype][oid]
+            del self.updates[otype][oid]
+            self.update(otype,oid,update)
         
     def open_connections(self, host, user, password, db, poolsize=20, dbtype="mysql"):
         engine = sqlalchemy.create_engine('%s://%s:%s@%s' % (dbtype,user,password,host),pool_size=poolsize,echo=False) # connect to server

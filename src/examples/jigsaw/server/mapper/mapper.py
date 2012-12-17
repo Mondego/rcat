@@ -119,14 +119,93 @@ class JigsawMapper():
 
     """
     ####################################
-    USER MANAGEMENT SECTION
+    RCAT SECTION
     ####################################
     """
     """
+    init_obm(): Starts Object Manager by clearing out all previous entries for hosts and objects. Must only be run ONCE, and before every
+    other node starts registering.
+    """
+    def init_obm(self):
+        self.datacon.obm.clear()
+    
+    def start(self, otypes):
+        self.datacon.obm.register_node(self.datacon.myid, otypes)
+
+    """
     ####################################
-    DATA MANAGEMENT SECTION
+    GAME INIT SECTION
     ####################################
     """
+
+    def join(self, settings):
+        global piece_mapper
+        global client_mapper
+        global quadtree
+
+        logging.debug("[spacepart]: Joining a game.")
+
+        bw, bh = settings["board"]["w"], settings["board"]["h"]
+        m_boardw, m_boardh = int(bw), int(bh)
+        bucket_size = int(settings["main"]["bucket_size"])
+
+        # Build data structure to lookup server responsible for each area. Using Quadtree for now
+        self.adms = set(settings["ADMS"])
+
+        self.board["bs"] = bucket_size
+        self.board["w"] = m_boardw
+        self.board["h"] = m_boardh
+        
+        self.clear_piece_cache()
+
+    def recover_last_game(self):
+        try:
+            session = self.datacon.db.Session(expire_on_commit=False)
+            session.query(User).update({'uid':None})
+            session.query(Piece).update({'l':None})
+            session.commit()
+            session.close()
+        except:
+            logging.exception("[mapper]: Could not recover last game:")
+        
+                
+
+    """
+    ####################################
+    GAME DATA MANAGEMENT SECTION
+    ####################################
+    """
+
+    def disconnect_user(self, userid):
+        try:
+            session = self.datacon.db.Session()
+            user = session.query(User).filter(User.uid==userid).one()
+            user.uid = None
+            
+            locked_pieces = session.query(Piece).filter(Piece.l==userid).all()
+            session.commit()
+            
+            if not locked_pieces:
+                # Lets wait a bit if another node is taking its time to persist the locked object
+                time.sleep(self.datacon.db.persist_timer*2)
+                locked_pieces = session.query(Piece).filter(Piece.l==userid).all()
+                
+            if locked_pieces:
+                # There should be only one piece here!
+                for piece in locked_pieces:
+                    piece['l'] = None
+                    session.add(piece)
+                    
+            session.commit()
+            session.close()
+            
+        except NoResultFound:
+            logging.debug("[mapper]: User was not found in database. Should be ok.")
+            return True
+        except:
+            logging.exception("[mapper]: Error while trying to remove user from connected list:")
+            return False
+        return True
 
     def connected_users(self):
         session = self.datacon.db.Session(expire_on_commit=False)
@@ -134,15 +213,10 @@ class JigsawMapper():
         session.close()
         return res
 
-    def start(self, otypes, clear=False):
-        if clear:
-            self.datacon.obm.clear()
-        self.datacon.obm.register_node(self.datacon.myid, otypes)
-
     def dump_pieces(self):
         self.datacon.db.clear([Piece])
-        
-    def clear_cache(self):
+    
+    def clear_piece_cache(self):
         return self.datacon.obm.clear_cache([Piece])
 
     def reset_game(self, keep_score=False, keep_users=False, keep_pieces=False):
@@ -212,16 +286,52 @@ class JigsawMapper():
         else:
             return True
         
-    def lock_piece(self, pid, uid):
-        piece = self.datacon.obm.get(Piece,pid)
-        user = self.datacon.mapper.get_user(uid)
-        if not piece.l and not piece.b:
-            ret = self.datacon.obm.post(Piece,piece.pid,{'l':user.uid},None,True)
-            if not ret:
-                logging.error("[mapper]: Could not lock piece.")
-                return False
+    def lock_piece_local(self, pid, uid):
+        piece = self.datacon.db.get(Piece,pid)
+        if not piece.l:
+            res = True
+            if self.datacon.obm.whereis(Piece,pid) != self.myid:
+                res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
+                
+            if not res:
+                logging.error("[mapper]: Could not transfer piece locally. Attempting database locking.")
+                self.lock_piece_db(pid, uid)
+                
+            # Piece is here and ready to be updated!
+            res = self.datacon.obm.post(Piece,piece.pid,{'l':uid},self.myid)
+            if not res:
+                    logging.error("[mapper]: Could not lock piece.")
+                    return False
+            else:
+                return True
         else:
-            # If piece is locked already, return false
+            #Piece is already locked. Return false
+            return False
+        
+    def lock_piece_db(self, pid, uid):
+        # Requires a session, since locks must be atomic. Database is used instead of OBM for locking.
+        try:
+            session = self.datacon.db.Session()
+            piece = session.query(Piece).get(pid)
+            if not piece.l and not piece.b:
+                piece.l = uid
+                session.add(piece)
+                session.commit()
+                
+                # Need to inform the object owner of the change.
+                ret = self.datacon.obm.post(Piece,piece.pid,{'l':uid},None,False,False)
+                if not ret:
+                    logging.error("[mapper]: Could not lock piece.")
+                    return False
+                session.close()
+                return True
+            else:
+                # If piece is locked already, return false
+                session.close()
+                return False
+            
+        except:
+            logging.exception("[mapper]: Could not lock piece:")
             return False
         
     def bind_piece(self, pid, tuples):
@@ -262,43 +372,7 @@ class JigsawMapper():
             return False
 
 
-    """
-    ####################################
-    MAIN
-    ####################################
-    """
 
-    def join(self, settings):
-        global piece_mapper
-        global client_mapper
-        global quadtree
-
-        logging.debug("[spacepart]: Joining a game.")
-
-        bw, bh = settings["board"]["w"], settings["board"]["h"]
-        m_boardw, m_boardh = int(bw), int(bh)
-        bucket_size = int(settings["main"]["bucket_size"])
-
-        # Build data structure to lookup server responsible for each area. Using Quadtree for now
-        self.adms = set(settings["ADMS"])
-
-        self.board["bs"] = bucket_size
-        self.board["w"] = m_boardw
-        self.board["h"] = m_boardh
-        
-        self.clear_cache()
-
-    def recover_last_game(self):
-        try:
-            session = self.datacon.db.Session(expire_on_commit=False)
-            session.query(User).update({'uid':None})
-            session.query(Piece).update({'l':None})
-            session.commit()
-            session.close()
-        except:
-            logging.exception("[mapper]: Could not recover last game:")
-        
-        
     """
     ####################################
     SCORE KEEPING SECTION
@@ -364,33 +438,3 @@ class JigsawMapper():
             logging.exception("[mapper]: Could not add user score.")
             return False
 
-    def disconnect_user(self, userid):
-        try:
-            session = self.datacon.db.Session()
-            user = session.query(User).filter(User.uid==userid).one()
-            user.uid = None
-            
-            locked_pieces = session.query(Piece).filter(Piece.l==userid).all()
-            session.commit()
-            
-            if not locked_pieces:
-                # Lets wait a bit if another node is taking its time to persist the locked object
-                time.sleep(self.datacon.db.persist_timer*2)
-                locked_pieces = session.query(Piece).filter(Piece.l==userid).all()
-                
-            if locked_pieces:
-                # There should be only one piece here!
-                for piece in locked_pieces:
-                    piece['l'] = None
-                    session.add(piece)
-                    
-            session.commit()
-            session.close()
-            
-        except NoResultFound:
-            logging.debug("[mapper]: User was not found in database. Should be ok.")
-            return True
-        except:
-            logging.exception("[mapper]: Error while trying to remove user from connected list:")
-            return False
-        return True

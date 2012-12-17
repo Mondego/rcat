@@ -16,6 +16,7 @@ import tornado.web
 import urllib
 
 obm = None
+obm_otypes = {}
 logger = logging.getLogger()
 
 class OBMHandler(tornado.web.RequestHandler):
@@ -43,17 +44,21 @@ class OBMParser(Thread):
         self.failmsg = json.dumps(fail)
                 
     def run(self):
+        global obm_otypes
         try:
             oid = self.handler.get_argument("oid",None)
-            otype = self.handler.get_argument("type",None)
+            otype_str = self.handler.get_argument("type",None)
+            if otype_str:
+                otype = obm_otypes[otype_str] 
             op = self.handler.get_argument("op",None)
             response = {'status':None,'result':None}
             
             if op == "post":
                 immediate = self.handler.get_argument("immediate",False)
+                propagate = self.handler.get_argument("propagate",True)
                 obj = json.loads(self.handler.get_argument("obj"),None)
                 if obj:
-                    res = obm._post_local(otype,obj,oid,immediate)
+                    res = obm._post_local(otype,obj,oid,immediate,propagate)
                     response['status'] = 200
                     response['result'] = res
                     jsonmsg = json.dumps(response)
@@ -70,6 +75,7 @@ class OBMParser(Thread):
                     IOLoop.instance().add_callback(jsonmsg)
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
+                    raise Exception("[obm_handler]: Could not put object.")
             elif op == "get":
                 obj = obm._get_local(otype,oid)
                 if obj:
@@ -77,14 +83,19 @@ class OBMParser(Thread):
                     response['result'] = json.dumps(obj)
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(jsonmsg)
+                else:
+                    IOLoop.instance().add_callback(self.failmsg)
+                    raise Exception("[obm_handler]: Could not find the object.")
             elif op == "relocate":
                 newowner = self.handler.get_argument("no",None)
-                obj = obm._relocate_to(otype,oid,newowner)
+                obm._relocate_to(otype,oid,newowner)
                 if obj:
                     response['status'] = 200
-                    response['result'] = json.dumps(obj)
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(self.reply(jsonmsg))
+                else:
+                    IOLoop.instance().add_callback(self.failmsg)
+                    raise Exception("[obm_handler]: Could not relocate the object.")
             elif op == "subscribe":
                 ip =  self.handler.request.remote_ip
                 port = self.handler.get_argument("port",None)
@@ -128,7 +139,9 @@ class ObjectManager():
 
     # Registers OBM in the database. Also prepares caching for all object types.        
     def register_node(self,adm,otypes):
+        global obm_otypes
         for otype in otypes:
+            obm_otypes[otype.__name__] = otype
             self.cache[otype] = {}
             self.location[otype] = {}
 
@@ -257,14 +270,14 @@ class ObjectManager():
     
     Methods:
     """
-    def post(self,otype,oid,update_dict,hid=None,immediate=False):
+    def post(self,otype,oid,update_dict,hid=None,immediate=False, propagate=True):
         if hid==self.myhost.hid:
             # Update locally
-            return self._post_local(otype, update_dict, oid, immediate)
+            return self._post_local(otype, update_dict, oid, immediate, propagate)
         
         elif hid:
             # Update remotely
-            return self._post_remote(otype, update_dict, oid, hid, immediate)
+            return self._post_remote(otype, update_dict, oid, hid, immediate, propagate)
 
         else:
             # Find where it is and update it
@@ -272,14 +285,14 @@ class ObjectManager():
             if ret:
                 # It is somewhere. If it is here, update local, otherwise update remote.
                 if ret.host.hid != self.myhost.hid:
-                    return self._post_remote(otype, update_dict, oid, ret.host.hid, immediate)
+                    return self._post_remote(otype, update_dict, oid, ret.host.hid, immediate,propagate)
                 elif ret.host.hid == self.myhost.hid:
-                    return self._post_local(otype, update_dict, oid, immediate)
+                    return self._post_local(otype, update_dict, oid, immediate,propagate)
             else:
                 # It has not yet been assigned. Might as well assign it here.
-                return self._post_local(otype, update_dict, oid, immediate)
+                return self._post_local(otype, update_dict, oid, immediate,propagate)
     
-    def _post_local(self,otype,update_dict,oid,immediate=False):
+    def _post_local(self,otype,update_dict,oid,immediate=False, propagate=True):
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
             ret = self.update_cache(otype, oid, self.myhost.hid)
@@ -290,24 +303,25 @@ class ObjectManager():
         obj = self.cache[otype][oid]
         obj.__dict__.update(update_dict)
         self.cache[otype][oid] = obj
-        # Schedules update to be persisted.
-        if not immediate:
-            logger.debug("[obm]: Scheduling update.")
-            # TODO: Do update scheduling
-            ret = self.datacon.db.schedule_update(otype,oid,update_dict)
-            # ret = self.datacon.db.update(otype, oid, update_dict)
-            #ret = self.datacon.db.merge(obj)
-            # ret = self.datacon.db.insert_update(obj)
-        else:
-            # Critical message, needs immediate consistency
-            logger.debug("[obm]: Performing immediate update.")
-            #ret = self.datacon.db.update(otype, oid, update_dict)
-            #ret = self.datacon.db.merge(obj)
-            ret = self.datacon.db.insert_update(obj)
+        if propagate:
+            # Schedules update to be persisted.
+            if not immediate:
+                logger.debug("[obm]: Scheduling update.")
+                # TODO: Do update scheduling
+                ret = self.datacon.db.schedule_update(otype,oid,update_dict)
+                # ret = self.datacon.db.update(otype, oid, update_dict)
+                #ret = self.datacon.db.merge(obj)
+                # ret = self.datacon.db.insert_update(obj)
+            else:
+                # Critical message, needs immediate consistency
+                logger.debug("[obm]: Performing immediate update.")
+                #ret = self.datacon.db.update(otype, oid, update_dict)
+                #ret = self.datacon.db.merge(obj)
+                ret = self.datacon.db.insert_update(obj)
             
         return ret
     
-    def _post_remote(self,otype,update_dict,oid,hid,immediate=False):
+    def _post_remote(self,otype,update_dict,oid,hid,immediate=False, propagate=True):
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != hid):
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
             ret = self.update_cache(otype, oid, hid)
@@ -316,7 +330,10 @@ class ObjectManager():
                 return False
                 
         remotehost = self.datacon.db.get(Host,hid)
-        res = self.send_request_owner(remotehost, otype, oid, "post", update_values=update_dict,params="immediate="+str(immediate))
+        post_params = []
+        post_params.append("immediate="+str(immediate))
+        post_params.append("propagate="+str(propagate))
+        res = self.send_request_owner(remotehost, otype, oid, "post", update_values=update_dict,params=post_params)
         if res['status'] == 200:
             logger.debug("[obm]: Remote update request.")
             ret = True
@@ -512,7 +529,7 @@ class ObjectManager():
             return False
         
         # All went well. Set location cache and object cache, and return the state of the relocated data.
-        self.cache[otype][oid] = result['result']
+        self.cache[otype][oid] = self.datacon.db.get(otype,oid)
         self.location[otype][oid] = self.myhost.hid
         
         return result['result']
@@ -529,6 +546,10 @@ class ObjectManager():
         # TODO: Lock this method
         try:
             self.datacon.db._obm_replace_host(self,oid,dest)
+            self.datacon.db.merge(self.cache[otype][oid])
+            if oid in self.cache[otype]:
+                del self.cache[otype][oid]
+            self.datacon.db._remove_scheduled_update(otype,oid)
         except:
             logger.exception("[obm]: Error relocating:")
         
@@ -544,8 +565,9 @@ class ObjectManager():
     params: Extra parameters. Currently used only for the immediate flag in update.
     TODO: Make all parameters dictionary?
     """    
-    def send_request_owner(self,host,otype,oid,op,newobj=None,update_values={},params=[]):
-        host,port = host.address.split(':')
+    def send_request_owner(self,host_obj,otype,oid,op,newobj=None,update_values={},params=[]):
+        host,port = host_obj.address.split(':')
+        cmd = ''
         if op == "post":
             cmd = "&op=post&obj=" + urllib.quote(json.dumps(update_values))
         elif op == "select":
@@ -559,14 +581,16 @@ class ObjectManager():
             cmd += '&' + '&'.join([param for param in params]) 
         try:
             conn = httplib.HTTPConnection(host,port,timeout=4)
-            logging.debug("[obm]: Sending request to " + host.address)
-            conn.request("GET", "/obm?oid=%s&type=%s%s" % (oid,otype,cmd))
+            request_string = "/obm?oid=%s&type=%s%s" % (oid,otype.__name__,cmd) 
+            logging.debug("[obm]: Sending request to %s. Request line:%s" % (host_obj.address, request_string))
+            conn.request("GET",request_string)
             resp = conn.getresponse()
             if resp.status == 200:
-                res = resp.read()
-                return json.loads(res)
+                res = json.loads(resp.read())
+                return {'status':200, 'result':res}
             else:
                 logging.error("[obm]: Received a bad status from HTTP.")
-                return resp.status
+                return {'status':resp.status, 'result':None}
         except:
             logger.exception("[obm]: Failed send requesting to owner:")
+            return {'status':400, 'result':None}
