@@ -2,12 +2,18 @@ A web server for massively multi-user online applications.
 
 Requirements:
 Tornado Web Server (http://www.tornadoweb.org/)
-Websocket client (http://pypi.python.org/pypi/websocket-client/0.5.1)
+Websocket client > 0.5.1 (http://pypi.python.org/pypi/websocket-client/)
 Python 2.7
 Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
+Python-SQLAlchemy > 0.7 (http://www.sqlalchemy.org/)
 
 NetGames paper:
   http://www.ics.uci.edu/~tdebeauv/files/2011-RCAT.pdf
+
+Requirements in Ubuntu:
+To install all required packages in ubuntu, do:
+sudo apt-get install python python-tornado python-sqlalchemy 
+Follow instructions for the Websocket client.
 
 Quick Start Instructions for Jigsaw:
 After installing all the required libraries, follow these 3 steps to start the server
