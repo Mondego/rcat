@@ -286,16 +286,24 @@ class JigsawMapper():
         else:
             return True
         
+    def lock_piece(self, pid, uid):
+        self.lock_piece_local(pid,uid)
+        
     def lock_piece_local(self, pid, uid):
         piece = self.datacon.db.get(Piece,pid)
         if not piece.l:
-            res = True
-            if self.datacon.obm.whereis(Piece,pid) != self.myid:
-                res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
+            obj_location = self.datacon.obm.whereis(Piece,pid)
+            if obj_location:
+                res = True  
+                if obj_location != self.myid:
+                    res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
                 
-            if not res:
-                logging.error("[mapper]: Could not transfer piece locally. Attempting database locking.")
-                self.lock_piece_db(pid, uid)
+                if not res:
+                    logging.error("[mapper]: Could not transfer piece locally. Attempting database locking.")
+                    res = self.lock_piece_db(pid, uid)
+                    
+                if not res:
+                    logging.error("[mapper]: Could not lock piece remotely either. Giving up.")
                 
             # Piece is here and ready to be updated!
             res = self.datacon.obm.post(Piece,piece.pid,{'l':uid},self.myid)

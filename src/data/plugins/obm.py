@@ -190,7 +190,10 @@ class ObjectManager():
             return False
     
     def whereis(self,otype,oid):
-        return self.location[otype][oid]
+        if oid in self.location[otype]:
+            return self.location[otype][oid]
+        else:
+            return False # Not here
     
     """
     update_cache(self,otype,oid,hid): Checks if location of object is cached and if it matches the hid requested. Otherwise, update the cache. If it is still inconsistent,
@@ -267,6 +270,7 @@ class ObjectManager():
     hid: Host id of the intended destination. If none is given, a lookup is performed to find the host that has it (if any). If not yet assigned,
     assign it to the current instance and apply local update.
     immediate: If true, pushes to database immediate, otherwise, schedules for future update.
+    propagate: Decides if message should be propagated to database at all. Otherwise, just stays cached.
     
     Methods:
     """
@@ -306,7 +310,7 @@ class ObjectManager():
         if propagate:
             # Schedules update to be persisted.
             if not immediate:
-                logger.debug("[obm]: Scheduling update.")
+                logger.debug("[obm]: Scheduling update: %s" % update_dict)
                 # TODO: Do update scheduling
                 ret = self.datacon.db.schedule_update(otype,oid,update_dict)
                 # ret = self.datacon.db.update(otype, oid, update_dict)
@@ -314,10 +318,11 @@ class ObjectManager():
                 # ret = self.datacon.db.insert_update(obj)
             else:
                 # Critical message, needs immediate consistency
-                logger.debug("[obm]: Performing immediate update.")
+                logger.debug("[obm]: Performing immediate update of %s." % obj)
                 #ret = self.datacon.db.update(otype, oid, update_dict)
                 #ret = self.datacon.db.merge(obj)
-                ret = self.datacon.db.insert_update(obj)
+                self.datacon.db.remove_scheduled_update(otype,oid)
+                ret = self.datacon.db.merge_insert(obj)
             
         return ret
     

@@ -58,6 +58,7 @@ class SQLAlchemyConnector():
                     for typeob,list_updates in current_updates.items():
                         for oid,updates in list_updates.items():
                             try:
+                                logger.debug("[sqlalchemyconn]: Committing %s:%s" % (oid,updates))
                                 conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
                             except:
                                 logger.exception("[sqlalchemyconn]: Error commiting scheduled updates:")
@@ -82,10 +83,14 @@ class SQLAlchemyConnector():
         return True
 
     def remove_scheduled_update(self,otype,oid):
-        if oid in self.updates[otype]:
-            update = self.updates[otype][oid]
-            del self.updates[otype][oid]
-            self.update(otype,oid,update)
+        try:
+            if otype in self.updates:
+                if oid in self.updates[otype]:
+                    update = self.updates[otype][oid]
+                    del self.updates[otype][oid]
+                    self.update(otype,oid,update)
+        except:
+            logger.debug("[sqlalchemyconn]: Attempt to remove a scheduled update, probably already gone.") 
         
     def open_connections(self, host, user, password, db, poolsize=20, dbtype="mysql"):
         engine = sqlalchemy.create_engine('%s://%s:%s@%s' % (dbtype,user,password,host),pool_size=poolsize,echo=False) # connect to server
@@ -147,16 +152,30 @@ class SQLAlchemyConnector():
         except:
             logger.exception("[sqlalchemyconn]: Error updating:")
             return False
-        
+    
     def merge(self,source_obj,expire=False):
         try:
             session = self.Session(expire_on_commit=expire)
-            session.merge(source_obj)
+            newobj = session.merge(source_obj)
+            return newobj
+        except:
+            logger.exception("[sqlalchemyconn]: Error merging:")
+            return False
+        
+    def merge_insert(self,source_obj,expire=False):
+        try:
+            #logger.debug("x: %s, y: %s, l:%s" % (source_obj.x,source_obj.y, source_obj.l))
+            session = self.Session(expire_on_commit=expire)
+            newobj = session.merge(source_obj)
+            #logger.debug("x: %s, y: %s, l:%s" % (newobj.x,newobj.y, newobj.l))
             session.commit()
+            session.add(newobj)
+            session.commit()
+            session.refresh(newobj)
             session.close()
             return True
         except:
-            logger.exception("[sqlalchemyconn]: Error updating:")
+            logger.exception("[sqlalchemyconn]: Error merging and updating:")
             return False
         
     def insert(self,obj,expire=False):
@@ -173,6 +192,7 @@ class SQLAlchemyConnector():
     def insert_update(self,obj,expire=False):
         try:
             session = self.Session(expire_on_commit=expire)
+            session.expire(obj)
             session.add(obj)
             session.commit()
             session.close()

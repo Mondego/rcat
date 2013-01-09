@@ -45,7 +45,6 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
         
         newmsg = {}
         newmsg["NU"] = [self.myid]
-         
         
         if proxy_options["DISTRIBUTION"] == PROXY_DISTRIBUTION.STICKY:
             self.sticky_server = proxyref.back.sticky_server()

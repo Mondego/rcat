@@ -90,7 +90,7 @@ class JigsawRequestParser(Thread):
                     raise Exception('Not supporting multiple new users')
                 userid = new_user_list[0]
 
-                if not game_loading:
+                if not game_loading and enc["SS"] == rcat.pc.adm_id:
                     jigsaw.send_game_to_clients(userid)
 
             elif "UD" in enc:

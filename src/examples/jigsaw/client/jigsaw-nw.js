@@ -187,6 +187,7 @@ function Network(host) {
     var msg = {
       'usr' : user
     };
+    console.log('sent user name')
     this.sendMessage(msg);
   }
 
