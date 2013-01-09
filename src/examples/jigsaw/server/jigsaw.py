@@ -232,12 +232,13 @@ class JigsawServer():
         address = settings["db"]["address"]
         database = settings["db"]["db"]
 
+        # Open connection to database and setup pool of connections. Makes datacon.db calls possible.
         datacon.db.open_connections(address, user, password, database)
-        # Must tell mapper what objects it should cache
+        
         if settings["main"]["start"] == "true":
             # Leader is responsible to clear out all previous host data, and register as the first node 
             # Other nodes will only start after the leader is done clearing and registering. This happens when leader sends NEW game.
-            datacon.mapper.init_obm()
+            datacon.mapper.cleanup_obm()
             settings["main"]["abandon"] = False
             self.start_game()
 
@@ -331,7 +332,9 @@ class JigsawServer():
                 global grid
                 game_loading = True
                 terminal.pause_terminal()
-                datacon.mapper.start([User,Piece])
+
+                # Tell mapper to register cacheable objects with the OBM. Only fires once.
+                datacon.mapper.init_obm([User,Piece])
 
                 if "C" in msg["BC"]:
                     global coordinator

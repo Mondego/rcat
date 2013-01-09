@@ -6,7 +6,7 @@ Created on May 18, 2012
 from data.db.sqlalchemyconn import Host, ObjectManager as OBM
 from examples.jigsaw.server.mapper.dbobjects import Piece
 from sqlalchemy.ext.serializer import dumps
-from threading import Thread
+from threading import Thread, Lock
 from tornado.ioloop import IOLoop
 from tornado.web import asynchronous
 import httplib
@@ -88,7 +88,7 @@ class OBMParser(Thread):
                     raise Exception("[obm_handler]: Could not find the object.")
             elif op == "relocate":
                 newowner = self.handler.get_argument("no",None)
-                obm._relocate_to(otype,oid,newowner)
+                obj = obm._relocate_to(otype,oid,newowner)
                 if obj:
                     response['status'] = 200
                     jsonmsg = json.dumps(response)
@@ -128,6 +128,7 @@ class ObjectManager():
     indexes = {}
     columns = {}
     autoinc = {}
+    object_locks = {}
     
     def __init__(self,datacon,rid_type=None):
         global obm
@@ -144,6 +145,7 @@ class ObjectManager():
             obm_otypes[otype.__name__] = otype
             self.cache[otype] = {}
             self.location[otype] = {}
+            self.object_locks[otype] = {}
 
         self.myhost = Host(adm, self.datacon.host)
         self.datacon.host = self.myhost
@@ -191,7 +193,7 @@ class ObjectManager():
     
     def whereis(self,otype,oid):
         if oid in self.location[otype]:
-            return self.location[otype][oid]
+            return self.location[otype][oid].hid
         else:
             return False # Not here
     
@@ -217,12 +219,13 @@ class ObjectManager():
                     self.setowner(otype, oid, hid)
                     self.cache[otype][oid] = dbobj
         except:
-            logging.exception("[obm]: Error in update:")
+            logger.exception("[obm]: Error in update:")
+            return False
 
         if relocate:
             if not self.location[otype][oid].hid == hid and hid == self.myhost.hid:
                 # Object is supposed to be here, but its somewhere else. Means I need to first relocate it here!
-                logging.warn("[obm]: Attempting to relocate object to correct place...")
+                logger.warn("[obm]: Attempting to relocate object to correct place...")
                 # Transfer from cached location to here:
                 result = self.relocate(otype, oid, self.location[otype][oid].hid,self.myhost.hid)
                 if result['status'] != 200:
@@ -535,30 +538,47 @@ class ObjectManager():
         
         # All went well. Set location cache and object cache, and return the state of the relocated data.
         self.cache[otype][oid] = self.datacon.db.get(otype,oid)
-        self.location[otype][oid] = self.myhost.hid
+        logger.debug("[obm]: Relocated object %s, added to cache " % self.cache[otype][oid])
+        self.location[otype][oid] = self.myhost
         
         return result['result']
     
     def _relocate_to(self,otype,oid,dest):
+        if not oid in self.object_locks[otype]:
+            self.object_locks[otype][oid] = Lock()
+        self.object_locks[otype][oid].acquire()
+        
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
             ret = self.update_cache(otype, oid, self.myhost.hid,False)
             if (not ret or (self.location[otype][oid].hid != self.myhost.hid)):
                 logger.warn("[obm]: Could not relocate object because I could not own it. Maybe it moved.")
+                self.object_locks[otype][oid].release()
                 return False
             
         # Object is surely located here. Proceed with the relocation.
         # TODO: Lock this method
+        logger.debug("[obm]: Relocating %s %s to %s" % (otype,oid,dest))
         try:
-            self.datacon.db._obm_replace_host(self,oid,dest)
-            self.datacon.db.merge(self.cache[otype][oid])
+            cur_obj = False
             if oid in self.cache[otype]:
+                self.datacon.db._obm_replace_host(oid,dest)
+                self.datacon.db.merge(self.cache[otype][oid])
+                cur_obj = self.cache[otype][oid] 
                 del self.cache[otype][oid]
-            self.datacon.db._remove_scheduled_update(otype,oid)
+                self.location[otype][oid] = self.datacon.db.get(Host,dest)
+                self.datacon.db.remove_scheduled_update(otype,oid)
+            else:
+                logger.debug("[obm]: Object is no longer here. Maybe it already has transferred.")
+                self.object_locks[otype][oid].release()
+                return False
         except:
             logger.exception("[obm]: Error relocating:")
-        
-        return self.cache[otype][oid]
+            self.object_locks[otype][oid].release()
+            return False
+            
+        self.object_locks[otype][oid].release()
+        return cur_obj
         
     """
     send_request_owner(self,host,otype,oid,op,newobj,update_values,params): Sends message to authoritative owner of object with an obm command.

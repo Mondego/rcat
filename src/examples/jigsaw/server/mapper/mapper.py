@@ -112,6 +112,7 @@ class JigsawMapper():
     table = None
     board = {}
     users = {}
+    started = False
 
     def __init__(self, datacon):
         self.myid = datacon.myid
@@ -123,14 +124,19 @@ class JigsawMapper():
     ####################################
     """
     """
-    init_obm(): Starts Object Manager by clearing out all previous entries for hosts and objects. Must only be run ONCE, and before every
+    cleanup_obm(): Starts Object Manager by clearing out all previous entries for hosts and objects. Must only be run ONCE, and before every
     other node starts registering.
     """
-    def init_obm(self):
+    def cleanup_obm(self):
         self.datacon.obm.clear()
     
-    def start(self, otypes):
-        self.datacon.obm.register_node(self.datacon.myid, otypes)
+    """
+    init_obm(otypes): Tells the OBM which objects will be cacheable, so it can prepare for caching.
+    """ 
+    def init_obm(self, otypes):
+        if not self.started:
+            self.datacon.obm.register_node(self.datacon.myid, otypes)
+            self.started = True
 
     """
     ####################################
@@ -265,6 +271,7 @@ class JigsawMapper():
     def move_piece(self, pid, newpos):
         # TODO: Determine what server should start treating this piece movement (load balance function). For now, treat it here.
         # Transfer piece locally, as I expect new move piece requests soon
+        res = True
         if self.datacon.obm.whereis(Piece,pid) != self.myid:
             res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
         
@@ -293,17 +300,24 @@ class JigsawMapper():
         piece = self.datacon.db.get(Piece,pid)
         if not piece.l:
             obj_location = self.datacon.obm.whereis(Piece,pid)
+            logging.debug("[mapper]: I think the object is in %s" % obj_location)
+            res = True
             if obj_location:
-                res = True  
                 if obj_location != self.myid:
+                    logging.debug("[mapper]: Not here. Relocating from %s" % obj_location)
                     res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
+            else:
+                logging.debug("[mapper]: Don't know where it is. Attempting to relocate anyway.")
+                res = self.datacon.obm.relocate(Piece,pid,None,self.myid)
+            
+            # Double check if its here.  
+            if not res:
+                logging.error("[mapper]: Could not transfer piece locally. Attempting database locking.")
+                res = self.lock_piece_db(pid, uid)
                 
-                if not res:
-                    logging.error("[mapper]: Could not transfer piece locally. Attempting database locking.")
-                    res = self.lock_piece_db(pid, uid)
-                    
-                if not res:
-                    logging.error("[mapper]: Could not lock piece remotely either. Giving up.")
+            if not res:
+                logging.error("[mapper]: Could not lock piece remotely either. Giving up.")
+                return False
                 
             # Piece is here and ready to be updated!
             res = self.datacon.obm.post(Piece,piece.pid,{'l':uid},self.myid)
