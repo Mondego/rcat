@@ -39,9 +39,7 @@ class OBMParser(Thread):
         self.daemon = True
         self.handler = handler
         
-        # Template fail message
-        fail = {'status':400,'resp':None}
-        self.failmsg = json.dumps(fail)
+        
                 
     def run(self):
         global obm_otypes
@@ -109,6 +107,19 @@ class OBMParser(Thread):
     def reply(self,message):
         def _write():
             self.handler.write(message)
+            self.handler.flush()
+            self.handler.finish()
+        return _write
+    
+    def failmsg(self, message):
+        def _write():
+            if not message:
+                # Template fail message
+                fail = {'status':400,'resp':None}
+                failmsg = json.dumps(fail)
+            else:
+                failmsg = message        
+            self.handler.write(failmsg)
             self.handler.flush()
             self.handler.finish()
         return _write
@@ -306,28 +317,31 @@ class ObjectManager():
             if not ret:
                 logger.error("[obm]: Could not retrieve object for post.")
                 return False
-
-        obj = self.cache[otype][oid]
-        obj.__dict__.update(update_dict)
-        self.cache[otype][oid] = obj
-        if propagate:
-            # Schedules update to be persisted.
-            if not immediate:
-                logger.debug("[obm]: Scheduling update: %s" % update_dict)
-                # TODO: Do update scheduling
-                ret = self.datacon.db.schedule_update(otype,oid,update_dict)
-                # ret = self.datacon.db.update(otype, oid, update_dict)
-                #ret = self.datacon.db.merge(obj)
-                # ret = self.datacon.db.insert_update(obj)
-            else:
-                # Critical message, needs immediate consistency
-                logger.debug("[obm]: Performing immediate update of %s." % obj)
-                #ret = self.datacon.db.update(otype, oid, update_dict)
-                #ret = self.datacon.db.merge(obj)
-                self.datacon.db.remove_scheduled_update(otype,oid)
-                ret = self.datacon.db.merge_insert(obj)
-            
-        return ret
+        try:
+            obj = self.cache[otype][oid]
+            obj.__dict__.update(update_dict)
+            self.cache[otype][oid] = obj
+            if propagate:
+                # Schedules update to be persisted.
+                if not immediate:
+                    logger.debug("[obm]: Scheduling update: %s" % update_dict)
+                    # TODO: Do update scheduling
+                    ret = self.datacon.db.schedule_update(otype,oid,update_dict)
+                    # ret = self.datacon.db.update(otype, oid, update_dict)
+                    #ret = self.datacon.db.merge(obj)
+                    # ret = self.datacon.db.insert_update(obj)
+                else:
+                    # Critical message, needs immediate consistency
+                    logger.debug("[obm]: Performing immediate update of %s." % obj)
+                    #ret = self.datacon.db.update(otype, oid, update_dict)
+                    #ret = self.datacon.db.merge(obj)
+                    self.datacon.db.remove_scheduled_update(otype,oid)
+                    ret = self.datacon.db.merge_insert(obj)
+                
+            return ret
+        except KeyError:
+            logger.exception("[obm]: Could not post locally. It is possible that the object is no longer here.")
+            return False
     
     def _post_remote(self,otype,update_dict,oid,hid,immediate=False, propagate=True):
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != hid):
