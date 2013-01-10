@@ -76,11 +76,13 @@ class OBMParser(Thread):
                     raise Exception("[obm_handler]: Could not put object.")
             elif op == "get":
                 obj = obm._get_local(otype,oid)
+                logging.debug("[obm_handler]: Received get for object %s" % oid)
                 if obj:
                     response['status'] = 200
                     response['result'] = json.dumps(obj)
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(jsonmsg)
+                    logging.debug("[obm_handler]: Sending get of object %s" % oid)
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
                     raise Exception("[obm_handler]: Could not find the object.")
@@ -311,37 +313,47 @@ class ObjectManager():
                 return self._post_local(otype, update_dict, oid, immediate,propagate)
     
     def _post_local(self,otype,update_dict,oid,immediate=False, propagate=True):
-        if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
-            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
-            ret = self.update_cache(otype, oid, self.myhost.hid)
-            if not ret:
-                logger.error("[obm]: Could not retrieve object for post.")
-                return False
+        olock = self.get_lock(otype,oid)
+        olock.acquire()
+        
+        ret_object = False
+        
         try:
-            obj = self.cache[otype][oid]
-            obj.__dict__.update(update_dict)
-            self.cache[otype][oid] = obj
-            if propagate:
-                # Schedules update to be persisted.
-                if not immediate:
-                    logger.debug("[obm]: Scheduling update: %s" % update_dict)
-                    # TODO: Do update scheduling
-                    ret = self.datacon.db.schedule_update(otype,oid,update_dict)
-                    # ret = self.datacon.db.update(otype, oid, update_dict)
-                    #ret = self.datacon.db.merge(obj)
-                    # ret = self.datacon.db.insert_update(obj)
-                else:
-                    # Critical message, needs immediate consistency
-                    logger.debug("[obm]: Performing immediate update of %s." % obj)
-                    #ret = self.datacon.db.update(otype, oid, update_dict)
-                    #ret = self.datacon.db.merge(obj)
-                    self.datacon.db.remove_scheduled_update(otype,oid)
-                    ret = self.datacon.db.merge_insert(obj)
-                
-            return ret
-        except KeyError:
-            logger.exception("[obm]: Could not post locally. It is possible that the object is no longer here.")
-            return False
+            if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
+                # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+                ret_object = self.update_cache(otype, oid, self.myhost.hid)
+                if not ret_object:
+                    logger.error("[obm]: Could not retrieve object for post.")
+                    ret_object = False
+            try:
+                obj = self.cache[otype][oid]
+                obj.__dict__.update(update_dict)
+                self.cache[otype][oid] = obj
+                if propagate:
+                    # Schedules update to be persisted.
+                    if not immediate:
+                        logger.debug("[obm]: Scheduling update: %s" % update_dict)
+                        # TODO: Do update scheduling
+                        ret_object = self.datacon.db.schedule_update(otype,oid,update_dict)
+                        # ret = self.datacon.db.update(otype, oid, update_dict)
+                        #ret = self.datacon.db.merge(obj)
+                        # ret = self.datacon.db.insert_update(obj)
+                    else:
+                        # Critical message, needs immediate consistency
+                        logger.debug("[obm]: Performing immediate update of %s." % obj)
+                        #ret = self.datacon.db.update(otype, oid, update_dict)
+                        #ret = self.datacon.db.merge(obj)
+                        self.datacon.db.remove_scheduled_update(otype,oid)
+                        ret_object = self.datacon.db.merge_insert(obj)
+                            
+            except KeyError:
+                logger.exception("[obm]: Could not post locally. It is possible that the object is no longer here.")
+        except:
+            logger.exception("[obm]: Could not post locally.")
+        finally:
+            olock.release()
+        
+        return ret_object
     
     def _post_remote(self,otype,update_dict,oid,hid,immediate=False, propagate=True):
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != hid):
@@ -392,15 +404,25 @@ class ObjectManager():
                 return self._get_local(otype, oid)
                 
     def _get_local(self,otype,oid):
-        if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
-            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
-            ret = self.update_cache(otype, oid, self.myhost.hid)
-            if not ret:
-                logger.error("[obm]: Could not retrieve object.")
-                return False
+        olock = self.get_lock(otype,oid)
+        olock.acquire()
+        
+        ret_object = False
+        try:
+            if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
+                # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+                ret = self.update_cache(otype, oid, self.myhost.hid)
+                if not ret:
+                    logger.error("[obm]: Could not retrieve object.")
+                    
+            ret_object = self.cache[otype][oid]
+        except:
+            logger.exception("[obm]: Failed to retrieve object.")
+        finally:
+            olock.release()
             
-        return self.cache[otype][oid]
-
+        return ret_object
+        
         
     def _get_remote(self,otype,oid,hid):
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != hid):
@@ -521,46 +543,55 @@ class ObjectManager():
             return False
     
     def _relocate_from(self,otype,oid,source):
-        if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != source):
-            # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
-            ret = self.update_cache(otype, oid, source, False)
-            if not ret:
-                logger.error("[obm]: Could not relocate object because object does not exist.")
-                return False
+        olock = self.get_lock(otype,oid)
+        olock.acquire()
         
-        # If the relocation already happened, just return True    
-        if self.location[otype][oid].hid == self.myhost.hid:
-            return True
-        
-        # Either object is in the source, or the actual location of the object has been updated. Either way, attempting to relocate.
-        result = self.send_request_owner(self.location[otype][oid],otype,oid,"relocate")
-        count = 0        
-        while (result['status'] != 200 and count < 10 and self.location[otype][oid].hid != self.myhost.hid):
-            # Failed to retrieve it. Update cache and try again.
-            count+=1
-            ret = self.update_cache(otype,oid,source,False)
+        ret_object = False
+        try:
+            if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != source):
+                # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
+                ret = self.update_cache(otype, oid, source, False)
+                if not ret:
+                    logger.error("[obm]: Could not relocate object because object does not exist.")
+                    ret_object = False
             
-            if not ret:
-                logger.error("[obm]: Could not relocate object because object does not exist.")
-                return False
+            # If the relocation already happened, just return True    
+            if self.location[otype][oid].hid == self.myhost.hid:
+                ret_object = True
             else:
+                # Either object is in the source, or the actual location of the object has been updated. Either way, attempting to relocate.
                 result = self.send_request_owner(self.location[otype][oid],otype,oid,"relocate")
+                count = 0        
+                while (result['status'] != 200 and count < 10 and self.location[otype][oid].hid != self.myhost.hid):
+                    # Failed to retrieve it. Update cache and try again.
+                    count+=1
+                    ret = self.update_cache(otype,oid,source,False)
+                    
+                    if not ret:
+                        logger.error("[obm]: Could not relocate object because object does not exist.")
+                    else:
+                        result = self.send_request_owner(self.location[otype][oid],otype,oid,"relocate")
+                        
+                if count == 10:
+                    logger.error("[obm]: Too many attempts to relocate. Giving up!")
+                elif (result['status'] == 200):
+                    ret_object = result['result']
                 
-        if count == 10:
-            logger.error("[obm]: Too many attempts to relocate. Giving up!")
-            return False
-        
-        # All went well. Set location cache and object cache, and return the state of the relocated data.
-        self.cache[otype][oid] = self.datacon.db.get(otype,oid)
-        logger.debug("[obm]: Relocated object %s, added to cache " % self.cache[otype][oid])
-        self.location[otype][oid] = self.myhost
-        
-        return result['result']
+                if ret_object:
+                    # All went well. Set location cache and object cache, and return the state of the relocated data.
+                    self.cache[otype][oid] = self.datacon.db.get(otype,oid)
+                    logger.debug("[obm]: Relocated object %s, added to cache " % self.cache[otype][oid])
+                    self.location[otype][oid] = self.myhost
+        except:
+            logger.error("[obm]: Exception relocating %s from %s" % (oid,source))
+        finally:
+            olock.release()
+        return ret_object
     
     def _relocate_to(self,otype,oid,dest):
-        if not oid in self.object_locks[otype]:
-            self.object_locks[otype][oid] = Lock()
-        self.object_locks[otype][oid].acquire()
+        olock = self.get_lock(otype,oid)
+        olock.acquire()
+        ret_object = False
         
         if oid not in self.location[otype] or (oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid):
             # Either I dont know where it is or my cache thinks its somewhere else. Update cache!
@@ -574,26 +605,29 @@ class ObjectManager():
         # TODO: Lock this method
         logger.debug("[obm]: Relocating %s %s to %s" % (otype,oid,dest))
         try:
-            cur_obj = False
             if oid in self.cache[otype]:
                 self.datacon.db._obm_replace_host(oid,dest)
                 self.datacon.db.merge(self.cache[otype][oid])
-                cur_obj = self.cache[otype][oid] 
+                ret_object = self.cache[otype][oid] 
                 del self.cache[otype][oid]
                 self.location[otype][oid] = self.datacon.db.get(Host,dest)
                 self.datacon.db.remove_scheduled_update(otype,oid)
             else:
                 logger.debug("[obm]: Object is no longer here. Maybe it already has transferred.")
-                self.object_locks[otype][oid].release()
-                return False
+                ret_object = False
         except:
             logger.exception("[obm]: Error relocating:")
-            self.object_locks[otype][oid].release()
-            return False
+            ret_object = False
+        finally:
+            olock.release()
             
-        self.object_locks[otype][oid].release()
-        return cur_obj
-        
+        return ret_object
+     
+     
+    def get_lock(self,otype,oid):
+        if not oid in self.object_locks[otype]:
+            self.object_locks[otype][oid] = Lock()
+        return self.object_locks[otype][oid]
     """
     send_request_owner(self,host,otype,oid,op,newobj,update_values,params): Sends message to authoritative owner of object with an obm command.
     host: Host object, containing address to request object

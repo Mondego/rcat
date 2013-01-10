@@ -201,10 +201,12 @@ class JigsawRequestParser(Thread):
                                           % (userid, pid, x, y))
                             else:
                                 logging.error("[jigsaw]: Error dropping piece")
-                        # add lock owner to msg to broadcast
-                        response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
-                        jsonmsg = json.dumps(response)
-                        self.handler.write_message(jsonmsg)
+                    else:
+                        logging.debug("[jigsaw]: Never got the lock, how odd.")
+                    # add lock owner to msg to broadcast
+                    response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
+                    jsonmsg = json.dumps(response)
+                    self.handler.write_message(jsonmsg)
                 elif 'ng' in m:
                     pass
 

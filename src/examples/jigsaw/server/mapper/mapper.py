@@ -320,7 +320,7 @@ class JigsawMapper():
                 return False
                 
             # Piece is here and ready to be updated!
-            res = self.datacon.obm.post(Piece,piece.pid,{'l':uid},self.myid)
+            res = self.datacon.obm.post(Piece,piece.pid,{'l':uid},self.myid,True)
             if not res:
                     logging.error("[mapper]: Could not lock piece.")
                     return False
