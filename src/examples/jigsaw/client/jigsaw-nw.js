@@ -28,8 +28,6 @@ function Network(host) {
       var numTopScores = m.c.scores.numTop;
       var connectedUsers = m.c.scores.connected;
 
-      console.log(m.c)
-
       model.setUsers(connectedUsers, topUsers, numTopScores);
 
       var board = m.c.board; // board config
@@ -40,7 +38,6 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
-      console.log(m)
 
       var scoreUpdates = m.scu;
       var len = scoreUpdates.length, update = null;
@@ -49,11 +46,13 @@ function Network(host) {
         model.setUserScore(update.uid, update.user, update.score);
       }
     } else if ('pm' in m) { // Received piece movement
+      console.log("pm");
       var id = m.pm.id; // piece id
       var x = m.pm.x, y = m.pm.y;
       var owner = m.pm.l; // player currently moving the piece
       model.moveRemotePiece(id, x, y, owner);
     } else if ('pd' in m) { // Received piece drop
+      console.log("pd");
       var id = m.pd.id, bound = m.pd.b; // piece id and isBound
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece

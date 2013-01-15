@@ -181,6 +181,7 @@ class ProxyConnector():
         TODO: Assuming websocket only for now. The proxy should inform the type of data it received from the client in
         in the message
         """
+        logging.debug("[proxyconn]: Message from proxy to app " + message)
         self.app.send(message)
     
     def Proxy_on_error(self,ws, error):
