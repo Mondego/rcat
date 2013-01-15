@@ -46,13 +46,11 @@ function Network(host) {
         model.setUserScore(update.uid, update.user, update.score);
       }
     } else if ('pm' in m) { // Received piece movement
-      console.log("pm");
       var id = m.pm.id; // piece id
       var x = m.pm.x, y = m.pm.y;
       var owner = m.pm.l; // player currently moving the piece
       model.moveRemotePiece(id, x, y, owner);
     } else if ('pd' in m) { // Received piece drop
-      console.log("pd");
       var id = m.pd.id, bound = m.pd.b; // piece id and isBound
       var x = m.pd.x, y = m.pd.y;
       var owner = m.pd.l; // player who dropped the piece
