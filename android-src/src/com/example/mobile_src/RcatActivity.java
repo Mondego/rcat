@@ -24,15 +24,19 @@ public class RcatActivity extends Activity {
             new BasicNameValuePair("Cookie", "session=abcd")
     );
 
-    WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), new WebSocketClient.Listener() {
+    WebSocketClient client = new WebSocketClient(URI.create("ws://10.0.2.2:9998/echo"), new WebSocketClient.Listener() {
         //@Override
         public void onConnect() {
             Log.d(TAG, "Connected!");
+            TextView t = (TextView)findViewById(R.id.statusText);
+            t.setText("Connecting...Yay");
         }
 
         //@Override
         public void onMessage(String message) {
+            //TextView t = (TextView)findViewById(R.id.statusText);
             Log.d(TAG, String.format("Got string message! %s", message));
+            //t.append("Message");
         }
 
         //@Override
@@ -47,7 +51,9 @@ public class RcatActivity extends Activity {
 
         //@Override
         public void onError(Exception error) {
+            TextView t = (TextView)findViewById(R.id.statusText);
             Log.e(TAG, "Error!", error);
+            t.append(("Error! " + error.getMessage()));
         }
     }, extraHeaders);
 
@@ -59,8 +65,9 @@ public class RcatActivity extends Activity {
 
     public void onRunWebSocketTest(View view) {
         TextView t = (TextView)findViewById(R.id.statusText);
-        t.setText("Running...");
+        t.setText("Connecting...");
 
-        // Add here...
+        client.connect();
+        //client.send("Hello");
     }
 }
