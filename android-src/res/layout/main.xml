@@ -4,10 +4,15 @@
               android:layout_width="fill_parent"
               android:layout_height="fill_parent"
         >
+    <Button
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:text="Run WebSocket Test"
+            android:id="@+id/websocket_test_button" android:onClick="onRunWebSocketTest"/>
     <TextView
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:text="Hello World, RcatActivity"
-            />
+            android:text="[Placeholder]"
+            android:id="@+id/statusText"/>
 </LinearLayout>
 
