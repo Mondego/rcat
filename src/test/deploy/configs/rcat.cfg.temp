@@ -3,4 +3,4 @@ apphost=!!!
 appport=@@@
 proxies=###
 plugins=obm
-
+persist_timer=3
