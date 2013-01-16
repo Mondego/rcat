@@ -10,6 +10,7 @@ import com.external.websockets.WebSocketClient;
 import org.apache.http.message.BasicNameValuePair;
 
 import java.net.URI;
+import java.nio.channels.NotYetConnectedException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,9 +28,9 @@ public class RcatActivity extends Activity {
     WebSocketClient client = new WebSocketClient(URI.create("ws://10.0.2.2:9998/echo"), new WebSocketClient.Listener() {
         //@Override
         public void onConnect() {
-            Log.d(TAG, "Connected!");
             TextView t = (TextView)findViewById(R.id.statusText);
-            t.setText("Connecting...Yay");
+            t.setText("Connected successfully \n");
+            Log.d(TAG, "Connected!");
         }
 
         //@Override
@@ -64,10 +65,6 @@ public class RcatActivity extends Activity {
     }
 
     public void onRunWebSocketTest(View view) {
-        TextView t = (TextView)findViewById(R.id.statusText);
-        t.setText("Connecting...");
-
-        client.connect();
-        //client.send("Hello");
+        //client.connect();
     }
 }
