@@ -207,6 +207,7 @@ def request_parser(message):
                 pid = m['pd']['id']
                 x = m['pd']['x']
                 y = m['pd']['y']
+                bound = m['pd']['b']
 
                 piece = datacon.mapper.get_piece(pid)
                 if not piece:
@@ -220,8 +221,6 @@ def request_parser(message):
                     if userid in locks:
                         del locks[userid]
 
-                    # eventually bind piece 
-                    bound = m['pd']['b']
                     if bound:  # we know the piece is not bound yet
                         logging.debug('%s bound piece %s at %d,%d'
                                   % (userid, pid, x, y))
