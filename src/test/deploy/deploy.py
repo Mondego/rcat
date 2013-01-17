@@ -10,6 +10,7 @@ from tempfile import mkstemp
 
 VERSION = 0
 RCAT_ROOT = "../../"
+STATIC = "../../examples/jigsaw/client"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
@@ -37,8 +38,9 @@ def configure_servers(servers):
                 configure_server(tuples[0])
 
 def configure_server(hostname):
-    os.system("ssh " + hostname + " \'mkdir ~/rcat\'")
+    os.system("ssh " + hostname + " \'mkdir ~/rcat; mkdir ~/rcat/bin\'")
     os.system("scp -rp " + RCAT_ROOT + "* " +  hostname + ":~/rcat")
+    os.system("scp -rp " + STATIC + " " + hostname + ":~/rcat/bin/static")
     os.system("ssh " + hostname + " \'echo RCAT_VERSION=" + str(VERSION) + " > ~/rcat/VERSION; cd ~/rcat/test/deploy; bash ./configure_server.sh\'")
 
 def readlines(path):
