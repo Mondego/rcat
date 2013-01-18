@@ -38,7 +38,8 @@ class Bot():
         logging.exception("[jigsawbot]: Exception in Bot handler:")
     
     def on_close(self,ws):
-        pass
+        self.running = False
+        print "### closed"
     
     def on_open(self,ws):
         self.running = True

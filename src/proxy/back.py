@@ -24,6 +24,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         global servers
         global server_cycle
 
+        logger.info("### New server connected")
         servers.append(self)
         server_cycle = itertools.cycle(servers)
 
@@ -49,6 +50,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         global servers
         global server_cycle
 
+        logger.info("### Server disconnected")
         servers.remove(self)
         server_cycle = itertools.cycle(servers)
 
