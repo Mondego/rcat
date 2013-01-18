@@ -5,15 +5,17 @@ Created on Jul 30, 2012
 '''
 
 import websocket
-import logging
 import json
 import threading
 import time
 import common.helper
+import logging
+import logging.config
 
 class Bot():
     running = False
     def on_message(self,ws, message):
+        logging.info(message);
         msg = json.loads(message)
         if 'c' in msg:
             self.start_game(msg['c'])
@@ -54,7 +56,7 @@ class Bot():
         
     def automate_bot(self,ws):
         x,y = 0,0
-        print "Starting bot...."
+        logging.info("[bot: Starting bot....")
         while self.running:
             for v in self.pieces.values():
                 if not v['l'] or v['l'] == "None":
@@ -75,7 +77,9 @@ class Bot():
 
 if __name__ == '__main__':
     bot = Bot()
+    logging.config.fileConfig("bot_logging.conf") 
     ip,port = common.helper.parse_bot_input()
+    logging.info('[bot]: Connecting to %s:%s' % (ip,port))
     ws = websocket.WebSocketApp("ws://" + ip + ":" + port + "/client",
                                 on_message = bot.on_message,
                                 on_error = bot.on_error,
