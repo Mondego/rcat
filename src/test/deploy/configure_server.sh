@@ -8,10 +8,10 @@ cd tornado-2.3/
 sudo python setup.py install
 cd ../
 
-tar xvzf websocket-client-0.5.1.tar.gz
-cd websocket-client-0.5.1
+tar xvzf websocket-client-0.8.0.tar.gz
+cd websocket-client-0.8.0
 sudo python setup.py install
 cd ..
 
 sudo rm -rf tornado-2.3
-sudo rm -rf websocket-client-0.5.1
+sudo rm -rf websocket-client-0.8.0
