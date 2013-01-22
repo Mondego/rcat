@@ -11,6 +11,7 @@ import time
 import common.helper
 import logging
 import logging.config
+from random import choice
 
 class Bot():
     running = False
@@ -59,8 +60,9 @@ class Bot():
         x,y = 0,0
         logging.info("[bot: Starting bot....")
         while self.running:
-            for v in self.pieces.values():
-                if not v['l'] or v['l'] == "None":
+            v = choice(self.pieces.values())
+            if not v['l'] or v['l'] == "None":
+                while(self.running):
                     while y < self.board["h"]:
                         while x < self.board["w"]:
                             ws.send(self.move_piece(v,x,y))
@@ -68,6 +70,8 @@ class Bot():
                             x += 5
                         x = 0
                         y += 5
+                    y = 0
+                    x = 0
                     
 
     def move_piece(self,p,x,y):
