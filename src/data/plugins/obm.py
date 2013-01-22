@@ -4,11 +4,11 @@ Created on May 18, 2012
 @author: arthur
 '''
 from data.db.sqlalchemyconn import Host, ObjectManager as OBM
-from examples.jigsaw.server.mapper.dbobjects import Piece
 from sqlalchemy.ext.serializer import dumps
 from threading import Thread, Lock
 from tornado.ioloop import IOLoop
 from tornado.web import asynchronous
+import functools
 import httplib
 import json
 import logging
@@ -38,8 +38,6 @@ class OBMParser(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.handler = handler
-        
-        
                 
     def run(self):
         global obm_otypes
@@ -60,7 +58,7 @@ class OBMParser(Thread):
                     response['status'] = 200
                     response['result'] = res
                     jsonmsg = json.dumps(response)
-                    IOLoop.instance().add_callback(jsonmsg)
+                    IOLoop.instance().add_callback(functools.partial(self.reply,jsonmsg))
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
             elif op == "put":
@@ -70,7 +68,7 @@ class OBMParser(Thread):
                     response['status'] = 200
                     response['result'] = res
                     jsonmsg = json.dumps(response)
-                    IOLoop.instance().add_callback(jsonmsg)
+                    IOLoop.instance().add_callback(functools.partial(self.reply,jsonmsg))
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
                     raise Exception("[obm_handler]: Could not put object.")
@@ -81,7 +79,7 @@ class OBMParser(Thread):
                     response['status'] = 200
                     response['result'] = json.dumps(obj)
                     jsonmsg = json.dumps(response)
-                    IOLoop.instance().add_callback(jsonmsg)
+                    IOLoop.instance().add_callback(functools.partial(self.reply,jsonmsg))
                     logging.debug("[obm_handler]: Sending get of object %s" % oid)
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
@@ -92,7 +90,7 @@ class OBMParser(Thread):
                 if obj:
                     response['status'] = 200
                     jsonmsg = json.dumps(response)
-                    IOLoop.instance().add_callback(self.reply(jsonmsg))
+                    IOLoop.instance().add_callback(functools.partial(self.reply,jsonmsg))
                 else:
                     IOLoop.instance().add_callback(self.failmsg)
                     raise Exception("[obm_handler]: Could not relocate the object.")
@@ -107,11 +105,9 @@ class OBMParser(Thread):
             logger.exception("[obmparser]: Error parsing request:") 
     
     def reply(self,message):
-        def _write():
-            self.handler.write(message)
-            self.handler.flush()
-            self.handler.finish()
-        return _write
+        self.handler.write(message)
+        self.handler.flush()
+        self.handler.finish()
     
     def failmsg(self, message):
         def _write():

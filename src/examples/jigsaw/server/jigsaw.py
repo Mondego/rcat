@@ -1,4 +1,4 @@
-from collections import defaultdict,deque
+from collections import defaultdict, deque
 from copy import deepcopy
 from data.db.sqlalchemyconn import SQLAlchemyConnector
 from data.plugins.obm import ObjectManager
@@ -13,6 +13,7 @@ from tornado import websocket
 from tornado.ioloop import IOLoop
 import ConfigParser
 import common.helper as helper
+import functools
 import json
 import logging.config
 import random
@@ -94,6 +95,8 @@ class JigsawServerHandler(websocket.WebSocketHandler):
     def on_close(self):
         logging.debug("[tornado]: App WebSocket closed")
     
+    def sync_reply(self,message):
+        self.write_message(message)
     
 handlers = [
     (r"/", JigsawServerHandler)
@@ -120,7 +123,7 @@ def request_parser(message):
     global locks
 
     pid = None
-    handler = pchandler
+    #handler = pchandler
     # TODO: userid and userid[0] is confusing 
     try:
         enc = message
@@ -145,17 +148,17 @@ def request_parser(message):
                     piece = datacon.mapper.get_piece(pid)
                     response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b, 'l':None}}}  #  no 'U' = broadcast
                     jsonmsg = json.dumps(response)
-                    handler.write_message(jsonmsg)
+                    IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 
                 response = {'M': enc}
                 jsonmsg = json.dumps(response)
-                handler.write_message(jsonmsg)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
 
         else:
             if game_loading:
                 msg = {'M': {'go':True}}
                 jsonmsg = json.dumps(msg)
-                pchandler.write_message(jsonmsg)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 return
 
             # usual message
@@ -171,7 +174,7 @@ def request_parser(message):
                     update_res = datacon.mapper.new_user_connected(userid, m['usr'])
                     response = {'M': {'NU':update_res}}  # New User
                     jsonmsg = json.dumps(response)
-                    handler.write_message(jsonmsg)
+                    IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
 
             elif 'pm' in m:  # piece movement
                 pid = m['pm']['id']
@@ -200,7 +203,7 @@ def request_parser(message):
                 
                 # broadcast
                 jsonmsg = json.dumps(response)
-                handler.write_message(jsonmsg)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 return pid
                 
             elif 'pd' in m:  # piece drop
@@ -232,7 +235,7 @@ def request_parser(message):
                         if update_res:
                             response = {'M': {'scu':update_res}}
                             jsonmsg = json.dumps(response)
-                            handler.write_message(jsonmsg)
+                            IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
 
                     else:
                         # unlock piece and update piece coords
@@ -247,7 +250,7 @@ def request_parser(message):
                 # add lock owner to msg to broadcast
                 response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
                 jsonmsg = json.dumps(response)
-                handler.write_message(jsonmsg)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 return pid
             elif 'ng' in m:
                 pass
@@ -305,7 +308,7 @@ class JigsawServer():
         scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
         msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
-        pchandler.write_message(jsonmsg)
+        IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
         settings["main"]["abandon"] = True
 
         self.start_game()
@@ -331,12 +334,12 @@ class JigsawServer():
                 cfg['myid'] = client['uid'] 
                 response = {'M': {'c': cfg}, 'U': [client['uid']]}
                 jsonmsg = json.dumps(response)
-                pchandler.write_message(jsonmsg)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
         else:
             cfg['myid'] = client
             response = {'M': {'c': cfg}, 'U': [client]}
             jsonmsg = json.dumps(response)
-            pchandler.write_message(jsonmsg)
+            IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
 
 
     def jigsaw_parser(self, config):
