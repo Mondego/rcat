@@ -1,4 +1,7 @@
 #!/bin/bash
 export PYTHONPATH=$PYTHONPATH:../src
 
-python ../src/examples/jigsaw/bot/jigsawbot.py $1 $2
+for i in {0..$3}
+do
+	screen -d -m python ../src/examples/jigsaw/bot/jigsawbot.py $1 $2
+done
