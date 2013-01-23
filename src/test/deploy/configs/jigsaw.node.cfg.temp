@@ -29,7 +29,7 @@ minScale=1
 # to center the grid in the middle of the board, set x to (w-ncols*cellw)/2
 x=200
 y=150
-ncols=12
-nrows=12
-cellw=30
-cellh=25
+ncols=24
+nrows=24
+cellw=15
+cellh=12.5
