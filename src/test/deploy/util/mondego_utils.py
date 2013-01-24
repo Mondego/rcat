@@ -4,7 +4,6 @@ import sys
 import subprocess
 
 f = open("mondego_servers")
-config = open("config_hosts","w")
 
 def help_msg():
 	print help_message
