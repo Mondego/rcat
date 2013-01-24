@@ -269,6 +269,7 @@ class JigsawServer():
         
         self.workers = ThreadPool(6)
         workers = self.workers
+        self.piece_locks = piece_locks
         # Hooks up to get messages coming in admin channel. 
         # Used to know about new users, servers, and their disconnections.
         self.datacon = datacon
