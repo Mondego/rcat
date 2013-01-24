@@ -1,9 +1,37 @@
-# Deploying 2 proxies, 2 servers
-mondego@parana.mdg.lab,parana.mdg.lab:8888,,
-mondego@ganges.mdg.lab,,ganges.mdg.lab:9999,mondego.jigsaw.node.cfg
-mondego@hudson.mdg.lab,,hudson.mdg.lab:9999,mondego.jigsaw.main.cfg
-mondego@akan.mdg.lab,akan.mdg.lab:8888,,
-mondego@niagara.mdg.lab,niagara.mdg.lab:8888,,
+###############################
+# Automated Deployment Tool ###
+###############################
+# Instructions for config files
+# a,b,c,d
+# a) username@host (for ssh)
+# b) proxy (with port)
+# c) app server (with port)
+# d) configuration file for this instance
+# e) name of folder (in case of two tornadoes running in same machine)
+
+# Example:
+# One server running a proxy and an app server, with config file 'file.cfg', in folder 'folder1'
+# john@foobar.edu,proxyserver.edu:8888,appserver.edu:9999,file.cfg,folder1
+
+# Just proxy: (Keep commas!)
+# john@foobar.edu,proxyserver.edu:8888,,,
+
+# Just server: (Keep commas!)
+# john@foobar.edu,,appserver.edu:9999,file.cfg,folder1
+
+# If using config file to determine main server, make sure he is the last of the list.
+
+#mondego@parana.mdg.lab,parana.mdg.lab:8888,,,
+#mondego@ganges.mdg.lab,,ganges.mdg.lab:9999,mondego.jigsaw.node.cfg,rcat1
+
+#mondego@hudson.mdg.lab,,hudson.mdg.lab:9998,mondego.jigsaw.node.cfg,rcat2
+mondego@hudson.mdg.lab,,hudson.mdg.lab:9999,mondego.jigsaw.main.cfg,
+#mondego@ganges.mdg.lab,,ganges.mdg.lab:9998,mondego.jigsaw.node.cfg,rcat2
+
+mondego@akan.mdg.lab,akan.mdg.lab:8888,,,
+#mondego@niagara.mdg.lab,niagara.mdg.lab:8888,,,
+
+
 #mondego@yangtze.mdg.lab,yangtze.mdg.lab:8888,yangtze.mdg.lab:9999,mondego.jigsaw.node.cfg
 #mondego@niagara.mdg.lab,niagara.mdg.lab:8888,niagara.mdg.lab:9999,mondego.jigsaw.node.cfg
 #mondego@rhine.mdg.lab,rhine.mdg.lab:8888,rhine.mdg.lab:9999,mondego.jigsaw.node.cfg

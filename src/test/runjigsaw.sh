@@ -1,5 +1,4 @@
 #!/bin/bash
-export PYTHONPATH=$PYTHONPATH:~/rcat:~/Dropbox/rcat/src
-cd ~/rcat/test
+export PYTHONPATH=$PYTHONPATH:../
 
 python ../examples/jigsaw/server/jigsaw.py

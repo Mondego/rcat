@@ -1,7 +1,7 @@
 #!/bin/bash/
 
 sudo apt-get -y install python python-setuptools python-mysqldb python-sqlalchemy
-cd ~/rcat/test/deploy/lib
+cd lib
 
 tar xvzf tornado-2.3.tar.gz
 cd tornado-2.3/
