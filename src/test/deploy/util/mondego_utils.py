@@ -30,11 +30,6 @@ for line in list_servers:
 				os.system("ssh " + add + " \' killall screen\'")
 			elif( sys.argv[1] == 'status'):
 				os.system("ssh " + add + " \' screen -list\'")
-			elif( sys.argv[1] == 'getip'):
-				cmd = "ssh " + add + " \" ifconfig | grep 'inet addr:'| grep -v '127.0.0.1' | grep '10.0' | cut -d: -f2 | awk '{ print $1}'\" | awk '{print $1}'"
-				res = subprocess.check_output(cmd,shell=True).rstrip('\n')
-				line = add + "," + res + ":8888," + res + ":9999,mondego.jigsaw.node.cfg\n"
-				config.write(line)
 			else:
 				help_msg()
 		else:
