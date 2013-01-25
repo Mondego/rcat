@@ -1,4 +1,7 @@
 #!/bin/bash
 export PYTHONPATH=$PYTHONPATH:../
-
-python ../proxy/proxymain.py
+if [ $1 != 0 ]; then
+	python ../proxy/proxymain.py --port=$1
+else
+	python ../proxy/proxymain.py
+fi

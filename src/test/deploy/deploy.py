@@ -111,7 +111,8 @@ def launch_proxies(servers):
     for tuples in servers:
         if tuples[1]:
             print "Starting proxy in " + tuples[0]
-            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./runproxy.sh\'" % (tuples[0],tuples[4])
+            host,port = tuples[1].split(':')
+            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./runproxy.sh %s\'" % (tuples[0],tuples[4],port)
 	    print cmd
             os.system(cmd)
 
