@@ -14,7 +14,7 @@ list_servers = f.read().splitlines()
 f.close()
 os.system("echo ");
 for line in list_servers:
-	if line:
+	if line and not line.startswith('#'):
 		user,host = line.split(' ')
 		add = user + "@" + host
 		if (len(sys.argv) > 1):
