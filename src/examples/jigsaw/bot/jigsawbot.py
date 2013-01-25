@@ -29,28 +29,29 @@ class Bot():
     
     def on_message(self,ws, message):
         msg = json.loads(message)
+        # Initial state
         if not self.running:
             if 'c' in msg:
-                Timer(5,self.measure_timer).start()
-		self.running = True
-		self.botname = "bot" + str(random.randrange(0,99999))
-		#self.botname = 'Guest'
-		ws.send(json.dumps({'usr':'Guest'}));
+                self.running = True
                 self.start_game(msg['c'])
-                
-        if self.measuring and self.measured_samples > 0:
-            if 'pm' in msg:
-                if (str(msg['pm']['x']) + str(msg['pm']['y'])) in self.pm_sent:
-                    self.measured_samples -= 1
-                    received_time = time.time()
-                    sent_time = self.pm_sent[str(msg['pm']['x']) + str(msg['pm']['y'])]
-                    self.delays.append(received_time-sent_time)
-                    
-                    if self.measured_samples < 0:
-                        self.measuring = False
+                ws.send(json.dumps({'usr':'Guest'}));
+                self.botname = "bot" + str(random.randrange(0,99999))
+                Timer(5,self.measure_timer).start()
+                #self.botname = 'Guest'
+        else:
+            if self.measuring and self.measured_samples > 0:
+                if 'pm' in msg:
+                    if (str(msg['pm']['x']) + ':' + str(msg['pm']['y'])) in self.pm_sent:
+                        self.measured_samples -= 1
+                        received_time = time.time()
+                        sent_time = self.pm_sent[str(msg['pm']['x']) + ':' +  str(msg['pm']['y'])]
+                        self.delays.append(received_time-sent_time)
+                        
+                        if self.measured_samples < 0:
+                            self.measuring = False
                     
     def measure_timer(self):
-	logging.info("[bot]: Starting to measure")
+        logging.info("[bot]: Starting to measure")
         while True:
             self.samples = 10
             self.measured_samples = 10
@@ -96,11 +97,11 @@ class Bot():
                 while(self.running):
                     while y < self.board["h"]:
                         while x < self.board["w"]:
-                            ws.send(self.move_piece(v,x,y))
                             if self.measuring:
                                 if self.samples > 0:
-                                    self.pm_sent[str(x)+str(y)] = time.time()
+                                    self.pm_sent[str(x)+':'+str(y)] = time.time()
                                     self.samples -= 1
+                            ws.send(self.move_piece(v,x,y))
                             time.sleep(0.05)
                             x += 5
                         x = 0
