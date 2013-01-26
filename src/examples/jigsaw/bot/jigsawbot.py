@@ -28,6 +28,7 @@ class Bot():
     delays = []
     
     def on_message(self,ws, message):
+        received_time = time.time()
         msg = json.loads(message)
         # Initial state
         if not self.running:
@@ -45,10 +46,9 @@ class Bot():
                         ident = str(msg['pm']['x']) + ':' + str(msg['pm']['y'])
                         if ident in self.pm_sent:
                             self.measured_samples -= 1
-                            if not ident in self.pm_sent:
-                                received_time = time.time()
-                                sent_time = self.pm_sent[ident]
-                                self.delays.append( (received_time-sent_time) * 1000)
+                            sent_time = self.pm_sent[ident]
+                            self.delays.append( (received_time-sent_time) * 1000)
+                            del self.pm_sent[ident]
                             
                             if self.measured_samples < 0:
                                 self.measuring = False
