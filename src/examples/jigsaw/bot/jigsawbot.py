@@ -41,14 +41,15 @@ class Bot():
         else:
             if self.measuring and self.measured_samples > 0:
                 if 'pm' in msg:
-                    if (str(msg['pm']['x']) + ':' + str(msg['pm']['y'])) in self.pm_sent:
-                        self.measured_samples -= 1
-                        received_time = time.time()
-                        sent_time = self.pm_sent[str(msg['pm']['x']) + ':' +  str(msg['pm']['y'])]
-                        self.delays.append(received_time-sent_time)
-                        
-                        if self.measured_samples < 0:
-                            self.measuring = False
+                    if msg['pm']['id'] == self.mypiece: 
+                        if (str(msg['pm']['x']) + ':' + str(msg['pm']['y'])) in self.pm_sent:
+                            self.measured_samples -= 1
+                            received_time = time.time()
+                            sent_time = self.pm_sent[str(msg['pm']['x']) + ':' +  str(msg['pm']['y'])]
+                            self.delays.append(received_time-sent_time)
+                            
+                            if self.measured_samples < 0:
+                                self.measuring = False
                     
     def measure_timer(self):
         logging.info("[bot]: Starting to measure")
@@ -101,7 +102,8 @@ class Bot():
                                 if self.samples > 0:
                                     self.pm_sent[str(x)+':'+str(y)] = time.time()
                                     self.samples -= 1
-                            ws.send(self.move_piece(v,x,y))
+                            #ws.send(self.move_piece(v,x,y))
+                            ws.send(json.dumps({'pm' : {'id':v["pid"], 'x':x,'y':y}}))
                             time.sleep(0.05)
                             x += 5
                         x = 0
