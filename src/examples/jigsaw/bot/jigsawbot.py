@@ -46,7 +46,7 @@ class Bot():
                             self.measured_samples -= 1
                             received_time = time.time()
                             sent_time = self.pm_sent[str(msg['pm']['x']) + ':' +  str(msg['pm']['y'])]
-                            self.delays.append(received_time-sent_time)
+                            self.delays.append( (received_time-sent_time) * 1000)
                             
                             if self.measured_samples < 0:
                                 self.measuring = False
