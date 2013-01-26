@@ -42,11 +42,13 @@ class Bot():
             if self.measuring and self.measured_samples > 0:
                 if 'pm' in msg:
                     if msg['pm']['id'] == self.mypiece: 
-                        if (str(msg['pm']['x']) + ':' + str(msg['pm']['y'])) in self.pm_sent:
+                        ident = str(msg['pm']['x']) + ':' + str(msg['pm']['y'])
+                        if ident in self.pm_sent:
                             self.measured_samples -= 1
-                            received_time = time.time()
-                            sent_time = self.pm_sent[str(msg['pm']['x']) + ':' +  str(msg['pm']['y'])]
-                            self.delays.append( (received_time-sent_time) * 1000)
+                            if not ident in self.pm_sent:
+                                received_time = time.time()
+                                sent_time = self.pm_sent[ident]
+                                self.delays.append( (received_time-sent_time) * 1000)
                             
                             if self.measured_samples < 0:
                                 self.measuring = False
