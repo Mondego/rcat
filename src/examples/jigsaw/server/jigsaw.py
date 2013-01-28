@@ -12,6 +12,7 @@ from threading import Thread
 from tornado import websocket
 from tornado.ioloop import IOLoop
 import ConfigParser
+import cProfile
 import common.helper as helper
 import functools
 import json
@@ -407,15 +408,17 @@ class JigsawServer():
                         settings["main"]["abandon"] = False
 
                     count = datacon.db.count(Piece)
-                    if count > 0:
+                    if count == grid["ncols"] * grid["nrows"]:
                             logging.info("[jigsawapp]: Recovering last game.")
                             datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
+                        if count > 0:
+                            datacon.mapper.reset_game()
                         pieces = []
                         for r in range(grid['nrows']):
-                            for  c in range(grid['ncols']):
-                                pid = str(uuid.uuid4())  # piece id
+                            for c in range(grid['ncols']):
+                                pid = str(uuid.uuid4()) # piece id
                                 b = 0  # bound == correctly placed, can't be moved anymore
                                 l = None # lock = id of the player moving the piece
                                 x = randint(0, board['w'] - grid['cellw'])
@@ -457,7 +460,11 @@ class JigsawServer():
         proxy_admin.send(json_message)
         
 
-if __name__ == "__main__":
+def start():
+    global rcat
+    global datacon
+    global jigsaw
+    global terminal
     logging.config.fileConfig("connector_logging.conf")
     rcat = RCAT(JigsawServerHandler, SQLAlchemyConnector, JigsawMapper, ObjectManager)
     datacon = rcat.datacon
@@ -469,3 +476,8 @@ if __name__ == "__main__":
     jigsaw._debug = lambda cmd: eval(cmd)
     terminal = helper.Terminal(jigsaw)
     terminal.run_terminal()
+
+if __name__ == "__main__":
+    start()
+    # To run profiler, uncomment next line
+    # cProfile.run('start()', 'jigsaw.bench'i)

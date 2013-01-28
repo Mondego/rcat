@@ -12,15 +12,16 @@ import os
 import tornado.ioloop
 import tornado.web
 import logging.config
-import proxy
+import proxy as proxymod
 import front
 import back
+import cProfile
 from tornado.options import define, options
 from common.message import PROXY_DISTRIBUTION
 
 define("port", default=8888, help="run on the given port", type=int)
 
-if __name__ == "__main__":
+def start():
     # Clients and servers connect to the Proxy through different URLs
     logging.config.fileConfig("proxy_logging.conf")    
     """ 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     Description: Defines how messages are distributed from proxy to app servers.
     Options: Round-robin or sticky (messages from a client always hit the same app server)
     """
-    proxy = proxy.Proxy()
+    proxy = proxymod.Proxy()
     proxy_options = {}
     proxy_options["DISTRIBUTION"] = PROXY_DISTRIBUTION.STICKY
 
@@ -55,3 +56,8 @@ if __name__ == "__main__":
     tornado.options.parse_command_line()
     application.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()
+    
+if __name__ == "__main__":
+    start()
+    # To run profiler, uncomment next line
+    # cProfile.run('start()', 'proxy.bench')

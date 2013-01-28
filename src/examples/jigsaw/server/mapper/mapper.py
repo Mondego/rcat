@@ -245,9 +245,11 @@ class JigsawMapper():
                 self.datacon.db.execute("update " + self.table_score + " set `uid` = ''")
 
             if not keep_pieces:
+                # Clean from database
                 session.query(Piece).delete()
                 session.commit()
-                self.clear_cache()
+                # Clean from cache
+                self.clear_piece_cache()
         except:
             logging.exception("[mapper]: Failed to reset players:")
             return False
