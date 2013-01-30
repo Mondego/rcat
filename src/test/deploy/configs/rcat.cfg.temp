@@ -2,5 +2,5 @@
 apphost=!!!
 appport=@@@
 proxies=###
-plugins=obm
+plugins=obm,benchmark
 persist_timer=3

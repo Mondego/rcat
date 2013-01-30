@@ -8,20 +8,23 @@ The proxy acts as an intermediary of messages from front to back and vice-versa 
 the redefining of functions. 
 '''
 
-import os
-import tornado.ioloop
-import tornado.web
-import logging.config
-import proxy as proxymod
-import front
+from common.benchmark import ResourceMonitor
+from common.message import PROXY_DISTRIBUTION
+from tornado.options import define, options
 import back
 import cProfile
-from tornado.options import define, options
-from common.message import PROXY_DISTRIBUTION
+import front
+import logging.config
+import os
+import proxy as proxymod
+import sys
+import tornado.ioloop
+import tornado.web
 
 define("port", default=8888, help="run on the given port", type=int)
+define("benchmark",default=True, help="turns on resource management for the proxy")
 
-def start():
+def start(benchmark=False):
     # Clients and servers connect to the Proxy through different URLs
     logging.config.fileConfig("proxy_logging.conf")    
     """ 
@@ -45,6 +48,10 @@ def start():
     
     static_path = os.path.join("..", os.path.join("bin", "static"))
     logging.info("[proxy]: static path is " + static_path)
+    
+    if benchmark:
+        resmon = ResourceMonitor('proxy_resmon.csv')
+        resmon.start()
 
     application = tornado.web.Application([
     (r"/", front.HTTPHandler),
@@ -58,6 +65,9 @@ def start():
     tornado.ioloop.IOLoop.instance().start()
     
 if __name__ == "__main__":
-    start()
+    if "--benchmark" in sys.argv:
+        start(True)
+    else:
+        start(False)
     # To run profiler, uncomment next line
     # cProfile.run('start()', 'proxy.bench')
