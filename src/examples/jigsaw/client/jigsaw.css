@@ -8,6 +8,13 @@ body,html {
 	width: 100%;
 }
 
+body {
+	-moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 #aboveFooterWrapper {
 	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
 	min-height: 100%;

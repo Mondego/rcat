@@ -28,8 +28,6 @@ function Network(host) {
       var numTopScores = m.c.scores.numTop;
       var connectedUsers = m.c.scores.connected;
 
-      console.log(m.c)
-
       model.setUsers(connectedUsers, topUsers, numTopScores);
 
       var board = m.c.board; // board config
@@ -40,7 +38,6 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
-      console.log(m)
 
       var scoreUpdates = m.scu;
       var len = scoreUpdates.length, update = null;
@@ -187,6 +184,7 @@ function Network(host) {
     var msg = {
       'usr' : user
     };
+    console.log('sent user name')
     this.sendMessage(msg);
   }
 

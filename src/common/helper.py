@@ -62,6 +62,7 @@ def parse_input(cfg_file='app.cfg'):
                 myport = config.get('Main', 'appport')
                 proxies = json.loads(config.get('Main', 'proxies'))
                 persist_timer = config.get('Main', 'persist_timer')
+                plugins = config.get('Main','plugins').split(',')
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ", e)
                 #myip = get_ip_address('eth0')
@@ -73,6 +74,7 @@ def parse_input(cfg_file='app.cfg'):
         settings['port'] = myport
         settings['proxies'] = proxies
         settings['persist_timer'] = int(persist_timer)
+        settings['plugins'] = plugins
         return settings
     else:
         return {}

@@ -10,12 +10,8 @@ from tempfile import mkstemp
 
 VERSION = 0
 RCAT_ROOT = "../../"
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
-parser.add_argument('-a', help='application to be deployed', default='jigsaw')
-
-args = vars(parser.parse_args()) # returns a namespace converted to a dict)
+STATIC = RCAT_ROOT + "examples/jigsaw/client"
+STDRCAT = "rcat"
 
 def configure_servers(servers):
     # Check if servers are configured. 
@@ -23,23 +19,30 @@ def configure_servers(servers):
         if tuples != '':
             if tuples[0].count('@') == 0:
                 tuples[0] = "mondego@" + tuples[0]
+	    if tuples[4]:
+		# If folder is specified, make sure everything resides under STDRCAT	
+		tuples[4] = STDRCAT + '/' + tuples[4]
+	    else:
+		# Else, just use the standard "rcat" name
+		tuples[4] = STDRCAT
             try:
-                cmd = "ssh " + tuples[0] + " \'cat ~/rcat/VERSION\'"
+                cmd = "ssh %s \'cat ~/%s/VERSION\'" % (tuples[0],tuples[4])
                 res = subprocess.check_output(cmd,shell=True)
                 print res
                 if res.count('RCAT_VERSION') == 0:
                     configure_server(tuples[0])
                 else:
                     if int(res.split('=')[1]) < VERSION:
-                        configure_server(tuples[0])
+                        configure_server(tuples[0],tuples[4])
             except Exception,e:
                 print e
-                configure_server(tuples[0])
+                configure_server(tuples[0],tuples[4])
 
-def configure_server(hostname):
-    os.system("ssh " + hostname + " \'mkdir ~/rcat\'")
-    os.system("scp -rp " + RCAT_ROOT + "* " +  hostname + ":~/rcat")
-    os.system("ssh " + hostname + " \'echo RCAT_VERSION=" + str(VERSION) + " > ~/rcat/VERSION; cd ~/rcat/test/deploy; bash ./configure_server.sh\'")
+def configure_server(hostname,dest_folder):
+    os.system("ssh %s \'mkdir -p ~/%s/bin\'" % (hostname,dest_folder))
+    os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
+    os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
+    os.system("ssh %s \'echo RCAT_VERSION=%s > ~/%s/VERSION; cd ~/%s/test/deploy; bash ./configure_server.sh\'" % (hostname,str(VERSION),dest_folder,dest_folder))
 
 def readlines(path):
     if (os.path.isfile(path)):
@@ -78,7 +81,7 @@ def start_proxies(servers):
     
     for tuples in servers:
         if tuples[1]:
-            cmd = "scp /tmp/rcat.cfg " + tuples[0] + ":~/rcat/test/"
+            cmd = "scp /tmp/rcat.cfg %s:~/%s/test/" % (tuples[0],tuples[4])
             print cmd
             os.system(cmd) 
     
@@ -101,19 +104,16 @@ def start_apps(servers):
                     new_file.write(line)
             print abs_path
             new_file.close()
-            os.system("scp " + abs_path + " " + tuples[0] + ":~/rcat/test/rcat.cfg")            
+            os.system("scp %s %s:~/%s/test/rcat.cfg" % (abs_path,tuples[0],tuples[4]))
 
-s = readlines(args['f']) 
-    
-configure_servers(s)
-start_proxies(s)
-start_apps(s)
-
+# Check for tuples[4]
 def launch_proxies(servers):
     for tuples in servers:
         if tuples[1]:
             print "Starting proxy in " + tuples[0]
-            cmd = "ssh " + tuples[0] + " \'screen -d -m ./rcat/test/runproxy.sh\'"
+            host,port = tuples[1].split(':')
+            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./runproxy.sh %s\'" % (tuples[0],tuples[4],port)
+	    print cmd
             os.system(cmd)
 
 def launch_apps(servers):
@@ -121,14 +121,30 @@ def launch_apps(servers):
     for tuples in servers:
         if tuples[2]:
             print "Starting app in " + tuples[0]
-            cmd = "ssh " + tuples[0] + " \'cp ~/rcat/test/deploy/configs/" + tuples[3] + " ~/rcat/test/" + appname + ".cfg\'"
+            cmd = "ssh %s \'cp ~/%s/test/deploy/configs/%s ~/%s/test/%s.cfg\'" % (tuples[0],tuples[4],tuples[3],tuples[4],appname)
+	    print cmd
             os.system(cmd)
-            cmd = "ssh " + tuples[0] + " \'cd ~/rcat/test; screen -d -m ./run" + appname + ".sh\'"
+            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./run%s.sh\'" % (tuples[0],tuples[4],appname)
             print cmd
             os.system(cmd)
+	    time.sleep(1)
 
-launch_proxies(s)
-time.sleep(2)
-launch_apps(s)
-# Now setup config files for proxy and app! .......
+
+if __name__=="__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
+	parser.add_argument('-a', help='application to be deployed', default='jigsaw')
+
+	args = vars(parser.parse_args()) # returns a namespace converted to a dict)
+
+	s = readlines(args['f'])
+
+	configure_servers(s)
+	start_proxies(s)
+	start_apps(s)
+
+	launch_proxies(s)
+	time.sleep(2)
+	launch_apps(s)
+	# Now setup config files for proxy and app! .......
 

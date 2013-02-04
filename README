@@ -2,7 +2,7 @@ A web server for massively multi-user online applications.
 
 Requirements:
 Tornado Web Server (http://www.tornadoweb.org/)
-Websocket client > 0.5.1 (http://pypi.python.org/pypi/websocket-client/)
+Websocket client > 0.8.0 (http://pypi.python.org/pypi/websocket-client/)
 Python 2.7
 Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
 Python-SQLAlchemy > 0.7 (http://www.sqlalchemy.org/)
@@ -24,10 +24,6 @@ After installing all the required libraries, follow these 3 steps to start the s
 4. run ./runjigsaw.sh
 
 Now point your browser at <host>:8888/static/jigsaw.html, change the host name and click Connect!
-
-To reset the game:
-1. cd src/test/deploy/util
-2. ./mysql_script_executer.sh <dbname> <dbuser> <dbpassword> jigsaw_clean.sql out.txt
 
 To check the database: 
 - mysql -u jigsawuser -p 

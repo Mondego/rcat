@@ -4,19 +4,20 @@ Created on Jul 11, 2012
 @author: arthur
 '''
 
+from appconnector.proxyconn import ProxyConnector
+from common.benchmark import ResourceMonitor
+from data.dataconn import DataConnector
+from data.plugins.obm import OBMHandler
+from threading import Thread
 import common.helper as helper
 import logging
 import tornado.web
-from data.plugins.obm import OBMHandler
-from threading import Thread
-from appconnector.proxyconn import ProxyConnector
-from data.dataconn import DataConnector
 
 class RCAT():
     application = None
     pc = None
     datacon = None
-    
+    resmon = None
     def __init__(self,handler,db=None,mapper=None,obm=None):
         handlers = []
         handlers.append((r"/", handler))
@@ -24,6 +25,10 @@ class RCAT():
         ip = rcat_config["ip"]
         port = rcat_config["port"]
         proxies = rcat_config["proxies"]
+        plugins = rcat_config["plugins"]
+        if "benchmark" in plugins:
+            self.resmon = ResourceMonitor('rcat_resource_monitor.csv')
+            self.resmon.start()
         if obm:
             handlers.append((r"/obm", OBMHandler))
         

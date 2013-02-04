@@ -6,4 +6,6 @@
 *.pyc
 *.log
 *.cfg
+*.bench
+*.csv
 *~
