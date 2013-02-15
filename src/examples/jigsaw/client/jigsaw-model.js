@@ -31,7 +31,8 @@ function Model(usr) {
       cellh : null
     };
     this.IMG = new Image(); // IMG.onload happens after model.startGame
-
+    this.puzzleImageLoaded = false;
+    
     this.myName = usr;
     this.myid = null; // the id given by the server to represent me
 
@@ -341,16 +342,26 @@ function Model(usr) {
     }
     nw.sendUserName(this.myName);
 
+    view.startRendering();
+
     // Only init the view when the puzzle image has been downloaded.
+    // Weirdly, img.onload gets triggered every time a game restarts in FF, 
+    // but only when joining the game in Chrome ... 
     this.IMG.onload = function() {
-      // console.log('image loaded')
-      view.drawAll();
+      this.puzzleImageLoaded = true; 
+      view.setDirty(); // set the view to dirty
     };
     this.IMG.src = img.img_url;
+    // if the image was already loaded, onload may not trigger: dirty the view 
+    if (this.puzzleImageLoaded) {
+      view.setDirty();
+    }
   };
 
-  // end the game:
+  // end the game: stop the rendering
+  // TODO: should display a "game over" message
   this.endGame = function() {
+    view.stopRendering();
   }
 
   // -------- GAME SETTINGS -------------------------
@@ -440,14 +451,14 @@ function Model(usr) {
     var p = this.draggedPiece;
     p.moveRelative(dx, dy);
     nw.sendPieceMove(p.id, p.x, p.y);
-    view.drawAll();
+    view.setDirty();
   };
 
   // Scroll the board in opposite direction of the mouse movement.
   this.moveBoardRelative = function(dx, dy) {
     this.scrollRelative(dx, dy);
     nw.sendFrustum(this.frustum);
-    view.drawAll();
+    view.setDirty();
   };
 
   // Zoom in/out on the given screen coord.
@@ -458,7 +469,7 @@ function Model(usr) {
     var offset = view.toBoardDims(sPos.x, sPos.y);
     model.scrollAbsolute(bPos.x - offset.w, bPos.y - offset.h);
     nw.sendFrustum(this.frustum);
-    view.drawAll();
+    view.setDirty();
   };
 
   // If a piece is dropped on the correct cell, the grid "magnets" it,
@@ -474,7 +485,7 @@ function Model(usr) {
       p.bind();
     }
     nw.sendPieceDrop(p.id, p.x, p.y, p.bound);
-    view.drawAll();
+    view.setDirty();
   };
 
   // Return cell (grid col+row, board x+y) from board coords.
@@ -517,7 +528,7 @@ function Model(usr) {
             p.bind();
         }
       }
-      view.drawAll();
+      view.setDirty();
     }
   };
 
@@ -534,7 +545,7 @@ function Model(usr) {
         p.y = y;
         p.owner = owner;
       }
-      view.drawAll(); // TODO: redraw only if piece was or is in the frustum
+      view.setDirty(); // TODO: redraw only if piece was or is in the frustum
     }
   };
 
