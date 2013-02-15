@@ -1,22 +1,26 @@
 A web server for massively multi-user online applications.
 
-Requirements:
-Tornado Web Server (http://www.tornadoweb.org/)
-Websocket client 0.8.0 (http://pypi.python.org/pypi/websocket-client/)
-Python 2.7
-Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
-Python-SQLAlchemy 0.7 (http://www.sqlalchemy.org/)
-   - aka python-sqlalchemy and python-sqlalchemy-ext
+Requirements
+---
 
-NetGames paper:
-  http://www.ics.uci.edu/~tdebeauv/files/2011-RCAT.pdf
+- Tornado Web Server (http://www.tornadoweb.org/)
+- Websocket client 0.8.0 (http://pypi.python.org/pypi/websocket-client/)
+- Python 2.7
+- Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
+- Python-SQLAlchemy 0.7 (http://www.sqlalchemy.org/). You may need python-sqlalchemy and python-sqlalchemy-ext.
 
-Requirements in Ubuntu:
+
+Requirements in Ubuntu
+---
+
 To install all required packages in ubuntu, do:
 sudo apt-get install python python-tornado python-sqlalchemy 
 Follow instructions for the Websocket client.
 
-Quick Start Instructions for Jigsaw:
+
+Jigsaw setup
+--- 
+
 After installing all the required libraries, follow these 3 steps to start the server
 
 1. cd into bin directory
@@ -27,7 +31,10 @@ After installing all the required libraries, follow these 3 steps to start the s
 
 Now point your browser at <host>:8888/static/jigsaw.html, change the host name and click Connect!
 
-To check the database: 
+
+Database checks
+---
+
 - mysql -u jigsawuser -p 
 - then enter password
 - use jigsawdb
