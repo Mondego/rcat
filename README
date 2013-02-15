@@ -6,6 +6,7 @@ Websocket client > 0.8.0 (http://pypi.python.org/pypi/websocket-client/)
 Python 2.7
 Python-MySQLDB (http://sourceforge.net/projects/mysql-python/)
 Python-SQLAlchemy > 0.7 (http://www.sqlalchemy.org/)
+   - aka python-sqlalchemy and python-sqlalchemy-ext
 
 NetGames paper:
   http://www.ics.uci.edu/~tdebeauv/files/2011-RCAT.pdf
