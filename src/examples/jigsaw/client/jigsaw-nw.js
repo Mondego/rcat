@@ -23,11 +23,9 @@ function Network(host) {
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // init config
       model.init();
-      console.log(m.c.scores);
       var topUsers = m.c.scores.top;
       var numTopScores = m.c.scores.numTop;
       var connectedUsers = m.c.scores.connected;
-
       model.setUsers(connectedUsers, topUsers, numTopScores);
 
       var board = m.c.board; // board config
@@ -57,9 +55,6 @@ function Network(host) {
       model.dropRemotePiece(id, x, y, bound, owner);
     } else if ('pf' in m) {// player frustum update
     } else if ('NU' in m) { // new user(s): 1+ players just logged in
-
-      console.log(m)
-      
       var len = m.NU.length;
       var name, score, uid;
       for ( var i = 0; i < len; i++) {
@@ -69,9 +64,6 @@ function Network(host) {
         model.userJoined(uid, name, score);
       }
     } else if ('UD' in m) { // user disconnected
-
-      console.log(m)
-
       var userId = m.UD;
       model.userLeft(userId);
     } else if ('go' in m) {// Game Over
@@ -184,7 +176,6 @@ function Network(host) {
     var msg = {
       'usr' : user
     };
-    console.log('sent user name')
     this.sendMessage(msg);
   }
 

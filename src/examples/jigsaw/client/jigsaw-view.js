@@ -21,7 +21,8 @@ $(function() {
 
   // set the canvas global var
   $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
-
+  var frameRate = 40; // frames per second
+  
   var triggerGame = function(playerName) {
     // instantiate the global view, and nw, and reveal the game screen.
     $('#loadingScreen').hide();
@@ -31,7 +32,7 @@ $(function() {
     $('#playerNameDisplay').html(playerName);
     // instantiate the MVC
     model = new Model(playerName);
-    view = new View();
+    view = new View(frameRate);
     // connect to the server
     var host = $('#serverUrl').val();
     nw = new Network(host);
@@ -93,7 +94,7 @@ $(function() {
 
 // -------------------------- VIEW + CONTROLLER -----------------------------
 
-function View() {
+function View(frameRate) {
   // Display the puzzle in a canvas
   // and translate user inputs into model commands.
 
@@ -392,10 +393,10 @@ function View() {
     return res;
   }
 
-  // ---------------------- VIEW ------------------------------
+  // ----------------------  DRAWING  ------------------------------
 
   var ctx = $canvas.get(0).getContext('2d');
-
+  
   // draw the background
   this.drawBoard = function() {
     ctx.save();
@@ -516,14 +517,34 @@ function View() {
     ctx.fillRect(0, 0, w, h);
   }
 
-  // First clean the whole canvas,
-  // then draw in this order: grid, bound pieces, and loose pieces.
+  this.frameRate = frameRate; // in fps
+  this.dirty = true; // set to false after drawing, reset to true by the model 
+  this.renderTimer = null; // timer for the rendering
+  
   // This is called by the model whenever something changes on the board.
-  this.drawAll = function() {
-    this.cleanCanvas();
-    this.drawBoard();
-    drawGrid();
-    drawPieces();
+  this.setDirty = function() {
+    view.dirty = true;
   };
+  
+  // If the model set the view to dirty, first clean the whole canvas,
+  // then draw in this order: grid, bound pieces, and loose pieces.
+  this.redraw = function() {
+    if (view.dirty) {
+      view.cleanCanvas();
+      view.drawBoard();
+      drawGrid();
+      drawPieces();
+      view.dirty = false;
+    }
+  }
 
+  // Start rendering when the model received the game state from the server. 
+  this.startRendering = function() {
+    view.renderTimer = window.setInterval(view.redraw, view.frameRate);
+  }
+  
+  // Stop rendering: delete the timer
+  this.stopRendering = function() {
+    window.clearInterval(view.renderTimer);
+  }
 }
