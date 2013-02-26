@@ -29,6 +29,12 @@ After installing all the required libraries, follow these 3 steps to start the s
 4. run ./runjigsaw.sh
 5. By default, the client in static/jigsaw.html connects to localhost. If deploying externally, modify the server URL in jigsaw.html accordingly.
 
+bots:
+
+6. cd /dbg
+7. ./runbot.sh ip port numbots
+
+
 Now point your browser at <host>:8888/static/jigsaw.html, change the host name and click Connect!
 
 
