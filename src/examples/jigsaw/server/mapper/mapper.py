@@ -300,7 +300,7 @@ class JigsawMapper():
         
     def lock_piece_local(self, pid, uid):
         piece = self.datacon.db.get(Piece,pid)
-        if not piece.l:
+        if not piece.l and not piece.b:
             obj_location = self.datacon.obm.whereis(Piece,pid)
             logging.debug("[mapper]: I think the object is in %s" % obj_location)
             res = True
