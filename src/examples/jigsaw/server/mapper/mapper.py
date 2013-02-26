@@ -385,8 +385,9 @@ class JigsawMapper():
     
     def game_over(self, total_pieces):
         try:
-            session = self.datacon.db.Session(expire_on_commit=False)
+            session = self.datacon.db.Session()
             res = session.query(Piece).filter(Piece.b==1).count()
+            session.close()
             if res < total_pieces:
                 return False
             else:

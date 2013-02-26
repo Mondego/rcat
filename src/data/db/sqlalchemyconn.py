@@ -49,23 +49,24 @@ class SQLAlchemyConnector():
         while(1):
             try:
                 if self.engine:
-                    conn = self.engine.connect()
-                    trans = conn.begin()
-                    # Copy the updates to a new dictionary so they can be iterated
-                    current_updates = deepcopy(self.updates)
-                    # Free the update list for new schedulings
-                    self.updates = {}
-                    for typeob,list_updates in current_updates.items():
-                        for oid,updates in list_updates.items():
-                            try:
-                                logger.debug("[sqlalchemyconn]: Committing %s:%s" % (oid,updates))
-                                conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
-                            except:
-                                logger.exception("[sqlalchemyconn]: Error commiting scheduled updates:")
-                    trans.commit()
-                    # Closing this connection does not mean closing the actual connection to then database.
-                    # http://docs.sqlalchemy.org/en/latest/core/connections.html#sqlalchemy.engine.Connection.connect
-                    conn.close()
+                    if self.updates:
+                        conn = self.engine.connect()
+                        trans = conn.begin()
+                        # Copy the updates to a new dictionary so they can be iterated
+                        current_updates = deepcopy(self.updates)
+                        # Free the update list for new schedulings
+                        self.updates = {}
+                        for typeob,list_updates in current_updates.items():
+                            for oid,updates in list_updates.items():
+                                try:
+                                    logger.debug("[sqlalchemyconn]: Committing %s:%s" % (oid,updates))
+                                    conn.execute(typeob.__table__.update().where(list(typeob.__table__.primary_key)[0]==oid).values(updates))
+                                except:
+                                    logger.exception("[sqlalchemyconn]: Error commiting scheduled updates:")
+                        trans.commit()
+                        # Closing this connection does not mean closing the actual connection to then database.
+                        # http://docs.sqlalchemy.org/en/latest/core/connections.html#sqlalchemy.engine.Connection.connect
+                        conn.close()
             except:
                 logger.exception("[sqlalchemyconn]: Error executing update thread:")
             time.sleep(persist_timer)
