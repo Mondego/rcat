@@ -300,7 +300,7 @@ class JigsawMapper():
         
     def lock_piece_local(self, pid, uid):
         piece = self.datacon.db.get(Piece,pid)
-        if not piece.l:
+        if not piece.l and not piece.b:
             obj_location = self.datacon.obm.whereis(Piece,pid)
             logging.debug("[mapper]: I think the object is in %s" % obj_location)
             res = True
@@ -385,8 +385,9 @@ class JigsawMapper():
     
     def game_over(self, total_pieces):
         try:
-            session = self.datacon.db.Session(expire_on_commit=False)
+            session = self.datacon.db.Session()
             res = session.query(Piece).filter(Piece.b==1).count()
+            session.close()
             if res < total_pieces:
                 return False
             else:
