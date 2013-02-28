@@ -138,6 +138,8 @@ class Terminal():
                 sys.exit(0)
             if line.startswith("help"):
                 printc("quit: (Force) quits RCAT\nprint arg: Runs a 'print arg' in the application. Application represented by 'app' (e.g. print app)", "endc")
+            if line.startswith("restart"):
+                self.app.declare_game_end()
             if line.startswith("print"):
                 try:
                     cmd = line.split()

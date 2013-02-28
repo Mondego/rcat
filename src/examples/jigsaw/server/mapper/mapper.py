@@ -113,6 +113,8 @@ class JigsawMapper():
     def __init__(self, datacon):
         self.myid = datacon.myid
         self.datacon = datacon
+        # Set of userids who are Guests (no score)
+        self.guests = set()
 
     """
     ####################################
@@ -180,6 +182,8 @@ class JigsawMapper():
 
     def disconnect_user(self, userid):
         try:
+            if userid in self.guests:
+                self.guests.remove(userid)
             session = self.datacon.db.Session()
             user = session.query(User).filter(User.uid==userid).one()
             user.uid = None
@@ -209,11 +213,18 @@ class JigsawMapper():
             return False
         return True
 
+    # returns a list of uuids of all connected users, named and guests
+    """
+    FIX: Not taking into account guests yet
     def connected_users(self):
         session = self.datacon.db.Session(expire_on_commit=False)
         res = session.query(User).filter(User.uid != None).all()
         session.close()
         return res
+    """
+    
+    def get_guests(self):
+        return self.guests
 
     def dump_pieces(self):
         self.datacon.db.clear([Piece])
@@ -433,6 +444,7 @@ class JigsawMapper():
     # Adds new user to the score list, returns the current client scores
     def new_user_connected(self, userid, username):
         if username == "Guest":
+            self.guests.add(userid)
             return None
         try:
             session = self.datacon.db.Session(expire_on_commit=False)
@@ -456,17 +468,19 @@ class JigsawMapper():
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self, userid):
         try:
-            session = self.datacon.db.Session(expire_on_commit=False)
-            user = session.query(User).filter(User.uid==userid).one()
-            if user:
-                user.score += 1
-                session.add(user)
-                session.commit()
-            else:
-                logging.debug("[mapper]: User could not be found in database. Probably a Guest. User id was %s" % (userid))
-                return False
-            session.close()
-            return [{'user':user.name, 'uid':userid, 'score':user.score}]
+            # If user is not a guest
+            if userid not in self.guests:
+                session = self.datacon.db.Session(expire_on_commit=False)
+                user = session.query(User).filter(User.uid==userid).one()
+                if user:
+                    user.score += 1
+                    session.add(user)
+                    session.commit()
+                else:
+                    logging.debug("[mapper]: User could not be found in database. Probably a Guest. User id was %s" % (userid))
+                    return False
+                session.close()
+                return [{'user':user.name, 'uid':userid, 'score':user.score}]
         
         except:
             logging.exception("[mapper]: Could not add user score.")
