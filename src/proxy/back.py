@@ -113,7 +113,6 @@ class AdminHandler(tornado.websocket.WebSocketHandler):
             elif "FW" in msg:
                 logger.debug("[back]: Got admin FW message: " + str(msg))
                 aid = msg["FW"]["ID"]
-                msg["FW"] = msg["FW"]
                 msg["FW"]["ID"] = self.admid
                 json_newmsg = json.dumps(msg)
                 admins[aid].write_message(json_newmsg)
