@@ -7,5 +7,5 @@
 *.log
 *.cfg
 *.bench
-*.csv
+*.csv*
 *~

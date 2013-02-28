@@ -3,15 +3,11 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-from collections import defaultdict, deque
-from copy import deepcopy
+from collections import deque
 from examples.jigsaw.server.mapper.dbobjects import User, Piece, dumps_piece, \
     loads_piece, dumps_userscore
 from sqlalchemy import desc
-from sqlalchemy.ext.serializer import dumps
 from sqlalchemy.orm.exc import NoResultFound
-from threading import Timer
-import json
 import logging
 import time
 
@@ -296,11 +292,27 @@ class JigsawMapper():
             return True
         
     def lock_piece(self, pid, uid):
-        self.lock_piece_local(pid,uid)
+        return self.lock_piece_local(pid,uid)
         
+    # Returns if piece locking the piece was successful or not.
     def lock_piece_local(self, pid, uid):
-        piece = self.datacon.db.get(Piece,pid)
-        if not piece.l and not piece.b:
+        piece = self.datacon.obm.get_lazy(Piece,pid)
+        if not piece:
+            piece = self.datacon.db.get(Piece,pid)
+
+        # If it is already bound, I can't lock it, return false
+        if piece.b:
+            return False
+
+        if piece.l:
+            # If piece is locked, and but locked to the right user, everything went better than expected!
+            if piece.l == uid:
+                return True
+            else:
+                # Someone else owns the lock, can't lock it!
+                return False
+        # If piece is not locked, move it to here if necessary, then lock it
+        else:
             obj_location = self.datacon.obm.whereis(Piece,pid)
             logging.debug("[mapper]: I think the object is in %s" % obj_location)
             res = True
@@ -328,9 +340,6 @@ class JigsawMapper():
                     return False
             else:
                 return True
-        else:
-            #Piece is already locked. Return false
-            return False
         
     def lock_piece_db(self, pid, uid):
         # Requires a session, since locks must be atomic. Database is used instead of OBM for locking.

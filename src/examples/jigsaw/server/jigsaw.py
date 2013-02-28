@@ -12,7 +12,6 @@ from threading import Thread
 from tornado import websocket
 from tornado.ioloop import IOLoop
 import ConfigParser
-import cProfile
 import common.helper as helper
 import functools
 import json
@@ -183,30 +182,19 @@ def request_parser(message):
                 x = m['pm']['x']
                 y = m['pm']['y']
                 
-                ret = datacon.mapper.lock_piece(pid,userid)
-                if ret:
+                success = datacon.mapper.lock_piece(pid,userid)
+                if success:
                     locks[userid] = pid
-
-                """
-                lockid = piece['l']
-                if (not lockid or lockid == "None") and not piece['b']:  # lock the piece if nobody owns it
-                    global locks
-                    lockid = userid
-                    locks[userid] = piece
-                    datacon.mapper.lock_piece(pid,lockid)
-                    logging.debug('%s starts dragging piece %s' % (userid, pid))
-                """
+                    # update piece coords
+                    datacon.mapper.move_piece(pid, {'x':x, 'y':y})
                     
-                # update piece coords
-                datacon.mapper.move_piece(pid, {'x':x, 'y':y})
-                
-                # add lock owner to msg to broadcast
-                response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
-                
-                # broadcast
-                jsonmsg = json.dumps(response)
-                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
-                return pid
+                    # add lock owner to msg to broadcast
+                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
+                    
+                    # broadcast
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+                    return pid
                 
             elif 'pd' in m:  # piece drop
                 pid = m['pd']['id']
