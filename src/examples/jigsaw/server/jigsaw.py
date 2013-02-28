@@ -125,7 +125,7 @@ def request_parser(message):
 
     pid = None
     #handler = pchandler
-    # TODO: userid and userid[0] is confusing 
+
     try:
         enc = message
         # send the config when the user joins
@@ -145,9 +145,10 @@ def request_parser(message):
                 del enc["SS"]
                 datacon.mapper.disconnect_user(enc["UD"])
                 if enc["UD"] in locks:
+                    # TODO: this does not seem to be called, cf issue #98
                     pid = locks[enc["UD"]]
                     piece = datacon.mapper.get_piece(pid)
-                    response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b, 'l':None}}}  #  no 'U' = broadcast
+                    response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b}}}  #  no 'U' = broadcast
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 
@@ -249,7 +250,7 @@ def request_parser(message):
                 else:
                     logging.debug("[jigsaw]: Never got the lock, how odd.")
                 # add lock owner to msg to broadcast
-                response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
+                response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound}}}  #  no 'U' = broadcast
                 jsonmsg = json.dumps(response)
                 IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 return pid
@@ -316,7 +317,7 @@ class JigsawServer():
         self.start_game()
 
     def send_game_to_clients(self, client=None):
-        # TODO: Not send all pieces
+        # TODO: only send pieces in player's frustum
         pieces = []
         while(not pieces):
             pieces = datacon.mapper.select_all()
