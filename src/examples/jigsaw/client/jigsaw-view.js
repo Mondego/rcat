@@ -138,8 +138,10 @@ function View(frameRate) {
   this.initUserScores = function(sortedOnlineUsers, sortedTopUsers) {
     // Init the table.
     $('#scoreTable').html(
-        '<tr  class="lightWoodThemed" id="onlineScoresHeader"><td colspan=2>'
-            + 'Leaderboard</td></tr>');
+        '<tr class="lightWoodThemed"><td colspan=2>'
+            + '<span id="onlineScoresHeader">Leaderboard</span><br/>'
+            + '<span id="onlinePlayerCountRow"><span id="onlinePlayerCount">0</span> players online</span>'
+            + '</td></tr>');
     // Add the online users. There are always 1+ user connected: myself!
     $.each(sortedOnlineUsers, function(index, pair) {
       $('#scoreTable').find('tbody').append(
@@ -158,7 +160,7 @@ function View(frameRate) {
     });
   }
 
-  // User scored while online or just logged in.
+  // User scored while online, or just logged in.
   // Create his row, or move it from the offline top 20 to the online rows.
   // Remove the "top offline players" header if no user in top20 is offline.
   this.userScoredOnline = function(name, score, rank) {
@@ -170,6 +172,7 @@ function View(frameRate) {
     } else { // row existed already: update the score
       $tr.children('td:nth-child(2)').html(score);
     }
+    $('#onlinePlayerCount').html(model.sortedOnlineUsers.length)
     $('#scoreTable tr:nth-child(' + (rank + 1) + ')').after($tr);
     removeTopUsersHeaderIfEmpty();
   }
@@ -193,6 +196,7 @@ function View(frameRate) {
       } else {
         $targetTr = $('#scoreTable tr#topScoresHeader').nextAll().get(rank);
       }
+      $('#onlinePlayerCount').html(model.sortedOnlineUsers.length)
       // move the user's row to the offline section
       $targetTr.after($userTr);
     }

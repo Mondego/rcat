@@ -66,6 +66,7 @@ function Network(host) {
     } else if ('UD' in m) { // user disconnected
       var userId = m.UD;
       model.userLeft(userId);
+
     } else if ('go' in m) {// Game Over
       model.endGame();
     }
