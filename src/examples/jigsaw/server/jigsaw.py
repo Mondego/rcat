@@ -150,6 +150,10 @@ def request_parser(message):
                     response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b}}}  #  no 'U' = broadcast
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+                    # Cleanup database
+                    suc = datacon.mapper.drop_piece(pid, {'l':None, 'x':piece.x, 'y':piece.y})
+                    if not suc:
+                        logging.warning("[jigsawapp]: Could not release piece after disconnection.")
                 
                 response = {'M': enc}
                 jsonmsg = json.dumps(response)
