@@ -90,19 +90,21 @@ function Network(host) {
         'v' : frustum
       }
     };
-    if (this.frustumTimerMsg == null)
+    // create timer if it does not exist yet
+    if (this.frustumTimerMsg == null) {
       setTimeout(function() {
         nw.sendFrustumStopTimer()
       }, this.sendDelay);
+    }
     this.frustumTimerMsg = msg;
-    // sending is taken care of by the frustum timer
+    // the actual sending is taken care of by the frustum timer
   };
 
   // Send the frustum and reset the timer
   this.sendFrustumStopTimer = function() {
     var msg = this.frustumTimerMsg;
     if (msg) { // just in case ...
-      this.sendMessage(msg);
+      // this.sendMessage(msg); // frustum messages unused for now
     } else {
       console.log("Warning: Frustum to send is null");
     }
