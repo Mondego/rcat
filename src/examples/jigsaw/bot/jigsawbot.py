@@ -23,9 +23,9 @@ global ws
 bot = None
 ws = None
 
-freq = 20 # how many msgs per sec
-TOTAL_NUM_SAMPLES = 10 # how many msgs in a row to measure the RTT
-MIN_SAMPLE_DELAY = 10 # in seconds, minimum amount of time between 2 groups of measurements
+freq = 10 # how many msgs per sec
+TOTAL_NUM_SAMPLES = 1 # how many msgs in a row to measure the RTT
+MIN_SAMPLE_DELAY = 1 # in seconds, minimum amount of time between 2 groups of measurements
 # this is also the maximum measurable RTT
 
 class Bot():
@@ -97,7 +97,8 @@ class Bot():
             self.logfile.flush()
             self.pm_sent = {}
             self.delays = []
-            time.sleep(random.randrange(0, 5))
+            #time.sleep(random.randrange(0, 1))
+            time.sleep(1)
 
     def on_error(self, ws, error):
         logging.exception("Exception in Bot handler:")
