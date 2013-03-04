@@ -4,26 +4,24 @@ Created on Jul 30, 2012
 @author: Arthur Valadares
 '''
 
-from random import choice
+import random
 import common.helper
 import csv
 import json
+#import lib.websocket2 as websocket
+import websocket
 import logging.config
-import os
-import random
 import signal
-import sys
 import threading
 import time
 import uuid
-import websocket
 
 global bot
 global ws
 bot = None
 ws = None
 
-freq = 10 # how many msgs per sec
+freq = 20 # how many msgs per sec
 TOTAL_NUM_SAMPLES = 1 # how many msgs in a row to measure the RTT
 MIN_SAMPLE_DELAY = 1 # in seconds, minimum amount of time between 2 groups of measurements
 # this is also the maximum measurable RTT
@@ -129,9 +127,9 @@ class Bot():
         logging.info("Starting movement logic.")
         while self.running:
             # pick a piece that nobody has locked yet
-            self.mypiece_id, self.mypiece = choice(self.pieces.items())
+            self.mypiece_id, self.mypiece = random.choice(self.pieces.items())
             while self.mypiece['l'] or self.mypiece['b']:
-                self.mypiece_id, self.mypiece = choice(self.pieces.items())
+                self.mypiece_id, self.mypiece = random.choice(self.pieces.items())
             # start moving the piece around periodically
             while(self.running):
                 while y + self.grid['cellh'] < self.board["h"]:

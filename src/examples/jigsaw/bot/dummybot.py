@@ -1,13 +1,14 @@
-from websocket2 import create_connection
-import threading
 import signal
+import socket
+import threading
 import time
 import uuid
+import websocket2
 
 
 ADDR = 'ws://localhost:8889/'
-SEND_FREQ = 2 # msgs per sec
-MEASURE_FREQ = SEND_FREQ # measure RTT every X msgs 
+SEND_FREQ = 20 # msgs per sec
+MEASURE_FREQ = SEND_FREQ # measure every second
 
 
 class Bot():
@@ -15,7 +16,9 @@ class Bot():
 
     def __init__(self):
         """ Initialize the sending and receiving parts. """
-        self.ws = create_connection(ADDR)
+        sockopt = ((socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
+                   (socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1),)
+        self.ws = websocket2.create_connection(ADDR, sockopt=sockopt)
         print 'opened websocket'
         self.running = True
         self.sent_messages = {}
@@ -28,7 +31,7 @@ class Bot():
         self.recver.start()
         while self.running:
             time.sleep(1. / SEND_FREQ)
-            msg = str(uuid.uuid4())*30
+            msg = str(uuid.uuid4()) * 30
             self.measuring_counter -= 1
             if self.measuring_counter == 0:
                 self.measuring_counter = MEASURE_FREQ

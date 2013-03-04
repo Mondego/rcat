@@ -1,5 +1,6 @@
 import logging
-import websocket, httplib
+import lib.websocket2 as websocket 
+import httplib
 import time
 from threading import Thread
 from urlparse import urlparse

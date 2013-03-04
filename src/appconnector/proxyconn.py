@@ -10,7 +10,7 @@ import json
 import logging
 import sys
 import time
-import websocket
+import lib.websocket2 as websocket
 import uuid
 
 logger = logging.getLogger()

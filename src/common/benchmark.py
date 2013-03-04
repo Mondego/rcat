@@ -6,7 +6,6 @@ Created on Jan 29, 2013
 from threading import Thread
 import csv
 import os
-import random
 import resource
 import time
 

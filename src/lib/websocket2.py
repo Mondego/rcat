@@ -3,19 +3,19 @@ websocket - WebSocket client library for Python
 
 Copyright (C) 2010 Hiroki Ohtani(liris)
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 """
 
@@ -61,16 +61,16 @@ logger = logging.getLogger()
 
 class WebSocketException(Exception):
     """
-    websocket exeception class.
-    """
+websocket exeception class.
+"""
     pass
 
 
 class WebSocketConnectionClosedException(WebSocketException):
     """
-    If remote host closed the connection or some network error happened,
-    this exception will be raised.
-    """
+If remote host closed the connection or some network error happened,
+this exception will be raised.
+"""
     pass
 
 default_timeout = None
@@ -79,10 +79,10 @@ traceEnabled = False
 
 def enableTrace(tracable):
     """
-    turn on/off the tracability.
+turn on/off the tracability.
 
-    tracable: boolean value. if set True, tracability is enabled.
-    """
+tracable: boolean value. if set True, tracability is enabled.
+"""
     global traceEnabled
     traceEnabled = tracable
     if tracable:
@@ -93,28 +93,28 @@ def enableTrace(tracable):
 
 def setdefaulttimeout(timeout):
     """
-    Set the global timeout setting to connect.
+Set the global timeout setting to connect.
 
-    timeout: default socket timeout time. This value is second.
-    """
+timeout: default socket timeout time. This value is second.
+"""
     global default_timeout
     default_timeout = timeout
 
 
 def getdefaulttimeout():
     """
-    Return the global timeout setting(second) to connect.
-    """
+Return the global timeout setting(second) to connect.
+"""
     return default_timeout
 
 
 def _parse_url(url):
     """
-    parse url and the result is tuple of
-    (hostname, port, resource path and the flag of secure mode)
+parse url and the result is tuple of
+(hostname, port, resource path and the flag of secure mode)
 
-    url: url string.
-    """
+url: url string.
+"""
     if ":" not in url:
         raise ValueError("url is invalid")
 
@@ -153,34 +153,33 @@ def _parse_url(url):
 
 def create_connection(url, timeout=None, **options):
     """
-    connect to url and return websocket object.
+connect to url and return websocket object.
 
-    Connect to url and return the WebSocket object.
-    Passing optional timeout parameter will set the timeout on the socket.
-    If no timeout is supplied, the global default timeout setting returned by getdefauttimeout() is used.
-    You can customize using 'options'.
-    If you set "header" dict object, you can set your own custom header.
+Connect to url and return the WebSocket object.
+Passing optional timeout parameter will set the timeout on the socket.
+If no timeout is supplied, the global default timeout setting returned by getdefauttimeout() is used.
+You can customize using 'options'.
+If you set "header" dict object, you can set your own custom header.
 
-    >>> conn = create_connection("ws://echo.websocket.org/",
-         ...     header=["User-Agent: MyProgram",
-         ...             "x-custom: header"])
+>>> conn = create_connection("ws://echo.websocket.org/",
+... header=["User-Agent: MyProgram",
+... "x-custom: header"])
 
 
-    timeout: socket timeout time. This value is integer.
-             if you set None for this value, it means "use default_timeout value"
+timeout: socket timeout time. This value is integer.
+if you set None for this value, it means "use default_timeout value"
 
-    options: current support option is only "header".
-             if you set header as dict value, the custom HTTP headers are added.
-    """
-    sockopt = options.get("sockopt", ())
-    websock = WebSocket(sockopt=sockopt)
+options: current support option is only "header".
+if you set header as dict value, the custom HTTP headers are added.
+"""
+    websock = WebSocket()
     websock.settimeout(timeout != None and timeout or default_timeout)
     websock.connect(url, **options)
     return websock
 
-_MAX_INTEGER = (1 << 32) -1
-_AVAILABLE_KEY_CHARS = range(0x21, 0x2f + 1) + range(0x3a, 0x7e + 1)
-_MAX_CHAR_BYTE = (1<<8) -1
+_MAX_INTEGER = (1 << 32) - 1
+_AVAILABLE_KEY_CHARS = range(0x21, 0x2f + 1) + range(0x3a, 0x7e+1)
+_MAX_CHAR_BYTE = (1 << 8) - 1
 
 # ref. Websocket gets an update, and it breaks stuff.
 # http://axod.blogspot.com/2010/06/websocket-gets-update-and-it-breaks.html
@@ -219,17 +218,17 @@ def _is_bool(*values):
 
 class ABNF(object):
     """
-    ABNF frame class.
-    see http://tools.ietf.org/html/rfc5234
-    and http://tools.ietf.org/html/rfc6455#section-5.2
-    """
+ABNF frame class.
+see http://tools.ietf.org/html/rfc5234
+and http://tools.ietf.org/html/rfc6455#section-5.2
+"""
 
     # operation code values.
-    OPCODE_TEXT   = 0x1
+    OPCODE_TEXT = 0x1
     OPCODE_BINARY = 0x2
-    OPCODE_CLOSE  = 0x8
-    OPCODE_PING   = 0x9
-    OPCODE_PONG   = 0xa
+    OPCODE_CLOSE = 0x8
+    OPCODE_PING = 0x9
+    OPCODE_PONG = 0xa
 
     # available operation code value tuple
     OPCODES = (OPCODE_TEXT, OPCODE_BINARY, OPCODE_CLOSE,
@@ -245,16 +244,16 @@ class ABNF(object):
         }
 
     # data length threashold.
-    LENGTH_7  = 0x7d
+    LENGTH_7 = 0x7d
     LENGTH_16 = 1 << 16
     LENGTH_63 = 1 << 63
 
-    def __init__(self, fin = 0, rsv1 = 0, rsv2 = 0, rsv3 = 0,
-                 opcode = OPCODE_TEXT, mask = 1, data = ""):
+    def __init__(self, fin=0, rsv1=0, rsv2=0, rsv3=0,
+                 opcode=OPCODE_TEXT, mask=1, data=""):
         """
-        Constructor for ABNF.
-        please check RFC for arguments.
-        """
+Constructor for ABNF.
+please check RFC for arguments.
+"""
         self.fin = fin
         self.rsv1 = rsv1
         self.rsv2 = rsv2
@@ -267,14 +266,14 @@ class ABNF(object):
     @staticmethod
     def create_frame(data, opcode):
         """
-        create frame to send text, binary and other data.
+create frame to send text, binary and other data.
 
-        data: data to send. This is string value(byte array).
-            if opcode is OPCODE_TEXT and this value is uniocde,
-            data value is conveted into unicode string, automatically.
+data: data to send. This is string value(byte array).
+if opcode is OPCODE_TEXT and this value is uniocde,
+data value is conveted into unicode string, automatically.
 
-        opcode: operation code. please see OPCODE_XXX.
-        """
+opcode: operation code. please see OPCODE_XXX.
+"""
         if opcode == ABNF.OPCODE_TEXT and isinstance(data, unicode):
             data = data.encode("utf-8")
         # mask must be set if send data from client
@@ -282,8 +281,8 @@ class ABNF(object):
 
     def format(self):
         """
-        format this object to string(byte array) to send data to server.
-        """
+format this object to string(byte array) to send data to server.
+"""
         if not _is_bool(self.fin, self.rsv1, self.rsv2, self.rsv3):
             raise ValueError("not 0 or 1")
         if self.opcode not in ABNF.OPCODES:
@@ -317,12 +316,12 @@ class ABNF(object):
     @staticmethod
     def mask(mask_key, data):
         """
-        mask or unmask data. Just do xor for each byte
+mask or unmask data. Just do xor for each byte
 
-        mask_key: 4 byte string(byte).
+mask_key: 4 byte string(byte).
 
-        data: data to mask/unmask.
-        """
+data: data to mask/unmask.
+"""
         _m = array.array("B", mask_key)
         _d = array.array("B", data)
         for i in xrange(len(_d)):
@@ -332,84 +331,86 @@ class ABNF(object):
 
 class WebSocket(object):
     """
-    Low level WebSocket interface.
-    This class is based on
-      The WebSocket protocol draft-hixie-thewebsocketprotocol-76
-      http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76
+Low level WebSocket interface.
+This class is based on
+The WebSocket protocol draft-hixie-thewebsocketprotocol-76
+http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76
 
-    We can connect to the websocket server and send/recieve data.
-    The following example is a echo client.
+We can connect to the websocket server and send/recieve data.
+The following example is a echo client.
 
-    >>> import websocket
-    >>> ws = websocket.WebSocket()
-    >>> ws.connect("ws://echo.websocket.org")
-    >>> ws.send("Hello, Server")
-    >>> ws.recv()
-    'Hello, Server'
-    >>> ws.close()
+>>> import websocket
+>>> ws = websocket.WebSocket()
+>>> ws.connect("ws://echo.websocket.org")
+>>> ws.send("Hello, Server")
+>>> ws.recv()
+'Hello, Server'
+>>> ws.close()
 
-    get_mask_key: a callable to produce new mask keys, see the set_mask_key
-      function's docstring for more details
-    sockopt: values for socket.setsockopt.
-        sockopt must be tuple and each element is argument of sock.setscokopt.
-    """
+get_mask_key: a callable to produce new mask keys, see the set_mask_key
+function's docstring for more details
+"""
 
-    def __init__(self, get_mask_key = None, sockopt = ()):
+    def __init__(self, get_mask_key=None):
         """
-        Initalize WebSocket object.
-        """
+Initalize WebSocket object.
+"""
         self.connected = False
-        self.io_sock = self.sock = socket.socket()
-        for opts in sockopt:
-            self.sock.setsockopt(*opts)
+        #self.io_sock = self.sock = socket.socket()
+        sock = socket.socket() # THO
+        # socket.TCP_QUICKACK -> dont bundle ACKs
+        # socket.TCP_NODELAY -> dont use Nagle
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1) # THO
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) # THO
+        self.io_sock = self.sock = sock # THO
         self.get_mask_key = get_mask_key
 
     def set_mask_key(self, func):
         """
-        set function to create musk key. You can custumize mask key generator.
-        Mainly, this is for testing purpose.
+set function to create musk key. You can custumize mask key generator.
+Mainly, this is for testing purpose.
 
-        func: callable object. the fuct must 1 argument as integer.
-              The argument means length of mask key.
-              This func must be return string(byte array),
-              which length is argument specified.
-        """
+func: callable object. the fuct must 1 argument as integer.
+The argument means length of mask key.
+This func must be return string(byte array),
+which length is argument specified.
+"""
         self.get_mask_key = func
 
     def settimeout(self, timeout):
         """
-        Set the timeout to the websocket.
+Set the timeout to the websocket.
 
-        timeout: timeout time(second).
-        """
+timeout: timeout time(second).
+"""
         self.sock.settimeout(timeout)
 
     def gettimeout(self):
         """
-        Get the websocket timeout(second).
-        """
+Get the websocket timeout(second).
+"""
         return self.sock.gettimeout()
 
     def connect(self, url, **options):
         """
-        Connect to url. url is websocket url scheme. ie. ws://host:port/resource
-        You can customize using 'options'.
-        If you set "header" dict object, you can set your own custom header.
+Connect to url. url is websocket url scheme. ie. ws://host:port/resource
+You can customize using 'options'.
+If you set "header" dict object, you can set your own custom header.
 
-        >>> ws = WebSocket()
-        >>> ws.connect("ws://echo.websocket.org/",
-                ...     header={"User-Agent: MyProgram",
-                ...             "x-custom: header"})
+>>> ws = WebSocket()
+>>> ws.connect("ws://echo.websocket.org/",
+... header={"User-Agent: MyProgram",
+... "x-custom: header"})
 
-        timeout: socket timeout time. This value is integer.
-                 if you set None for this value,
-                 it means "use default_timeout value"
+timeout: socket timeout time. This value is integer.
+if you set None for this value,
+it means "use default_timeout value"
 
-        options: current support option is only "header".
-                 if you set header as dict value,
-                 the custom HTTP headers are added.
+options: current support option is only "header".
+if you set header as dict value,
+the custom HTTP headers are added.
 
-        """
+"""
         hostname, port, resource, is_secure = _parse_url(url)
         # TODO: we need to support proxy
         self.sock.connect((hostname, port))
@@ -428,7 +429,7 @@ class WebSocket(object):
         else:
             hostport = "%s:%d" % (host, port)
         headers.append("Host: %s" % hostport)
-        
+
         if "origin" in options:
             headers.append("Origin: %s" % options["origin"])
         else:
@@ -509,57 +510,55 @@ class WebSocket(object):
 
         return status, headers
 
-    def send(self, payload, opcode = ABNF.OPCODE_TEXT):
+    def send(self, payload, opcode=ABNF.OPCODE_TEXT):
         """
-        Send the data as string.
+Send the data as string.
 
-        payload: Payload must be utf-8 string or unicoce,
-                  if the opcode is OPCODE_TEXT.
-                  Otherwise, it must be string(byte array)
+payload: Payload must be utf-8 string or unicoce,
+if the opcode is OPCODE_TEXT.
+Otherwise, it must be string(byte array)
 
-        opcode: operation code to send. Please see OPCODE_XXX.
-        """
+opcode: operation code to send. Please see OPCODE_XXX.
+"""
         frame = ABNF.create_frame(payload, opcode)
         if self.get_mask_key:
             frame.get_mask_key = self.get_mask_key
         data = frame.format()
-        while data:
-            l = self.io_sock.send(data)
-            data = data[l:]
+        self.io_sock.send(data)
         if traceEnabled:
             logger.debug("send: " + repr(data))
 
-    def ping(self, payload = ""):
+    def ping(self, payload=""):
         """
-        send ping data.
+send ping data.
 
-        payload: data payload to send server.
-        """
+payload: data payload to send server.
+"""
         self.send(payload, ABNF.OPCODE_PING)
 
     def pong(self, payload):
         """
-        send pong data.
+send pong data.
 
-        payload: data payload to send server.
-        """
+payload: data payload to send server.
+"""
         self.send(payload, ABNF.OPCODE_PONG)
 
     def recv(self):
         """
-        Receive string data(byte array) from the server.
+Receive string data(byte array) from the server.
 
-        return value: string(byte array) value.
-        """
+return value: string(byte array) value.
+"""
         opcode, data = self.recv_data()
         return data
 
     def recv_data(self):
         """
-        Recieve data with operation code.
+Recieve data with operation code.
 
-        return  value: tuple of operation code and string(byte array) value.
-        """
+return value: tuple of operation code and string(byte array) value.
+"""
         while True:
             frame = self.recv_frame()
             if not frame:
@@ -576,10 +575,10 @@ class WebSocket(object):
 
     def recv_frame(self):
         """
-        recieve data as frame from server.
+recieve data as frame from server.
 
-        return value: ABNF frame object.
-        """
+return value: ABNF frame object.
+"""
         header_bytes = self._recv_strict(2)
         if not header_bytes:
             return None
@@ -615,26 +614,26 @@ class WebSocket(object):
         frame = ABNF(fin, rsv1, rsv2, rsv3, opcode, mask, data)
         return frame
 
-    def send_close(self, status = STATUS_NORMAL, reason = ""):
+    def send_close(self, status=STATUS_NORMAL, reason=""):
         """
-        send close data to the server.
+send close data to the server.
 
-        status: status code to send. see STATUS_XXX.
+status: status code to send. see STATUS_XXX.
 
-        reason: the reason to close. This must be string.
-        """
+reason: the reason to close. This must be string.
+"""
         if status < 0 or status >= ABNF.LENGTH_16:
             raise ValueError("code is invalid range")
         self.send(struct.pack('!H', status) + reason, ABNF.OPCODE_CLOSE)
 
-    def close(self, status = STATUS_NORMAL, reason = ""):
+    def close(self, status=STATUS_NORMAL, reason=""):
         """
-        Close Websocket object
+Close Websocket object
 
-        status: status code to send. see STATUS_XXX.
+status: status code to send. see STATUS_XXX.
 
-        reason: the reason to close. This must be string.
-        """
+reason: the reason to close. This must be string.
+"""
         if self.connected:
             if status < 0 or status >= ABNF.LENGTH_16:
                 raise ValueError("code is invalid range")
@@ -687,33 +686,32 @@ class WebSocket(object):
 
 class WebSocketApp(object):
     """
-    Higher level of APIs are provided.
-    The interface is like JavaScript WebSocket object.
-    """
-    def __init__(self, url, header = [],
-                 on_open = None, on_message = None, on_error = None,
-                 on_close = None, keep_running = True, get_mask_key = None,
-                 sockopt=()):
+Higher level of APIs are provided.
+The interface is like JavaScript WebSocket object.
+"""
+    def __init__(self, url, header=[],
+                 on_open=None, on_message=None, on_error=None,
+                 on_close=None, keep_running=True, get_mask_key=None):
         """
-        url: websocket url.
-        header: custom header for websocket handshake.
-        on_open: callable object which is called at opening websocket.
-          this function has one argument. The arugment is this class object.
-        on_message: callbale object which is called when recieved data.
-         on_message has 2 arguments.
-         The 1st arugment is this class object.
-         The passing 2nd arugment is utf-8 string which we get from the server.
-       on_error: callable object which is called when we get error.
-         on_error has 2 arguments.
-         The 1st arugment is this class object.
-         The passing 2nd arugment is exception object.
-       on_close: callable object which is called when closed the connection.
-         this function has one argument. The arugment is this class object.
-       keep_running: a boolean flag indicating whether the app's main loop should
-         keep running, defaults to True
-       get_mask_key: a callable to produce new mask keys, see the WebSocket.set_mask_key's
-         docstring for more information
-        """
+url: websocket url.
+header: custom header for websocket handshake.
+on_open: callable object which is called at opening websocket.
+this function has one argument. The arugment is this class object.
+on_message: callbale object which is called when recieved data.
+on_message has 2 arguments.
+The 1st arugment is this class object.
+The passing 2nd arugment is utf-8 string which we get from the server.
+on_error: callable object which is called when we get error.
+on_error has 2 arguments.
+The 1st arugment is this class object.
+The passing 2nd arugment is exception object.
+on_close: callable object which is called when closed the connection.
+this function has one argument. The arugment is this class object.
+keep_running: a boolean flag indicating whether the app's main loop should
+keep running, defaults to True
+get_mask_key: a callable to produce new mask keys, see the WebSocket.set_mask_key's
+docstring for more information
+"""
         self.url = url
         self.header = header
         self.on_open = on_open
@@ -724,34 +722,32 @@ class WebSocketApp(object):
         self.get_mask_key = get_mask_key
         self.sock = None
 
-    def send(self, data, opcode = ABNF.OPCODE_TEXT):
+    def send(self, data, opcode=ABNF.OPCODE_TEXT):
         """
-        send message.
-        data: message to send. If you set opcode to OPCODE_TEXT, data must be utf-8 string or unicode.
-        opcode: operation code of data. default is OPCODE_TEXT.
-        """
+send message.
+data: message to send. If you set opcode to OPCODE_TEXT, data must be utf-8 string or unicode.
+opcode: operation code of data. default is OPCODE_TEXT.
+"""
         if self.sock.send(data, opcode) == 0:
             raise WebSocketConnectionClosedException()
 
     def close(self):
         """
-        close websocket connection.
-        """
+close websocket connection.
+"""
         self.keep_running = False
         self.sock.close()
 
-    def run_forever(self, sockopt=()):
+    def run_forever(self):
         """
-        run event loop for WebSocket framework.
-        This loop is infinite loop and is alive during websocket is available.
-        sockopt: values for socket.setsockopt.
-            sockopt must be tuple and each element is argument of sock.setscokopt.
-        """
+run event loop for WebSocket framework.
+This loop is infinite loop and is alive during websocket is available.
+"""
         if self.sock:
             raise WebSocketException("socket is already opened")
         try:
-            self.sock = WebSocket(self.get_mask_key, sockopt = sockopt)
-            self.sock.connect(self.url, header = self.header)
+            self.sock = WebSocket(self.get_mask_key)
+            self.sock.connect(self.url, header=self.header)
             self._run_with_no_err(self.on_open)
             while self.keep_running:
                 data = self.sock.recv()
