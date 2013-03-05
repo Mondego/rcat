@@ -6,6 +6,8 @@ import uuid
 
 clients = {}
 
+DEACTIVATE_NAGLE = 0 # 0 to keep Nagle's bucketing of TCP packets
+
 class EchoWebSocket(websocket.WebSocketHandler):
     """ Broadcast the messages sent by each client to all connected clients. """
 
@@ -15,7 +17,9 @@ class EchoWebSocket(websocket.WebSocketHandler):
         self.client_id = uuid.uuid4()
         clients[self.client_id] = self
         # ugly hack to disable Nagle in tornado
-        self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, DEACTIVATE_NAGLE)
+        # quickack does not really make a difference
+        #self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 0)
         print "WebSocket opened"
 
 
@@ -30,7 +34,6 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def send_msg(self, message):
         """ Send a message to my client """
         try:
-            self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
             self.write_message(message)
         except:
             print "Client disconnected before I could send."

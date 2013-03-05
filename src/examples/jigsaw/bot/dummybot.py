@@ -5,10 +5,10 @@ import time
 import uuid
 import websocket2
 
-
 ADDR = 'ws://localhost:8889/'
 SEND_FREQ = 20 # msgs per sec
 MEASURE_FREQ = SEND_FREQ # measure every second
+DEACTIVATE_NAGLE = 0 # 0 to keep Nagle's bucketing of TCP packets
 
 
 class Bot():
@@ -16,8 +16,10 @@ class Bot():
 
     def __init__(self):
         """ Initialize the sending and receiving parts. """
-        sockopt = ((socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
-                   (socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1),)
+        sockopt = ((socket.IPPROTO_TCP, socket.TCP_NODELAY, DEACTIVATE_NAGLE),
+                   # quickack does not really make a difference
+                   #(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 0), 
+                   )
         self.ws = websocket2.create_connection(ADDR, sockopt=sockopt)
         print 'opened websocket'
         self.running = True
