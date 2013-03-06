@@ -210,7 +210,7 @@ def request_parser(message):
                 if not piece:
                     raise Exception("Could not retrieve piece for lock check.")
                 if not piece.l:
-                    logging.warning("[jigsawapp]: Got something weird: %s" % piece)
+                    logging.warning("[jigsawapp]: Dropped a piece that did not have a lock. %s" % piece)
                     return
                 
                 lockid = piece.l

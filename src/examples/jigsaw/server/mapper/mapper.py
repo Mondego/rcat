@@ -199,7 +199,7 @@ class JigsawMapper():
             if locked_pieces:
                 # There should be only one piece here!
                 for piece in locked_pieces:
-                    piece['l'] = None
+                    piece.l = None
                     session.add(piece)
                     
             session.commit()

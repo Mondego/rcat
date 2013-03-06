@@ -46,7 +46,7 @@ class ResourceMonitor():
         self.fname = fname
         self.file = open(self.fname, 'w', 0)
         self.writer = csv.writer(self.file)
-        header = ['humanTime', 'elapsedTime'] + [tup[1] for tup in self.benchmarked_values]
+        header = ['humanTime', 'timestamp', 'elapsedTime'] + [tup[1] for tup in self.benchmarked_values]
 #        firstline = ['time', 'user time', 'system time', 'max resident set', 'shared mem', 'unshared mem', 'unshared stack', 'page faults w/ IO', 'page faults w IO',
 #                     'swap outs', 'block input ops', 'block output ops', 'msgs sent', 'msgs received', 'signals rcvd', 'v context switches', 'iv context switches']
         self.writer.writerow(header)
@@ -64,6 +64,7 @@ class ResourceMonitor():
                 self.writer = csv.writer(self.file)
                 usage = []
                 usage.append(time.strftime("%H:%M:%S", time.localtime()))  # human-readble time
+                usage.append(now)
                 usage.append(elapsed_time)
                 usage.extend(bm_values)
                 self.writer.writerow(usage)

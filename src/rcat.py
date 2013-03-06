@@ -27,7 +27,7 @@ class RCAT():
         proxies = rcat_config["proxies"]
         plugins = rcat_config["plugins"]
         if "benchmark" in plugins:
-            self.resmon = ResourceMonitor('rcat_resource_monitor.csv')
+            self.resmon = ResourceMonitor('rcat_resmon.csv')
             self.resmon.start()
         if obm:
             handlers.append((r"/obm", OBMHandler))
