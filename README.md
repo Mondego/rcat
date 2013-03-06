@@ -14,9 +14,12 @@ Requirements in Ubuntu
 ---
 
 To install all required packages in ubuntu, do:
-sudo apt-get install python python-tornado python-sqlalchemy 
-Follow instructions for the Websocket client.
+sudo apt-get install python python-sqlalchemy python-pip
+sudo pip install tornado
+sudo pip install websocket-client
 
+Please note that the Ubuntu package python-tornado is not up-to-date and
+will cause errors in running rcat.
 
 Jigsaw setup
 --- 
