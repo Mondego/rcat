@@ -12,7 +12,6 @@ from threading import Thread
 from tornado import websocket
 from tornado.ioloop import IOLoop
 import ConfigParser
-import cProfile
 import common.helper as helper
 import functools
 import json
@@ -125,7 +124,7 @@ def request_parser(message):
 
     pid = None
     #handler = pchandler
-    # TODO: userid and userid[0] is confusing 
+
     try:
         enc = message
         # send the config when the user joins
@@ -137,7 +136,7 @@ def request_parser(message):
             userid = new_user_list[0]
 
             if not game_loading and enc["SS"] == rcat.pc.adm_id:
-                jigsaw.send_game_to_clients(userid)
+                jigsaw.send_game_to_clients([userid])
 
         elif "UD" in enc:
             # User was disconnected. Inform other clients
@@ -145,11 +144,16 @@ def request_parser(message):
                 del enc["SS"]
                 datacon.mapper.disconnect_user(enc["UD"])
                 if enc["UD"] in locks:
+                    # TODO: this does not seem to be called, cf issue #98
                     pid = locks[enc["UD"]]
                     piece = datacon.mapper.get_piece(pid)
-                    response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b, 'l':None}}}  #  no 'U' = broadcast
+                    response = {'M': {'pd': {'id': piece.pid, 'x':piece.x, 'y':piece.y, 'b':piece.b}}}  #  no 'U' = broadcast
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+                    # Cleanup database
+                    suc = datacon.mapper.drop_piece(pid, {'l':None, 'x':piece.x, 'y':piece.y})
+                    if not suc:
+                        logging.warning("[jigsawapp]: Could not release piece after disconnection.")
                 
                 response = {'M': enc}
                 jsonmsg = json.dumps(response)
@@ -171,8 +175,8 @@ def request_parser(message):
                 # 2- server sends game state: 'c' config msg
                 # 3- client answers with its user name: 'usr' msg
                 # 4- server tells all clients about the new user: 'NU' msg 
-                if m['usr'] != 'Guest':  # guests don't have points 
-                    update_res = datacon.mapper.new_user_connected(userid, m['usr'])
+                update_res = datacon.mapper.new_user_connected(userid, m['usr'])
+                if m['usr'] != 'Guest':  # guests don't have points
                     response = {'M': {'NU':update_res}}  # New User
                     jsonmsg = json.dumps(response)
                     IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
@@ -182,30 +186,19 @@ def request_parser(message):
                 x = m['pm']['x']
                 y = m['pm']['y']
                 
-                ret = datacon.mapper.lock_piece(pid,userid)
-                if ret:
+                success = datacon.mapper.lock_piece(pid,userid)
+                if success:
                     locks[userid] = pid
-
-                """
-                lockid = piece['l']
-                if (not lockid or lockid == "None") and not piece['b']:  # lock the piece if nobody owns it
-                    global locks
-                    lockid = userid
-                    locks[userid] = piece
-                    datacon.mapper.lock_piece(pid,lockid)
-                    logging.debug('%s starts dragging piece %s' % (userid, pid))
-                """
+                    # update piece coords
+                    datacon.mapper.move_piece(pid, {'x':x, 'y':y})
                     
-                # update piece coords
-                datacon.mapper.move_piece(pid, {'x':x, 'y':y})
-                
-                # add lock owner to msg to broadcast
-                response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
-                
-                # broadcast
-                jsonmsg = json.dumps(response)
-                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
-                return pid
+                    # add lock owner to msg to broadcast
+                    response = {'M': {'pm': {'id': pid, 'x':x, 'y':y, 'l':userid}}}  #  no 'U' = broadcast
+                    
+                    # broadcast
+                    jsonmsg = json.dumps(response)
+                    IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+                    return pid
                 
             elif 'pd' in m:  # piece drop
                 pid = m['pd']['id']
@@ -249,7 +242,7 @@ def request_parser(message):
                 else:
                     logging.debug("[jigsaw]: Never got the lock, how odd.")
                 # add lock owner to msg to broadcast
-                response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound, 'l':None}}}  #  no 'U' = broadcast
+                response = {'M': {'pd': {'id': pid, 'x':x, 'y':y, 'b':bound}}}  #  no 'U' = broadcast
                 jsonmsg = json.dumps(response)
                 IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
                 return pid
@@ -269,12 +262,24 @@ class JigsawServer():
         global settings
         
         self.workers = ThreadPool(6)
+        """
+        START JigsawServer attributes:
+        """
         workers = self.workers
+        # Collection of locked pieces to user. Used for disconnection cases.
         self.piece_locks = piece_locks
-        # Hooks up to get messages coming in admin channel. 
         # Used to know about new users, servers, and their disconnections.
         self.datacon = datacon
+        # Who is the coordinator/leader of Jigsaw? We'll find out soon..
+        self.coordinator = False
+        # Temporary state, when game is loaded and ready, game_loading becomes false
         self.game_loading = game_loading
+        # Determines when the game ends. Useful only if leader
+        self.game_over = False
+        """
+        END Attributes
+        """ 
+        # Hooks up to get messages coming in admin channel
         rcat.pc.set_admin_handler(self.admin_parser)
         config = helper.open_configuration('jigsaw.cfg')
         settings = self.jigsaw_parser(config)
@@ -293,6 +298,7 @@ class JigsawServer():
             # Other nodes will only start after the leader is done clearing and registering. This happens when leader sends NEW game.
             datacon.mapper.cleanup_obm()
             settings["main"]["abandon"] = False
+            self.coordinator = True
             self.start_game()
 
     def check_game_end(self):
@@ -301,12 +307,12 @@ class JigsawServer():
         global total_pieces 
         total_pieces = int(grid['nrows']) * int(grid['ncols'])
         
-        game_over = False
-        while (not game_over):
-            game_over = self.datacon.mapper.game_over(total_pieces)
+        while (not self.game_over):
+            self.game_over = self.datacon.mapper.game_over(total_pieces)
             time.sleep(3)
                 
         game_loading = True
+        self.game_over = False
         scores = datacon.mapper.get_user_scores(20)  # top 20 and connected player scores
         msg = {'M': {'go':True, 'scores':scores}}
         jsonmsg = json.dumps(msg)
@@ -315,8 +321,18 @@ class JigsawServer():
 
         self.start_game()
 
-    def send_game_to_clients(self, client=None):
-        # TODO: Not send all pieces
+    # Used to end the game prematurely
+    def declare_game_end(self):
+        if self.coordinator == True:
+            self.game_over = True
+        else:
+            if self.coordinator:
+                msg = {"FW":{"RESTART":True},"ID":self.coordinator}
+                jsonmsg = json.dumps(msg)
+                self.send_app_message(jsonmsg)
+
+    def send_game_to_clients(self, clients=None):
+        # TODO: only send pieces in player's frustum
         pieces = []
         while(not pieces):
             pieces = datacon.mapper.select_all()
@@ -331,17 +347,27 @@ class JigsawServer():
                'scores' : scores
                }
         
-        if not client:
+        if not clients:
+            # Named clients
             for client in scores['connected']:
                 cfg['myid'] = client['uid'] 
                 response = {'M': {'c': cfg}, 'U': [client['uid']]}
                 jsonmsg = json.dumps(response)
                 IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+                
+            # Guest clients
+            guests = datacon.mapper.get_guests()
+            for client in guests:
+                cfg['myid'] = client
+                response = {'M': {'c': cfg}, 'U': [client]}
+                jsonmsg = json.dumps(response)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
         else:
-            cfg['myid'] = client
-            response = {'M': {'c': cfg}, 'U': [client]}
-            jsonmsg = json.dumps(response)
-            IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
+            for client in clients:
+                cfg['myid'] = client
+                response = {'M': {'c': cfg}, 'U': [client]}
+                jsonmsg = json.dumps(response)
+                IOLoop.instance().add_callback(functools.partial(pchandler.sync_reply,jsonmsg))
 
 
     def jigsaw_parser(self, config):
@@ -390,16 +416,19 @@ class JigsawServer():
                 datacon.mapper.init_obm([User,Piece])
 
                 if "C" in msg["BC"]:
-                    global coordinator
-                    coordinator = msg["BC"]["C"]
-                    logging.info("[jigsawapp]: Coordinator is " + coordinator)
+                    # If I am not already the coordinator, store who is 
+                    if self.coordinator != True:
+                        self.coordinator = msg["BC"]["C"]
+                    #logging.info("[jigsawapp]: Coordinator is " + coordinator)
 
                 newgame_settings = msg["BC"]["NEW"]
                 board = newgame_settings["board"]
                 img_settings = newgame_settings["img"]
                 grid = newgame_settings["grid"]
                 datacon.mapper.join(newgame_settings)
-                if settings["main"]["start"] == "true":
+                # If I am the coordinator, start the game!
+                if self.coordinator == True:
+                    self.coordinator = True
                     logging.info("[jigsawapp]: Starting game, please wait...")
                     # Restarting the game at the user's command, or at game over             
                     if settings["main"]["abandon"]:
@@ -441,12 +470,22 @@ class JigsawServer():
 
                     # Tell clients about new game
                     self.send_game_to_clients()
+                else:
+                    # If I am not the leader, I still should send the new game to the guests, since the leader does not know about them 
+                    # TODO: HACK! Should be fixed at some point
+                    guests = self.datacon.mapper.get_guests()
+                    self.send_game_to_clients(guests)
 
 
             elif "LOADED" in msg["BC"]:
                 game_loading = False
                 logging.info("[jigsawapp]: Game has loaded. Have fun!")
                 terminal.show_terminal()
+            
+        elif "FW" in msg:
+            if self.coordinator == True:
+                if "RESTART" in msg["FW"]:
+                    self.game_over = True
 
     def start_game(self):
         global settings
@@ -456,8 +495,13 @@ class JigsawServer():
         mod_settings["ADMS"] = list(rcat.pc.admins)
         newmsg = {"BC":{"NEW":mod_settings, "C":rcat.pc.adm_id}}
         json_message = json.dumps(newmsg)
+        #proxy_admin = self.pick_random_proxy()
+        #proxy_admin.send(json_message)
+        self.send_app_message(json_message)
+        
+    def send_app_message(self,message):
         proxy_admin = random.choice(rcat.pc.admin_proxy.keys())
-        proxy_admin.send(json_message)
+        proxy_admin.send(message)
         
 
 def start():

@@ -398,6 +398,27 @@ class ObjectManager():
             else:
                 # It has not yet been assigned. Might as well assign it here.
                 return self._get_local(otype, oid)
+    
+    """
+    Same as get, but only checks in the cache. Returns false if not local.
+    """
+    def get_lazy(self,otype,oid):
+        olock = self.get_lock(otype,oid)
+        olock.acquire()
+        
+        ret_object = False
+        
+        try:        
+            # If I own the object...
+            if oid in self.location[otype] and self.location[otype][oid].hid != self.myhost.hid:
+                #return it!
+                ret_object = self.cache[otype][oid]
+        except:
+            logger.exception("[obm]: Failed to retrieve object.")
+        finally:
+            olock.release()
+            
+        return ret_object
                 
     def _get_local(self,otype,oid):
         olock = self.get_lock(otype,oid)

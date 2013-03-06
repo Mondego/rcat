@@ -3,15 +3,11 @@ Created on May 18, 2012
 
 @author: arthur
 '''
-from collections import defaultdict, deque
-from copy import deepcopy
+from collections import deque
 from examples.jigsaw.server.mapper.dbobjects import User, Piece, dumps_piece, \
     loads_piece, dumps_userscore
 from sqlalchemy import desc
-from sqlalchemy.ext.serializer import dumps
 from sqlalchemy.orm.exc import NoResultFound
-from threading import Timer
-import json
 import logging
 import time
 
@@ -117,6 +113,8 @@ class JigsawMapper():
     def __init__(self, datacon):
         self.myid = datacon.myid
         self.datacon = datacon
+        # Set of userids who are Guests (no score)
+        self.guests = set()
 
     """
     ####################################
@@ -184,6 +182,8 @@ class JigsawMapper():
 
     def disconnect_user(self, userid):
         try:
+            if userid in self.guests:
+                self.guests.remove(userid)
             session = self.datacon.db.Session()
             user = session.query(User).filter(User.uid==userid).one()
             user.uid = None
@@ -213,11 +213,18 @@ class JigsawMapper():
             return False
         return True
 
+    # returns a list of uuids of all connected users, named and guests
+    """
+    FIX: Not taking into account guests yet
     def connected_users(self):
         session = self.datacon.db.Session(expire_on_commit=False)
         res = session.query(User).filter(User.uid != None).all()
         session.close()
         return res
+    """
+    
+    def get_guests(self):
+        return self.guests
 
     def dump_pieces(self):
         self.datacon.db.clear([Piece])
@@ -296,11 +303,27 @@ class JigsawMapper():
             return True
         
     def lock_piece(self, pid, uid):
-        self.lock_piece_local(pid,uid)
+        return self.lock_piece_local(pid,uid)
         
+    # Returns if piece locking the piece was successful or not.
     def lock_piece_local(self, pid, uid):
-        piece = self.datacon.db.get(Piece,pid)
-        if not piece.l and not piece.b:
+        piece = self.datacon.obm.get_lazy(Piece,pid)
+        if not piece:
+            piece = self.datacon.db.get(Piece,pid)
+
+        # If it is already bound, I can't lock it, return false
+        if piece.b:
+            return False
+
+        if piece.l:
+            # If piece is locked, and but locked to the right user, everything went better than expected!
+            if piece.l == uid:
+                return True
+            else:
+                # Someone else owns the lock, can't lock it!
+                return False
+        # If piece is not locked, move it to here if necessary, then lock it
+        else:
             obj_location = self.datacon.obm.whereis(Piece,pid)
             logging.debug("[mapper]: I think the object is in %s" % obj_location)
             res = True
@@ -328,9 +351,6 @@ class JigsawMapper():
                     return False
             else:
                 return True
-        else:
-            #Piece is already locked. Return false
-            return False
         
     def lock_piece_db(self, pid, uid):
         # Requires a session, since locks must be atomic. Database is used instead of OBM for locking.
@@ -424,6 +444,7 @@ class JigsawMapper():
     # Adds new user to the score list, returns the current client scores
     def new_user_connected(self, userid, username):
         if username == "Guest":
+            self.guests.add(userid)
             return None
         try:
             session = self.datacon.db.Session(expire_on_commit=False)
@@ -447,17 +468,19 @@ class JigsawMapper():
     # Adds one point to the user name associated with userid, returns a dictionary of modified user name: score pair.
     def add_to_user_score(self, userid):
         try:
-            session = self.datacon.db.Session(expire_on_commit=False)
-            user = session.query(User).filter(User.uid==userid).one()
-            if user:
-                user.score += 1
-                session.add(user)
-                session.commit()
-            else:
-                logging.debug("[mapper]: User could not be found in database. Probably a Guest. User id was %s" % (userid))
-                return False
-            session.close()
-            return [{'user':user.name, 'uid':userid, 'score':user.score}]
+            # If user is not a guest
+            if userid not in self.guests:
+                session = self.datacon.db.Session(expire_on_commit=False)
+                user = session.query(User).filter(User.uid==userid).one()
+                if user:
+                    user.score += 1
+                    session.add(user)
+                    session.commit()
+                else:
+                    logging.debug("[mapper]: User could not be found in database. Probably a Guest. User id was %s" % (userid))
+                    return False
+                session.close()
+                return [{'user':user.name, 'uid':userid, 'score':user.score}]
         
         except:
             logging.exception("[mapper]: Could not add user score.")

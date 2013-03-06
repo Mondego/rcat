@@ -23,11 +23,12 @@ function Network(host) {
     // cf http://stackoverflow.com/a/4935684/856897
     if ('c' in m) { // init config
       model.init();
+      // init players data
       var topUsers = m.c.scores.top;
       var numTopScores = m.c.scores.numTop;
       var connectedUsers = m.c.scores.connected;
       model.setUsers(connectedUsers, topUsers, numTopScores);
-
+      // init puzzle data
       var board = m.c.board; // board config
       var grid = m.c.grid; // grid config
       var dfrus = m.c.frus; // default frustum
@@ -36,7 +37,6 @@ function Network(host) {
       var img = m.c.img; // url and size of puzzle image
       model.startGame(board, grid, dfrus, pieces, myid, img);
     } else if ('scu' in m) { // score updates for 1 or more players
-
       var scoreUpdates = m.scu;
       var len = scoreUpdates.length, update = null;
       for ( var i = 0; i < len; i++) {
@@ -66,6 +66,7 @@ function Network(host) {
     } else if ('UD' in m) { // user disconnected
       var userId = m.UD;
       model.userLeft(userId);
+
     } else if ('go' in m) {// Game Over
       model.endGame();
     }
@@ -90,19 +91,21 @@ function Network(host) {
         'v' : frustum
       }
     };
-    if (this.frustumTimerMsg == null)
+    // create timer if it does not exist yet
+    if (this.frustumTimerMsg == null) {
       setTimeout(function() {
         nw.sendFrustumStopTimer()
       }, this.sendDelay);
+    }
     this.frustumTimerMsg = msg;
-    // sending is taken care of by the frustum timer
+    // the actual sending is taken care of by the frustum timer
   };
 
   // Send the frustum and reset the timer
   this.sendFrustumStopTimer = function() {
     var msg = this.frustumTimerMsg;
     if (msg) { // just in case ...
-      this.sendMessage(msg);
+      // this.sendMessage(msg); // frustum messages unused for now
     } else {
       console.log("Warning: Frustum to send is null");
     }

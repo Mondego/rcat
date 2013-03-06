@@ -4,11 +4,7 @@ import argparse
 import json
 import logging
 import os
-import socket
-import struct
 import sys
-import time
-#import fcntl
 
 paths = {}
 
@@ -20,6 +16,10 @@ ansi_codes = {
               }
 
 #===============================================================================
+#import socket
+#import struct
+#import time
+#import fcntl
 # def get_ip_address(ifname):
 #    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #    return socket.inet_ntoa(fcntl.ioctl(
@@ -62,13 +62,13 @@ def parse_input(cfg_file='app.cfg'):
                 myport = config.get('Main', 'appport')
                 proxies = json.loads(config.get('Main', 'proxies'))
                 persist_timer = config.get('Main', 'persist_timer')
-                plugins = config.get('Main','plugins').split(',')
+                plugins = config.get('Main', 'plugins').split(',')
             except IOError as e:
                 logging.error("[mysqlconn]: Could not open file. Exception: ", e)
                 #myip = get_ip_address('eth0')
         else:
             return {}
-        
+
     if myip and myport:
         settings['ip'] = myip
         settings['port'] = myport
@@ -78,15 +78,15 @@ def parse_input(cfg_file='app.cfg'):
         return settings
     else:
         return {}
-    
+
 def parse_bot_input():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', help='port', default='8888')
     parser.add_argument('-ip', help='host', default='localhost')
     args = vars(parser.parse_args())
-    return args["ip"],args["p"]
+    return args["ip"], args["p"]
 
-    
+
 def open_configuration(path):
     if (os.path.isfile(path)):
         fp = open(path)
@@ -111,17 +111,17 @@ def printc(msg, color):
 class Terminal():
     lock = None
     app = None
-    
+
     def __init__(self, app):
         self.lock = Lock()
         self.lock.acquire()
         self.app = app
         self.app.debug_print = lambda cmd: eval(cmd)
-    
+
     def show_terminal(self):
         if self.lock.locked():
             self.lock.release()
-            
+
     def pause_terminal(self):
         if not self.lock.locked():
             self.lock.acquire()
@@ -138,6 +138,8 @@ class Terminal():
                 sys.exit(0)
             if line.startswith("help"):
                 printc("quit: (Force) quits RCAT\nprint arg: Runs a 'print arg' in the application. Application represented by 'app' (e.g. print app)", "endc")
+            if line.startswith("restart"):
+                self.app.declare_game_end()
             if line.startswith("print"):
                 try:
                     cmd = line.split()
@@ -146,7 +148,7 @@ class Terminal():
                     else:
                         app = self.app
                         print eval(cmd[1])
-                except Exception,e:
+                except Exception, e:
                     logging.error("Could not read variable.")
                     print e
             self.show_terminal()

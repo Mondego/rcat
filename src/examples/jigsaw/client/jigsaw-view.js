@@ -22,7 +22,11 @@ $(function() {
   // set the canvas global var
   $canvas = $('#jigsaw'); // this is actually an array with 1 html object in it
   var frameRate = 40; // frames per second
-  
+
+  // set the URL to connect to
+  // default: ws://localhost:8888/client
+  $('#serverUrl').val('ws://' + window.location.host + '/client')
+
   var triggerGame = function(playerName) {
     // instantiate the global view, and nw, and reveal the game screen.
     $('#loadingScreen').hide();
@@ -134,8 +138,10 @@ function View(frameRate) {
   this.initUserScores = function(sortedOnlineUsers, sortedTopUsers) {
     // Init the table.
     $('#scoreTable').html(
-        '<tr  class="lightWoodThemed" id="onlineScoresHeader"><td colspan=2>'
-            + 'Leaderboard</td></tr>');
+        '<tr class="lightWoodThemed"><td colspan=2>'
+            + '<span id="onlineScoresHeader">Leaderboard</span><br/>'
+            + '<span id="onlinePlayerCountRow"><span id="onlinePlayerCount">0</span> players online</span>'
+            + '</td></tr>');
     // Add the online users. There are always 1+ user connected: myself!
     $.each(sortedOnlineUsers, function(index, pair) {
       $('#scoreTable').find('tbody').append(
@@ -154,7 +160,7 @@ function View(frameRate) {
     });
   }
 
-  // User scored while online or just logged in.
+  // User scored while online, or just logged in.
   // Create his row, or move it from the offline top 20 to the online rows.
   // Remove the "top offline players" header if no user in top20 is offline.
   this.userScoredOnline = function(name, score, rank) {
@@ -166,6 +172,7 @@ function View(frameRate) {
     } else { // row existed already: update the score
       $tr.children('td:nth-child(2)').html(score);
     }
+    $('#onlinePlayerCount').html(model.sortedOnlineUsers.length)
     $('#scoreTable tr:nth-child(' + (rank + 1) + ')').after($tr);
     removeTopUsersHeaderIfEmpty();
   }
@@ -189,6 +196,7 @@ function View(frameRate) {
       } else {
         $targetTr = $('#scoreTable tr#topScoresHeader').nextAll().get(rank);
       }
+      $('#onlinePlayerCount').html(model.sortedOnlineUsers.length)
       // move the user's row to the offline section
       $targetTr.after($userTr);
     }
@@ -393,10 +401,10 @@ function View(frameRate) {
     return res;
   }
 
-  // ----------------------  DRAWING  ------------------------------
+  // ---------------------- DRAWING ------------------------------
 
   var ctx = $canvas.get(0).getContext('2d');
-  
+
   // draw the background
   this.drawBoard = function() {
     ctx.save();
@@ -518,14 +526,14 @@ function View(frameRate) {
   }
 
   this.frameRate = frameRate; // in fps
-  this.dirty = true; // set to false after drawing, reset to true by the model 
+  this.dirty = true; // set to false after drawing, reset to true by the model
   this.renderTimer = null; // timer for the rendering
-  
+
   // This is called by the model whenever something changes on the board.
   this.setDirty = function() {
     view.dirty = true;
   };
-  
+
   // If the model set the view to dirty, first clean the whole canvas,
   // then draw in this order: grid, bound pieces, and loose pieces.
   this.redraw = function() {
@@ -538,11 +546,11 @@ function View(frameRate) {
     }
   }
 
-  // Start rendering when the model received the game state from the server. 
+  // Start rendering when the model received the game state from the server.
   this.startRendering = function() {
     view.renderTimer = window.setInterval(view.redraw, view.frameRate);
   }
-  
+
   // Stop rendering: delete the timer
   this.stopRendering = function() {
     window.clearInterval(view.renderTimer);

@@ -338,7 +338,7 @@ function Model(usr) {
       pd = piecesData[id];
       sx = pd.c * sw; // coords of image sliced from original
       sy = pd.r * sh;
-      p = new Piece(id, pd.b, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
+      p = new Piece(id, pd.b, pd.l, pd.c, pd.r, pd.x, pd.y, w, h, sx, sy, sw, sh);
     }
     nw.sendUserName(this.myName);
 
@@ -553,10 +553,10 @@ function Model(usr) {
 
 // TODO: could have an ID given by the server instead of c,r
 // (that would make cheating more annoying for puzzles with lots of pieces)
-function Piece(id, b, c, r, x, y, w, h, sx, sy, sw, sh) {
+function Piece(id, b, l, c, r, x, y, w, h, sx, sy, sw, sh) {
 
   this.id = id; // id
-  this.owner = null; // remote player currently dragging (+ locking) the piece
+  this.owner = l; // id of remote player currently dragging+locking the piece
 
   // whether the piece has been correctly placed or not
   this.bound = b;

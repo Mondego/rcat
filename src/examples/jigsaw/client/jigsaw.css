@@ -190,7 +190,7 @@ tr#onlineScoresHeader {
 	font-size: 1.2em;
 }
 
-tr#topScoresHeader {
+#topScoresHeader, #onlinePlayerCountRow {
 	font-size: 0.75em;
 }
 
