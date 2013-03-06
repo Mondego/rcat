@@ -4,14 +4,15 @@ Summary: Opens a websocket listener for servers. Messages from server are receiv
 and passed to Back so they can be delivered to client. Messages sent to Back are forwarded 
 to Front through Proxy, in order to reach the server. 
 """
+from common.message import PROXY_DISTRIBUTION
 import json
 import logging
+import proxy
+import socket
 import time
 import tornado.web
 import tornado.websocket
 import uuid
-import proxy
-from common.message import PROXY_DISTRIBUTION
 
 temp_users = {}
 clients = {}
@@ -19,6 +20,7 @@ client_proxy = {}
 proxyref = None
 proxy_options = None 
 logger = logging.getLogger("proxy")
+DISABLE_NAGLE = 1
 
 def SendToClient(handler,msg):
     handler.write(msg)
@@ -40,6 +42,9 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
     
     def open(self):
         logger.debug("WebSocket opened")
+        # set TCP_NODELAY to 1 to disable Nagle
+        self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, DISABLE_NAGLE)
+
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
         
