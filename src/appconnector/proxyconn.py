@@ -7,13 +7,15 @@ for application control, e.g. "disconnect user from the proxy."
 
 from threading import Thread
 import json
+import lib.websocket2 as websocket
 import logging
+import socket
 import sys
 import time
-import lib.websocket2 as websocket
 import uuid
 
 logger = logging.getLogger()
+DISABLE_NAGLE = 1
 
 class ProxyConnector():
     # admin_hook: Used for applications and data connectors to access proxies
@@ -35,6 +37,8 @@ class ProxyConnector():
         self.admins = set()
         self.adm_id = str(uuid.uuid4())
         self.broadcasted = False
+        # set TCP_NODELAY to 1 to disable Nagle
+        sockopt = ((socket.IPPROTO_TCP, socket.TCP_NODELAY, DISABLE_NAGLE),)
         
         if not appURL.endswith("/"):
                 appURL += "/"
@@ -45,12 +49,14 @@ class ProxyConnector():
                                         on_open = self.Admin_on_open,
                                         on_message = self.Admin_on_message,
                                         on_error = self.Admin_on_error,
-                                        on_close = self.Admin_on_close)
+                                        on_close = self.Admin_on_close,
+                                        sockopt=sockopt)
             proxyWS = websocket.WebSocketApp(proxy+"server",
                                         on_open = self.Proxy_on_open,
                                         on_message = self.Proxy_on_message,
                                         on_error = self.Proxy_on_error,
-                                        on_close = self.Proxy_on_close)
+                                        on_close = self.Proxy_on_close,
+                                        sockopt=sockopt)
             self.admin_proxy[adminWS] = proxyWS
             self.proxies.add(proxyWS)
             logger.debug("[ProxyConnector]: Connecting to Proxy in " + proxy)
@@ -68,7 +74,8 @@ class ProxyConnector():
                                     on_open = self.App_on_open,
                                     on_message = self.App_on_message,
                                     on_error = self.App_on_error,
-                                    on_close = self.App_on_close)
+                                    on_close = self.App_on_close,
+                                    sockopt=sockopt)
         # TODO: Fix this sleep, looks so bad :(
         time.sleep(1)
         logger.debug("[ProxyConnector]: Connecting to AppServer in " + appURL)        
