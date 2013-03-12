@@ -50,7 +50,8 @@ def start(benchmark=False):
     logging.info("[proxy]: static path is " + static_path)
     
     if benchmark:
-        resmon = ResourceMonitor('proxy_resmon.csv')
+        resmon = ResourceMonitor('proxy_resmon.csv', 
+                                 metrics=[('numUsers', proxy.front.get_num_users)])
         resmon.start()
 
     application = tornado.web.Application([

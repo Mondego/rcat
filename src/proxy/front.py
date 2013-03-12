@@ -129,3 +129,5 @@ class ClientLayer(proxy.AbstractFront):
     def list_users(self):
         return clients.keys()
     
+    def get_num_users(self):
+        return len(clients)
