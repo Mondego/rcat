@@ -20,7 +20,7 @@ client_proxy = {}
 proxyref = None
 proxy_options = None 
 logger = logging.getLogger("proxy")
-DISABLE_NAGLE = 1
+DISABLE_NAGLE = 0
 
 def SendToClient(handler,msg):
     handler.write(msg)
@@ -129,3 +129,5 @@ class ClientLayer(proxy.AbstractFront):
     def list_users(self):
         return clients.keys()
     
+    def get_num_users(self):
+        return len(clients)

@@ -11,17 +11,19 @@ import time
 
 class ResourceMonitor():
     
-    def __init__(self, fname, interval=5):
+    def __init__(self, fname, interval=5, metrics=[]):
+        """
+        interval is in seconds
+        metrics is a list of couples: ('metricName', callbackToGetMetricFrom) 
+        """
+        
         self.interval = interval
-        self.last_timestamp = 0
+        self.last_timestamp = 0 # when did i last measure
         # for each benchmarked value, store its C-struct name, human-readable name, and value at the previous step
-        # cf http://linux.die.net/man/2/getrusage  
+        # cf http://linux.die.net/man/2/getrusage
         self.benchmarked_values = [['ru_utime', 'userTime', 0],  # in seconds
                                    ['ru_stime', 'systemTime', 0],  # in seconds
                                    ['ru_maxrss', 'max resident set', 0],
-                                   ['ru_ixrss', 'shared mem', 0],
-                                   ['ru_idrss', 'unshared mem', 0],
-                                   ['ru_isrss', 'unshared stack', 0],
                                    ['ru_minflt', 'page faults w/o IO', 0],
                                    ['ru_majflt', 'page faults with IO', 0],
                                    ['ru_nswap', 'swap outs', 0],
@@ -29,6 +31,8 @@ class ResourceMonitor():
                                    ['ru_oublock', 'block output ops', 0],
                                    ['ru_nvcsw', 'v context switches', 0],
                                    ['ru_nivcsw', 'iv context switches', 0]]
+        # if the file exists, pick a new name
+        # TODO: bug: this results in file names like "proxy_resmon.csv."
         if os.path.exists(fname):
             name_split = fname.split('.')
             if len(name_split) > 1:
@@ -46,9 +50,10 @@ class ResourceMonitor():
         self.fname = fname
         self.file = open(self.fname, 'w', 0)
         self.writer = csv.writer(self.file)
-        header = ['humanTime', 'timestamp', 'elapsedTime'] + [tup[1] for tup in self.benchmarked_values]
-#        firstline = ['time', 'user time', 'system time', 'max resident set', 'shared mem', 'unshared mem', 'unshared stack', 'page faults w/ IO', 'page faults w IO',
-#                     'swap outs', 'block input ops', 'block output ops', 'msgs sent', 'msgs received', 'signals rcvd', 'v context switches', 'iv context switches']
+        header = ['humanTime', 'timestamp']
+        header += [metric[0] for metric in metrics]
+        self.metrics = metrics
+        header += [tup[1] for tup in self.benchmarked_values]
         self.writer.writerow(header)
         self.file.close()
         
@@ -58,14 +63,16 @@ class ResourceMonitor():
             elapsed_time = now - self.last_timestamp  # in seconds
             resources = resource.getrusage(resource.RUSAGE_SELF)
             if self.last_timestamp:  # dont log deltas for the first step
-                bm_values = [getattr(resources, tup[0]) - tup[2] for tup in self.benchmarked_values] 
+                # get all needed metrics and usage values
+                custom_metrics_values = [metric[1]() for metric in self.metrics]
+                bm_values = [(getattr(resources, tup[0]) - tup[2])/elapsed_time for tup in self.benchmarked_values]
                 # write values to file
                 self.file = open(self.fname, 'a', 0)
                 self.writer = csv.writer(self.file)
                 usage = []
                 usage.append(time.strftime("%H:%M:%S", time.localtime()))  # human-readble time
                 usage.append(now)
-                usage.append(elapsed_time)
+                usage.extend(custom_metrics_values)
                 usage.extend(bm_values)
                 self.writer.writerow(usage)
                 self.file.close()
