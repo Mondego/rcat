@@ -19,9 +19,6 @@ class ResourceMonitor():
         self.benchmarked_values = [['ru_utime', 'userTime', 0],  # in seconds
                                    ['ru_stime', 'systemTime', 0],  # in seconds
                                    ['ru_maxrss', 'max resident set', 0],
-                                   ['ru_ixrss', 'shared mem', 0],
-                                   ['ru_idrss', 'unshared mem', 0],
-                                   ['ru_isrss', 'unshared stack', 0],
                                    ['ru_minflt', 'page faults w/o IO', 0],
                                    ['ru_majflt', 'page faults with IO', 0],
                                    ['ru_nswap', 'swap outs', 0],
@@ -46,7 +43,8 @@ class ResourceMonitor():
         self.fname = fname
         self.file = open(self.fname, 'w', 0)
         self.writer = csv.writer(self.file)
-        header = ['humanTime', 'timestamp', 'elapsedTime'] + [tup[1] for tup in self.benchmarked_values]
+        header = ['humanTime', 'timestamp'] 
+        header += [tup[1] for tup in self.benchmarked_values] 
 #        firstline = ['time', 'user time', 'system time', 'max resident set', 'shared mem', 'unshared mem', 'unshared stack', 'page faults w/ IO', 'page faults w IO',
 #                     'swap outs', 'block input ops', 'block output ops', 'msgs sent', 'msgs received', 'signals rcvd', 'v context switches', 'iv context switches']
         self.writer.writerow(header)
@@ -58,7 +56,7 @@ class ResourceMonitor():
             elapsed_time = now - self.last_timestamp  # in seconds
             resources = resource.getrusage(resource.RUSAGE_SELF)
             if self.last_timestamp:  # dont log deltas for the first step
-                bm_values = [getattr(resources, tup[0]) - tup[2] for tup in self.benchmarked_values] 
+                bm_values = [(getattr(resources, tup[0]) - tup[2])/elapsed_time for tup in self.benchmarked_values] 
                 # write values to file
                 self.file = open(self.fname, 'a', 0)
                 self.writer = csv.writer(self.file)

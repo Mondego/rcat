@@ -15,7 +15,7 @@ import time
 import uuid
 
 logger = logging.getLogger()
-DISABLE_NAGLE = 1
+DISABLE_NAGLE = 0
 
 class ProxyConnector():
     # admin_hook: Used for applications and data connectors to access proxies

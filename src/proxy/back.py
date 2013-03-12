@@ -19,7 +19,7 @@ server_admid = {}
 proxyref = None
 admin_proxy = {}
 logger = logging.getLogger("proxy")
-DISABLE_NAGLE = 1
+DISABLE_NAGLE = 0
 
 class ServerHandler(tornado.websocket.WebSocketHandler):
     def open(self):

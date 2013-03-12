@@ -25,7 +25,7 @@ MSG_FREQ = 5 # how many msgs per sec
 FLUSH_FREQ = MSG_FREQ # flush to file every second
 # we log all messages RTT
 
-DISABLE_NAGLE = 1 # set to 0 to let Nagle's algorithm work 
+DISABLE_NAGLE = 0 # set to 0 to let Nagle's algorithm work 
 
 
 class Bot():
