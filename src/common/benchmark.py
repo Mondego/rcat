@@ -63,7 +63,6 @@ class ResourceMonitor():
                 usage = []
                 usage.append(time.strftime("%H:%M:%S", time.localtime()))  # human-readble time
                 usage.append(now)
-                usage.append(elapsed_time)
                 usage.extend(bm_values)
                 self.writer.writerow(usage)
                 self.file.close()
