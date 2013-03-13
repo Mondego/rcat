@@ -21,16 +21,16 @@ class ResourceMonitor():
         self.last_timestamp = 0 # when did i last measure
         # for each benchmarked value, store its C-struct name, human-readable name, and value at the previous step
         # cf http://linux.die.net/man/2/getrusage
-        self.benchmarked_values = [['ru_utime', 'userTime', 0],  # in seconds
-                                   ['ru_stime', 'systemTime', 0],  # in seconds
-                                   ['ru_maxrss', 'max resident set', 0],
-                                   ['ru_minflt', 'page faults w/o IO', 0],
-                                   ['ru_majflt', 'page faults with IO', 0],
-                                   ['ru_nswap', 'swap outs', 0],
-                                   ['ru_inblock', 'block input ops', 0],
-                                   ['ru_oublock', 'block output ops', 0],
-                                   ['ru_nvcsw', 'v context switches', 0],
-                                   ['ru_nivcsw', 'iv context switches', 0]]
+        self.benchmarked_values = [['ru_utime', 'userCpuRatio', 0],  # in seconds
+                                   ['ru_stime', 'systemCpuRatio', 0],  # in seconds
+                                   ['ru_maxrss', 'maxResidentSetPerSec', 0],
+                                   ['ru_minflt', 'pageFaultsWithoutIOPerSec', 0],
+                                   ['ru_majflt', 'pageFaultsWithIOPerSec', 0],
+                                   #['ru_nswap', 'swap outs per sec', 0],
+                                   ['ru_inblock', 'blockInputOpsPerSec', 0],
+                                   ['ru_oublock', 'blockOutputOpsPerSec', 0],
+                                   ['ru_nvcsw', 'vContextSwitchesPerSec', 0],
+                                   ['ru_nivcsw', 'ivContextSwitchesPerSec', 0]]
         # if the file exists, pick a new name
         # TODO: bug: this results in file names like "proxy_resmon.csv."
         if os.path.exists(fname):
