@@ -19,12 +19,12 @@ def configure_servers(servers):
         if tuples != '':
             if tuples[0].count('@') == 0:
                 tuples[0] = "mondego@" + tuples[0]
-	    if tuples[4]:
-		# If folder is specified, make sure everything resides under STDRCAT	
-		tuples[4] = STDRCAT + '/' + tuples[4]
-	    else:
-		# Else, just use the standard "rcat" name
-		tuples[4] = STDRCAT
+            if tuples[4]:
+                # If folder is specified, make sure everything resides under STDRCAT    
+                tuples[4] = STDRCAT + '/' + tuples[4]
+            else:
+                # Else, just use the standard "rcat" name
+                tuples[4] = STDRCAT
             try:
                 cmd = "ssh %s \'cat ~/%s/VERSION\'" % (tuples[0],tuples[4])
                 res = subprocess.check_output(cmd,shell=True)
@@ -113,7 +113,7 @@ def launch_proxies(servers):
             print "Starting proxy in " + tuples[0]
             host,port = tuples[1].split(':')
             cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./runproxy.sh %s\'" % (tuples[0],tuples[4],port)
-	    print cmd
+            print cmd
             os.system(cmd)
 
 def launch_apps(servers):
@@ -122,29 +122,29 @@ def launch_apps(servers):
         if tuples[2]:
             print "Starting app in " + tuples[0]
             cmd = "ssh %s \'cp ~/%s/test/deploy/configs/%s ~/%s/test/%s.cfg\'" % (tuples[0],tuples[4],tuples[3],tuples[4],appname)
-	    print cmd
+            print cmd
             os.system(cmd)
             cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./run%s.sh\'" % (tuples[0],tuples[4],appname)
             print cmd
             os.system(cmd)
-	    time.sleep(1)
+            time.sleep(1)
 
 
 if __name__=="__main__":
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
-	parser.add_argument('-a', help='application to be deployed', default='jigsaw')
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-f', help='file with list of servers. Organized by external hostname, proxy, app', default='./configs/config_hosts')
+        parser.add_argument('-a', help='application to be deployed', default='jigsaw')
 
-	args = vars(parser.parse_args()) # returns a namespace converted to a dict)
+        args = vars(parser.parse_args()) # returns a namespace converted to a dict)
 
-	s = readlines(args['f'])
+        s = readlines(args['f'])
 
-	configure_servers(s)
-	start_proxies(s)
-	start_apps(s)
+        configure_servers(s)
+        start_proxies(s)
+        start_apps(s)
 
-	launch_proxies(s)
-	time.sleep(2)
-	launch_apps(s)
-	# Now setup config files for proxy and app! .......
+        launch_proxies(s)
+        time.sleep(2)
+        launch_apps(s)
+        # Now setup config files for proxy and app! .......
 
