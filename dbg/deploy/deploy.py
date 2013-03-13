@@ -44,8 +44,7 @@ def configure_server(hostname,dest_folder):
     # os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Creates the static folder, that will host the html files
     # os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
-    print "rsync -rav --exclude \'*.git\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder)
-    os.system("rsync -rav --exclude \'*.git\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
+    os.system("rsync -rav --exclude \'*.git\' --exclude \'dbg/results\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Copy .conf files for logging (proxy_logging.conf, connector_logging.conf)
     os.system("ssh %s \'cp ~/%s/dbg/deploy/configs/*.conf ~/%s/bin\'" % (hostname,dest_folder,dest_folder))
     # Sets the RCAT version and attempts to install all necessary libraries
