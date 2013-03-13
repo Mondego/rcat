@@ -19,7 +19,7 @@ def configure_servers(servers):
             if tuples[0].count('@') == 0:
                 tuples[0] = "mondego@" + tuples[0]
             if tuples[4]:
-                # If folder is specified, make sure everything resides under STDRCAT    
+                # If folder is specified, make sure everything resides under STDRCAT
                 tuples[4] = STDRCAT + '/' + tuples[4]
             else:
                 # Else, just use the standard "rcat" name
@@ -39,12 +39,12 @@ def configure_servers(servers):
 
 def configure_server(hostname,dest_folder):
     # Creates rcat and bin folder
-    # os.system("ssh %s \'mkdir -p ~/%s/bin; mkdir -p ~/%s/dbg\'" % (hostname,dest_folder))
+    os.system("ssh %s \'mkdir -p ~/%s\'" % (hostname,dest_folder))
     # Copies all files in src folder to destination root folder (to avoid copying git files)
     # os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Creates the static folder, that will host the html files
     # os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
-    os.system("rsync -rav --exclude \'*.git\' %s %s:%s" % (RCAT_ROOT,hostname,dest_folder))
+    os.system("rsync -rav --exclude \'*.git\' --exclude \'dbg/results\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Copy .conf files for logging (proxy_logging.conf, connector_logging.conf)
     os.system("ssh %s \'cp ~/%s/dbg/deploy/configs/*.conf ~/%s/bin\'" % (hostname,dest_folder,dest_folder))
     # Sets the RCAT version and attempts to install all necessary libraries
@@ -70,14 +70,23 @@ def start_proxies(servers):
     # servers = list of lists of external hostname, proxy, app
     print servers
     proxy_list = "["
+    bot_proxy_list = ""
     for tuples in servers:
         if tuples[1]:
             proxy_list += "\"ws://" + tuples[1] + "\","
+            bot_proxy_list += tuples[1] + "\n"
     proxy_list = proxy_list.rstrip(',') + ']'
     print proxy_list
 
+    # Open the template rcat file
     f = open("./configs/rcat.cfg.temp")
+    # Open the TBD version of rcat.cfg
     newf = open('/tmp/rcat.cfg','w')
+
+    # Create the list of proxies for bot deployment (if needed)
+    botf = open('/tmp/proxies.lst','w')
+    botf.write(bot_proxy_list)
+    botf.close()
 
     for line in f:
         newf.write(line.replace('###',proxy_list))
@@ -90,6 +99,12 @@ def start_proxies(servers):
             cmd = "scp /tmp/rcat.cfg %s:~/%s/bin" % (tuples[0],tuples[4])
             print cmd
             os.system(cmd) 
+        # If bot machines, send the list of proxies for bot deployment
+        elif not tuples[1] and not tuples[2]:
+            cmd = "scp /tmp/proxies.lst %s:~/%s/dbg" % (tuples[0],tuples[4])
+            print cmd
+            os.system(cmd)
+            
     
 def start_apps(servers):
     template_file = open("/tmp/rcat.cfg")
