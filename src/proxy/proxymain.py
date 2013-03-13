@@ -20,6 +20,7 @@ import proxy as proxymod
 import sys
 import tornado.ioloop
 import tornado.web
+import uuid
 
 define("port", default=8888, help="run on the given port", type=int)
 define("benchmark",default=True, help="turns on resource management for the proxy")
@@ -50,7 +51,8 @@ def start(benchmark=False):
     logging.info("[proxy]: static path is " + static_path)
     
     if benchmark:
-        resmon = ResourceMonitor('proxy_resmon.csv', 
+        filename = "proxy_resmon_" + str(uuid.uuid4())[:8] + ".csv"
+        resmon = ResourceMonitor(filename, 
                                  metrics=[('numUsers', proxy.front.get_num_users)])
         resmon.start()
 

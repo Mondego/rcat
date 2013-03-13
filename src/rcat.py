@@ -12,6 +12,7 @@ from threading import Thread
 import common.helper as helper
 import logging
 import tornado.web
+import uuid
 
 class RCAT():
     application = None
@@ -27,7 +28,8 @@ class RCAT():
         proxies = rcat_config["proxies"]
         plugins = rcat_config["plugins"]
         if "benchmark" in plugins:
-            self.resmon = ResourceMonitor('rcat_resmon.csv')
+            filename = "rcat_resmon_" + str(uuid.uuid4())[:8] + ".csv"
+            self.resmon = ResourceMonitor(filename)
             self.resmon.start()
         if obm:
             handlers.append((r"/obm", OBMHandler))
