@@ -70,14 +70,23 @@ def start_proxies(servers):
     # servers = list of lists of external hostname, proxy, app
     print servers
     proxy_list = "["
+    bot_proxy_list = ""
     for tuples in servers:
         if tuples[1]:
             proxy_list += "\"ws://" + tuples[1] + "\","
+            bot_proxy_list += tuples[1] + "\n"
     proxy_list = proxy_list.rstrip(',') + ']'
     print proxy_list
 
+    # Open the template rcat file
     f = open("./configs/rcat.cfg.temp")
+    # Open the TBD version of rcat.cfg
     newf = open('/tmp/rcat.cfg','w')
+
+    # Create the list of proxies for bot deployment (if needed)
+    botf = open('/tmp/proxies.lst','w')
+    botf.write(bot_proxy_list)
+    botf.close()
 
     for line in f:
         newf.write(line.replace('###',proxy_list))
@@ -90,6 +99,12 @@ def start_proxies(servers):
             cmd = "scp /tmp/rcat.cfg %s:~/%s/bin" % (tuples[0],tuples[4])
             print cmd
             os.system(cmd) 
+        # If bot machines, send the list of proxies for bot deployment
+        elif not tuples[1] and not tuples[2]:
+            cmd = "scp /tmp/proxies.lst %s:~/%s/dbg" % (tuples[0],tuples[4])
+            print cmd
+            os.system(cmd)
+            
     
 def start_apps(servers):
     template_file = open("/tmp/rcat.cfg")
