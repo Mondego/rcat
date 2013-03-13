@@ -1,0 +1,213 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+
+body,html {
+	height: 100%;
+	width: 100%;
+}
+
+body {
+	-moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#aboveFooterWrapper {
+	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
+	min-height: 100%;
+	height: auto !important;
+	height: 100%;
+	margin: 0 auto -4.5em; /* 4.5em = height of footer */
+}
+
+#footer,#footerPusher {
+	/* footer hack from http://ryanfait.com/resources/footer-stick-to-bottom-of-page/ */
+	height: 4.5em;
+	clear: both;
+}
+
+/***************** theme classes ********************/
+.lightWoodThemed {
+	background-color: #feb; /* light brown */
+	color: #653; /* dark brown */
+}
+
+.darkWoodThemed {
+	color: #feb; /* light brown */
+	background-color: #653; /* dark brown */
+}
+
+button,input[type=submit] {
+	cursor: pointer;
+}
+
+button.darkWoodThemed,input[type=submit].darkWoodThemed {
+	background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
+	background: -webkit-linear-gradient(#875, #542);
+	background: -moz-linear-gradient(#875, #542);
+	border-color: #542;
+}
+
+button.darkWoodThemed:hover,input[type=submit].darkWoodThemed:hover { /*
+   background: linear-gradient(#875, #542) repeat scroll 0 0 transparent;
+   border-color: #542;*/
+	box-shadow: 2px 5px 5px #a97;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table.darkWoodThemed td {
+	border: 1px solid #feb;
+}
+
+input[type=text].lightWoodThemed {
+	color: #653;
+	background-color: #fff;
+	border: 1px solid #ba8;
+}
+
+input[type=text].lightWoodThemed:focus {
+	border: 1px solid #653;
+	box-shadow: 2px 2px 2px #a97; /* dimensions to be overriden below*/
+}
+
+/********************** header *************/
+#header {
+	display: block;
+	border-bottom: 1px solid #a97;
+	position: relative;
+	/*line-height: 70px;*/
+	/* trick to vertical align cf http://phrogz.net/css/vertical-align/index.html */
+}
+
+#header h1 {
+	text-align: center;
+	font-size: 50px;
+	padding: 10px 0px;
+}
+
+#disconnectArea {
+	position: absolute;
+	bottom: 0px;
+	right: 10px;
+	font-size: 14px;
+	display: none; /* displayed when the user logs in */
+}
+
+button#disconnect {
+	border-width: 1px;
+	border-radius: 3px 3px 3px 3px;
+}
+
+/*********** loading Screen ***************/
+#loadingScreen {
+	display: none; /* will only show up if user name cookie not found */
+	margin: 200px 0 0;
+}
+
+#loadingScreen p {
+	text-align: center;
+	font-size: 40px;
+	padding: 15px 0;
+}
+
+#joinInForm {
+	display: none; /* shown when the splash image is ready/has loaded */
+}
+
+#joinIn {
+	height: 70px;
+	width: 200px;
+	font-size: 40px;
+	border-radius: 4px 4px 4px 4px;
+}
+
+input#playerName {
+	font-size: 35px;
+	width: 350px;
+	border-radius: 4px 4px 4px 4px;
+	border-width: 3px;
+	padding: 4px;
+}
+
+input#playerName:focus {
+	box-shadow: 0px 5px 5px;
+}
+
+/************** game screen **************/
+#gameScreen {
+	margin: 0 auto;
+	margin-top: 10px;
+	display: none; /* will show up when the game view starts */
+	max-width: 100%;
+	width: 1100px; /*810px canvas + 290px table */
+	/* if screen width < 1200, width will be 100% */
+}
+
+#jigsaw {
+	float: left;
+	margin-right: 10px;
+}
+
+table#scoreTable {
+	float: left;
+	text-align: center;
+}
+
+tr.playerScore th,tr.playerScore td {
+	padding: 3px;
+}
+
+/* first column = player names */
+tr.playerScore td:nth-child(1),tr.playerScore th:nth-child(1) {
+	padding-right: 10px;
+	text-align: left;
+	max-width: 180px; /* prevent from getting too wide with long names */
+	overflow: hidden; /* cut long names */
+	border: 0px solid;
+	border-left: 1px solid;
+}
+
+/* second column = score*/
+tr.playerScore td:nth-child(2),tr.playerScore th:nth-child(2) {
+	max-width: 80px;
+	overflow: hidden;
+	border: 0px solid;
+	border-right: 1px solid;
+	padding-left: 10px;
+}
+
+tr#onlineScoresHeader,tr#topScoresHeader {
+	text-align: center;
+}
+
+tr#onlineScoresHeader {
+	font-size: 1.2em;
+}
+
+#topScoresHeader, #onlinePlayerCountRow {
+	font-size: 0.75em;
+}
+
+tr.playerScore:last-child { /* :last-child does not work with IE<9? */
+	border-bottom: 1px solid;
+}
+
+/************************ footer ***************/
+#footer {
+	border-top: 1px solid;
+}
+
+input#serverUrl {
+	width: 300px;
+	font-size: 15px;
+	padding: 2px;
+	border-radius: 3px 3px 3px 3px;
+	border-width: 2px;
+	border-radius: 3px 3px 3px 3px;
+}

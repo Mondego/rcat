@@ -1,0 +1,8 @@
+[Main]
+apphost=localhost
+appport=20001
+proxies=["ws://localhost:8888"]
+plugins=obm
+persist_timer=3
+
+

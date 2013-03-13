@@ -10,7 +10,6 @@ from tempfile import mkstemp
 
 VERSION = 0
 RCAT_ROOT = "../../"
-STATIC = RCAT_ROOT + "examples/jigsaw/client"
 STDRCAT = "rcat"
 
 def configure_servers(servers):
@@ -30,7 +29,7 @@ def configure_servers(servers):
                 res = subprocess.check_output(cmd,shell=True)
                 print res
                 if res.count('RCAT_VERSION') == 0:
-                    configure_server(tuples[0])
+                    configure_server(tuples[0],tuples[4])
                 else:
                     if int(res.split('=')[1]) < VERSION:
                         configure_server(tuples[0],tuples[4])
@@ -39,10 +38,17 @@ def configure_servers(servers):
                 configure_server(tuples[0],tuples[4])
 
 def configure_server(hostname,dest_folder):
-    os.system("ssh %s \'mkdir -p ~/%s/bin\'" % (hostname,dest_folder))
-    os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
-    os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
-    os.system("ssh %s \'echo RCAT_VERSION=%s > ~/%s/VERSION; cd ~/%s/test/deploy; bash ./configure_server.sh\'" % (hostname,str(VERSION),dest_folder,dest_folder))
+    # Creates rcat and bin folder
+    # os.system("ssh %s \'mkdir -p ~/%s/bin; mkdir -p ~/%s/dbg\'" % (hostname,dest_folder))
+    # Copies all files in src folder to destination root folder (to avoid copying git files)
+    # os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
+    # Creates the static folder, that will host the html files
+    # os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
+    os.system("rsync -rav --exclude \'*.git\' %s %s:%s" % (RCAT_ROOT,hostname,dest_folder))
+    # Copy .conf files for logging (proxy_logging.conf, connector_logging.conf)
+    os.system("ssh %s \'cp ~/%s/dbg/deploy/configs/*.conf ~/%s/bin\'" % (hostname,dest_folder,dest_folder))
+    # Sets the RCAT version and attempts to install all necessary libraries
+    os.system("ssh %s \'echo RCAT_VERSION=%s > ~/%s/VERSION; cd ~/%s/dbg/deploy; bash ./configure_server.sh\'" % (hostname,str(VERSION),dest_folder,dest_folder))
 
 def readlines(path):
     if (os.path.isfile(path)):
@@ -81,7 +87,7 @@ def start_proxies(servers):
     
     for tuples in servers:
         if tuples[1]:
-            cmd = "scp /tmp/rcat.cfg %s:~/%s/test/" % (tuples[0],tuples[4])
+            cmd = "scp /tmp/rcat.cfg %s:~/%s/bin" % (tuples[0],tuples[4])
             print cmd
             os.system(cmd) 
     
@@ -102,9 +108,10 @@ def start_apps(servers):
                     new_file.write(line.replace('@@@',appport))
                 else:
                     new_file.write(line)
-            print abs_path
+            # print abs_path
             new_file.close()
-            os.system("scp %s %s:~/%s/test/rcat.cfg" % (abs_path,tuples[0],tuples[4]))
+            # Copy rcat.cfg
+            os.system("scp %s %s:~/%s/bin/rcat.cfg" % (abs_path,tuples[0],tuples[4]))
 
 # Check for tuples[4]
 def launch_proxies(servers):
@@ -112,7 +119,7 @@ def launch_proxies(servers):
         if tuples[1]:
             print "Starting proxy in " + tuples[0]
             host,port = tuples[1].split(':')
-            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./runproxy.sh %s\'" % (tuples[0],tuples[4],port)
+            cmd = "ssh %s \'cd ~/%s/bin; screen -d -m ./runproxy.sh %s --benchmark\'" % (tuples[0],tuples[4],port)
             print cmd
             os.system(cmd)
 
@@ -121,10 +128,10 @@ def launch_apps(servers):
     for tuples in servers:
         if tuples[2]:
             print "Starting app in " + tuples[0]
-            cmd = "ssh %s \'cp ~/%s/test/deploy/configs/%s ~/%s/test/%s.cfg\'" % (tuples[0],tuples[4],tuples[3],tuples[4],appname)
+            cmd = "ssh %s \'cp ~/%s/dbg/deploy/configs/%s ~/%s/bin/%s.cfg\'" % (tuples[0],tuples[4],tuples[3],tuples[4],appname)
             print cmd
             os.system(cmd)
-            cmd = "ssh %s \'cd ~/%s/test; screen -d -m ./run%s.sh\'" % (tuples[0],tuples[4],appname)
+            cmd = "ssh %s \'cd ~/%s/bin; screen -d -m ./run%s.sh\'" % (tuples[0],tuples[4],appname)
             print cmd
             os.system(cmd)
             time.sleep(1)

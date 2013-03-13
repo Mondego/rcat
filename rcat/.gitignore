@@ -1,0 +1,11 @@
+*.DS_Store
+*.settings
+*.project
+*.exe
+*.pydevproject
+*.pyc
+*.log
+*.cfg
+*.bench
+*.csv*
+*~

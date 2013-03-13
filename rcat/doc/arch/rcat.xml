@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xadlcore_3_0:xADL xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:hints_3_0="http://www.archstudio.org/xadl3/schemas/hints-3.0.xsd"
+    xmlns:structure_3_0="http://www.archstudio.org/xadl3/schemas/structure-3.0.xsd"
+    xmlns:xadlcore_3_0="http://www.archstudio.org/xadl3/schemas/xadlcore-3.0.xsd">
+  <structure_3_0:structure structure_3_0:id="structure7f000101-1e1496a2-475bcc5b-e7c70002"
+      structure_3_0:name="Proxy">
+    <structure_3_0:component structure_3_0:id="component7f000101-1e1a6f92-4f3cd7e7-e7c7000a"
+        structure_3_0:name="[New Component]">
+      <structure_3_0:interface structure_3_0:direction="none" structure_3_0:id="interface7f000101-1e1ab1aa-c2a23e29-e7c7000b"
+          structure_3_0:name="[New Interface]">
+        <structure_3_0:ext xsi:type="hints_3_0:HintsExtension">
+          <hints_3_0:hint hints_3_0:hint="org.eclipse.swt.graphics.Point:408,520"
+              hints_3_0:name="location"/>
+        </structure_3_0:ext>
+      </structure_3_0:interface>
+      <structure_3_0:ext xsi:type="hints_3_0:HintsExtension">
+        <hints_3_0:hint hints_3_0:hint="org.eclipse.swt.graphics.Rectangle:324,440,120,80"
+            hints_3_0:name="bounds"/>
+        <hints_3_0:hint hints_3_0:hint="org.eclipse.swt.graphics.RGB:197,203,245"
+            hints_3_0:name="assembly-background/color"/>
+      </structure_3_0:ext>
+    </structure_3_0:component>
+  </structure_3_0:structure>
+  <structure_3_0:structure structure_3_0:id="structure7f000101-1e14fc42-5f4225c9-e7c70003"
+      structure_3_0:name="Data"/>
+  <structure_3_0:structure structure_3_0:id="structure7f000101-1e152af9-a2931d3d-e7c70004"
+      structure_3_0:name="Application"/>
+</xadlcore_3_0:xADL>

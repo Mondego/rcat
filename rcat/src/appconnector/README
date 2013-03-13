@@ -1,0 +1,2 @@
+This component needs the Python websocket-client library available at
+http://pypi.python.org/pypi/websocket-client
