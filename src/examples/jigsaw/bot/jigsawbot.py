@@ -35,6 +35,7 @@ class Bot():
     mypiece = None
     samples = 0
     measured_samples = 0
+    num_users = 0
 
     pm_sent = {}
     delays = []
@@ -46,47 +47,49 @@ class Bot():
         received_time = time.time()
         msg = json.loads(message)
         # Initial state
-        if not self.running:
-            if 'c' in msg:
-                # open file and write header
-                botname = "bot-" + str(uuid.uuid4())[:8]
-                logging.info('Received config msg from server.')
-                logging.info('My name is: %s' % botname)
-                fname = botname + '.csv'
-                logfile = open(fname, 'w', 0)
-                self.logfile = logfile
-                self.writer = csv.writer(logfile)
-                header = ['botname', 'timestamp', 'rtt']
-                #self.writer.writerow(header) # no need for header if cat dbg/bot-*.csv > all-bots.csv
-                # start running the bot
-                self.running = True
-                self.start_game(msg['c'])
-                # send my name to the server
-                ws.send(json.dumps({'usr':botname}));
-                self.botname = botname
-                logging.info("Starting to measure RTT.")
-                
-        else: # msg for piece moved or dropped
-            # check I sent this message
-            if 'pm' in msg and msg['pm']['id'] == self.mypiece_id:
-                pm_id = str(msg['pm']['x']) + ':' + str(msg['pm']['y'])
-                if pm_id in self.pm_sent: 
-                    sent_time = self.pm_sent[pm_id]
-                    now = time.time()
-                    delay = (received_time - sent_time) * 1000
-                    self.delays.append((now, delay))
-                    del self.pm_sent[pm_id]
-                    # flush to file if quota reached
-                    print '%d delays' % len(self.delays)
-                    if len(self.delays) >= FLUSH_FREQ:
-                        for tup in self.delays:
-                            row = [self.botname, tup[0], tup[1]]
-                            self.writer.writerow(row)
-                        self.logfile.flush()
-                        print 'flushed'
-                        self.pm_sent = {}
-                        self.delays = []
-                    
+        #if not self.running:
+        if 'c' in msg:
+            # open file and write header
+            botname = "bot-" + str(uuid.uuid4())[:8]
+            logging.info('Received config msg from server.')
+            logging.info('My name is: %s' % botname)
+            fname = botname + '.csv'
+            logfile = open(fname, 'w', 0)
+            self.logfile = logfile
+            self.writer = csv.writer(logfile)
+            header = ['botname', 'timestamp', 'numUsers', 'rtt']
+            self.writer.writerow(header) # no need for header if cat dbg/bot-*.csv > all-bots.csv
+            # start running the bot
+            self.running = True
+            self.start_game(msg['c'])
+            # send my name to the server
+            ws.send(json.dumps({'usr':botname}));
+            self.botname = botname
+            logging.info("Starting to measure RTT.")
+
+        # keep track of connected users
+        if 'NU' in msg:
+            self.num_users += 1
+
+        #else: # msg for piece moved or dropped
+        # check I sent this message
+        if 'pm' in msg and msg['pm']['id'] == self.mypiece_id:
+            pm_id = str(msg['pm']['x']) + ':' + str(msg['pm']['y'])
+            if pm_id in self.pm_sent:
+                sent_time = self.pm_sent[pm_id]
+                now = time.time()
+                delay = (received_time - sent_time) * 1000
+                self.delays.append((now, self.num_users, delay))
+                del self.pm_sent[pm_id]
+                # flush to file if quota reached
+                if len(self.delays) >= FLUSH_FREQ:
+                    for tup in self.delays:
+                        row = [self.botname, tup[0], tup[1], tup[2]]
+                        self.writer.writerow(row)
+                    self.logfile.flush()
+                    self.pm_sent = {}
+                    self.delays = []
+
     def on_error(self, ws, error):
         logging.exception("Exception in Bot handler:")
 
@@ -108,6 +111,8 @@ class Bot():
         self.pieces = cfg['pieces'] # maps piece id to piece
         self.myid = cfg['myid']
         self.imgurl = cfg['img']['img_url']
+        self.num_users = len(cfg['scores']['connected'])
+        logging.info('There are %d users connected' % self.num_users)
         threading.Thread(target=self.automate_bot, args=[ws]).start()
 
     def automate_bot(self, ws):
