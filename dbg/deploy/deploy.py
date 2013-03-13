@@ -19,7 +19,7 @@ def configure_servers(servers):
             if tuples[0].count('@') == 0:
                 tuples[0] = "mondego@" + tuples[0]
             if tuples[4]:
-                # If folder is specified, make sure everything resides under STDRCAT    
+                # If folder is specified, make sure everything resides under STDRCAT
                 tuples[4] = STDRCAT + '/' + tuples[4]
             else:
                 # Else, just use the standard "rcat" name
@@ -39,12 +39,13 @@ def configure_servers(servers):
 
 def configure_server(hostname,dest_folder):
     # Creates rcat and bin folder
-    # os.system("ssh %s \'mkdir -p ~/%s/bin; mkdir -p ~/%s/dbg\'" % (hostname,dest_folder))
+    os.system("ssh %s \'mkdir -p ~/%s\'" % (hostname,dest_folder))
     # Copies all files in src folder to destination root folder (to avoid copying git files)
     # os.system("scp -rp %s* %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Creates the static folder, that will host the html files
     # os.system("scp -rp %s %s:~/%s/bin/static" % (STATIC,hostname,dest_folder))
-    os.system("rsync -rav --exclude \'*.git\' %s %s:%s" % (RCAT_ROOT,hostname,dest_folder))
+    print "rsync -rav --exclude \'*.git\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder)
+    os.system("rsync -rav --exclude \'*.git\' %s %s:~/%s" % (RCAT_ROOT,hostname,dest_folder))
     # Copy .conf files for logging (proxy_logging.conf, connector_logging.conf)
     os.system("ssh %s \'cp ~/%s/dbg/deploy/configs/*.conf ~/%s/bin\'" % (hostname,dest_folder,dest_folder))
     # Sets the RCAT version and attempts to install all necessary libraries
