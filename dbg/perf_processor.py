@@ -2,6 +2,8 @@ import csv
 import os
 from math import sqrt
 
+run_name = 'trial'
+
 ###################  tools
 
 # from http://stackoverflow.com/a/7464107/856897
@@ -22,8 +24,6 @@ def percentile(l, P):
 def get_mean_stdev(l):
     """ Return the mean and stdev of a list of numbers """
     n = len(l)
-    if n == 0: # empty list
-        return None, None
     sum_x2 = 0
     sum_x = 0
     for x in l:
@@ -63,6 +63,7 @@ bot_filename_prefix = 'bot'
 srvdata = [] # contains tuples of (timestamp, filename, useful_data_dict)
 alldata = [{'botRtts': [],
             'sumProxiesCpuPercents': [],
+            'sumRcatsCpuPercents': []
             }
            for _ in range(10 ** 4)] # list indexed by number of connected users, each cell stores a list of rtts
 # we wont have more than 10k bots 
@@ -105,8 +106,29 @@ def process_proxy_file(reader, filename):
 # pageFaultsWithoutIOPerSec,pageFaultsWithIOPerSec,blockInputOpsPerSec,
 # blockOutputOpsPerSec,vContextSwitchesPerSec,ivContextSwitchesPerSec
 
+def process_rcat_row(row, filename):
+    """ """
+    timestamp = float(row['timestamp'])
+    cpu_percent = (float(row['userCpuRatio']) + float(row['systemCpuRatio'])) * 100
+    useful_data = {'cpuPercent': cpu_percent,
+                   }
+    tup = (timestamp, filename, useful_data)
+    srvdata.append(tup)
+
 def process_rcat_file(reader, filename):
-    pass
+    """ Store all the rows into the giant list.
+    Update time_zero if the first timestamp is greater than the current time_zero.
+    reader is a CSV DictReader
+    """
+    global time_zero, ref_filename
+    row = reader.next()
+    timestamp = float(row['timestamp'])
+    if timestamp > time_zero:
+        time_zero = timestamp
+        ref_filename = filename
+    process_rcat_row(row, filename)
+    for row in reader:
+        process_rcat_row(row, filename)
 
 
 # bot columns:
@@ -126,7 +148,7 @@ proxies_last_data = {} # keep track of the latest data struct; indexed by proxy 
 rcats_last_data = {} # indexed by rcat filename
 bots_filenames = set()
 bots_last_rtts = [] # all bots are grouped together during a given bucket 
-for root, dirs, filenames in os.walk('results/run2'):
+for root, dirs, filenames in os.walk('results/' + run_name):
     for filename in filenames:
         if filename.endswith('.csv'):
             with open(os.path.join(root, filename), 'rb') as file:
@@ -141,7 +163,7 @@ for root, dirs, filenames in os.walk('results/run2'):
                     bots_filenames.add(filename)
                     process_bot_file(reader, filename)
 
-# sort the list by timestamp
+# sort all proxy and rcat measurements by timestamp
 srvdata.sort(key=lambda tup: tup[0])
 
 # aggregate proxy and rcat data by buckets of timestamps.
@@ -156,30 +178,41 @@ for entry in srvdata:
         cur_data = entry[2]
         cur_data.update({'timestamp': timestamp})
         proxies_last_data[filename] = cur_data
-    elif filename in rcats_last_data:
-        pass
+    elif filename in rcats_last_data: # rcat entry
+        cur_data = entry[2]
+        cur_data.update({'timestamp': timestamp})
+        rcats_last_data[filename] = cur_data
 
     if filename == ref_filename: # make a new bucket
         # process proxies data
         sum_proxies_cpu = 0
         sum_users = 0
-        for pdata in proxies_last_data.values():
+        sum_rcats_cpu = 0
+        # get total number of connected users by summing over all proxies
+        for pdata in proxies_last_data.values(): 
             sum_proxies_cpu += pdata['cpuPercent']
             sum_users += pdata['numUsers']
-
         alldata[sum_users]['sumProxiesCpuPercents'].append(sum_proxies_cpu)
+        for rdata in rcats_last_data.values():
+            sum_rcats_cpu += rdata['cpuPercent']
+        alldata[sum_users]['sumRcatsCpuPercents'].append(sum_rcats_cpu)
+
 
 
 
 # write all aggregates
-result_filename = 'results/run2/aggregates.csv'
+result_filename = 'results/' + run_name + '/aggregates.csv'
 result_file = open(result_filename, 'w', 0)
 writer = csv.writer(result_file)
 header = ['runName', 'numUsers',
           'totalProxyCpuPercentAvg',
-          'totalProxyCpuPercentStd',
+          'totalProxyCpuPercentStdev',
           'totalProxyCpuPercent99',
           'proxyCpuSampleSize',
+          'totalRcatCpuPercentAvg',
+          'totalRcatCpuPercentStdev',
+          'totalRcatCpuPercent99',
+          'rcatCpuSampleSize',
           'rttAvg',
           'rttStdev',
           'rtt99',
@@ -189,19 +222,16 @@ writer.writerow(header)
 for num_users, data in enumerate(alldata):
     # compute proxy CPU and bot RTTs mean, stdev, and 99th percentile
     pcpus = data['sumProxiesCpuPercents']
+    rcpus = data['sumRcatsCpuPercents']
     rtts = data['botRtts']
     if pcpus and rtts: # only write a row if we have data for it
         pcpu_mean, pcpu_stdev, pcpu_99 = get_stats(pcpus)
-        rtt_mean, rtt_stdev, rtt_99 = get_stats(pcpus)
-        row = ['run2', num_users,
-               pcpu_mean,
-               pcpu_stdev,
-               pcpu_99,
-               len(pcpus),
-               rtt_mean,
-               rtt_stdev,
-               rtt_99,
-               len(rtts)
+        rcpu_mean, rcpu_stdev, rcpu_99 = get_stats(rcpus)
+        rtt_mean, rtt_stdev, rtt_99 = get_stats(rtts)
+        row = [run_name, num_users,
+               pcpu_mean, pcpu_stdev, pcpu_99, len(pcpus),
+               rcpu_mean, rcpu_stdev, rcpu_99, len(rcpus),
+               rtt_mean, rtt_stdev, rtt_99, len(rtts)
                ]
         writer.writerow(row)
 result_file.close()
