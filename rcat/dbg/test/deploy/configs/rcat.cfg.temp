@@ -1,6 +1,0 @@
-[Main]
-apphost=!!!
-appport=@@@
-proxies=###
-plugins=obm,benchmark
-persist_timer=3
