@@ -1,8 +1,10 @@
 import csv
 import os
 from math import sqrt
+import sys
 
-run_name = 'trial'
+run_folder = sys.argv[1] # example: results/trialRun
+run_name = run_folder.split('/')[-1]
 
 ###################  tools
 
@@ -148,9 +150,10 @@ proxies_last_data = {} # keep track of the latest data struct; indexed by proxy 
 rcats_last_data = {} # indexed by rcat filename
 bots_filenames = set()
 bots_last_rtts = [] # all bots are grouped together during a given bucket 
-for root, dirs, filenames in os.walk('results/' + run_name):
+for root, dirs, filenames in os.walk(run_folder):
     for filename in filenames:
         if filename.endswith('.csv'):
+            print 'processing %s' % filename
             with open(os.path.join(root, filename), 'rb') as file:
                 reader = csv.DictReader(file)
                 if filename.startswith(proxy_filename_prefix):
@@ -189,7 +192,7 @@ for entry in srvdata:
         sum_users = 0
         sum_rcats_cpu = 0
         # get total number of connected users by summing over all proxies
-        for pdata in proxies_last_data.values(): 
+        for pdata in proxies_last_data.values():
             sum_proxies_cpu += pdata['cpuPercent']
             sum_users += pdata['numUsers']
         alldata[sum_users]['sumProxiesCpuPercents'].append(sum_proxies_cpu)
@@ -201,7 +204,7 @@ for entry in srvdata:
 
 
 # write all aggregates
-result_filename = 'results/' + run_name + '/aggregates.csv'
+result_filename = run_folder + '/aggregates-' + run_name + '.csv'
 result_file = open(result_filename, 'w', 0)
 writer = csv.writer(result_file)
 header = ['runName', 'numUsers',
