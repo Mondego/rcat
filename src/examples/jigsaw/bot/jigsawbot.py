@@ -21,7 +21,7 @@ global ws
 bot = None
 ws = None
 
-MSG_FREQ = 5 # how many msgs per sec
+MSG_FREQ = 10 # how many msgs per sec
 FLUSH_FREQ = MSG_FREQ # flush to file every second
 # we log all messages RTT
 
