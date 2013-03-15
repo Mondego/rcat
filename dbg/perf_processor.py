@@ -4,6 +4,8 @@ from math import sqrt
 import sys
 
 run_folder = sys.argv[1] # example: results/trialRun
+if run_folder.endswith('/'):
+    run_folder = run_folder[:-1] # remove trailing '/'
 run_name = run_folder.split('/')[-1]
 
 ###################  tools
