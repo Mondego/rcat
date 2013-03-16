@@ -67,7 +67,11 @@ bot_filename_prefix = 'bot'
 srvdata = [] # contains tuples of (timestamp, filename, useful_data_dict)
 alldata = [{'botRtts': [],
             'sumProxiesCpuPercents': [],
-            'sumRcatsCpuPercents': []
+            'sumPVContSwitchPerSec': [],
+            'sumPIVContSwitchPerSec': [],
+            'sumRcatsCpuPercents': [],
+            'sumRVContSwitchPerSec': [], # sum of rcat voluntary context switches in one second  
+            'sumRIVContSwitchPerSec': [], # involuntary context switches
             }
            for _ in range(10 ** 4)] # list indexed by number of connected users, each cell stores a list of rtts
 # we wont have more than 10k bots 
@@ -85,6 +89,8 @@ def process_proxy_row(row, filename):
     cpu_percent = (float(row['userCpuRatio']) + float(row['systemCpuRatio'])) * 100
     useful_data = {'cpuPercent': cpu_percent,
                    'numUsers': int(row['numUsers']),
+                   'vContextSwitchesPerSec': float(row['vContextSwitchesPerSec']),
+                   'ivContextSwitchesPerSec': float(row['ivContextSwitchesPerSec'])
                    }
     tup = (timestamp, filename, useful_data)
     srvdata.append(tup)
@@ -115,6 +121,8 @@ def process_rcat_row(row, filename):
     timestamp = float(row['timestamp'])
     cpu_percent = (float(row['userCpuRatio']) + float(row['systemCpuRatio'])) * 100
     useful_data = {'cpuPercent': cpu_percent,
+                   'vContextSwitchesPerSec': float(row['vContextSwitchesPerSec']),
+                   'ivContextSwitchesPerSec': float(row['ivContextSwitchesPerSec']),
                    }
     tup = (timestamp, filename, useful_data)
     srvdata.append(tup)
@@ -193,15 +201,26 @@ for entry in srvdata:
         sum_proxies_cpu = 0
         sum_users = 0
         sum_rcats_cpu = 0
+        sum_pvcontswitch = 0
+        sum_pivcontswitch = 0
+        sum_rvcontswitch = 0
+        sum_rivcontswitch = 0
         # get total number of connected users by summing over all proxies
         for pdata in proxies_last_data.values():
             sum_proxies_cpu += pdata['cpuPercent']
             sum_users += pdata['numUsers']
+            sum_pvcontswitch += pdata['vContextSwitchesPerSec']
+            sum_pivcontswitch += pdata['ivContextSwitchesPerSec']
         alldata[sum_users]['sumProxiesCpuPercents'].append(sum_proxies_cpu)
+        alldata[sum_users]['sumPVContSwitchPerSec'].append(sum_pvcontswitch)
+        alldata[sum_users]['sumPIVContSwitchPerSec'].append(sum_pivcontswitch)
         for rdata in rcats_last_data.values():
             sum_rcats_cpu += rdata['cpuPercent']
+            sum_rvcontswitch += rdata['vContextSwitchesPerSec']
+            sum_rivcontswitch += rdata['ivContextSwitchesPerSec']
         alldata[sum_users]['sumRcatsCpuPercents'].append(sum_rcats_cpu)
-
+        alldata[sum_users]['sumRVContSwitchPerSec'].append(sum_rvcontswitch)
+        alldata[sum_users]['sumRIVContSwitchPerSec'].append(sum_rivcontswitch)
 
 
 
@@ -212,12 +231,18 @@ writer = csv.writer(result_file)
 header = ['runName', 'numUsers',
           'totalProxyCpuPercentAvg',
           'totalProxyCpuPercentStdev',
-          'totalProxyCpuPercent99',
-          'proxyCpuSampleSize',
+          'proxyVContSwitchPerSecAvg',
+          'proxyVContSwitchPerSecStdev',
+          'proxyIVContSwitchPerSecAvg',
+          'proxyIVContSwitchPerSecStdev',
+          'proxySampleSize',
           'totalRcatCpuPercentAvg',
           'totalRcatCpuPercentStdev',
-          'totalRcatCpuPercent99',
-          'rcatCpuSampleSize',
+          'rcatVContSwitchPerSecAvg',
+          'rcatVContSwitchPerSecStdev',
+          'rcatIVContSwitchPerSecAvg',
+          'rcatIVContSwitchPerSecStdev',
+          'rcatSampleSize',
           'rttAvg',
           'rttStdev',
           'rtt99',
@@ -227,15 +252,29 @@ writer.writerow(header)
 for num_users, data in enumerate(alldata):
     # compute proxy CPU and bot RTTs mean, stdev, and 99th percentile
     pcpus = data['sumProxiesCpuPercents']
+    pvcs = data['sumPVContSwitchPerSec'] # proxy voluntary context switches per sec
+    pivcs = data['sumPIVContSwitchPerSec'] # proxy voluntary context switches per sec
+    rvcs = data['sumRVContSwitchPerSec'] # proxy voluntary context switches per sec
+    rivcs = data['sumRIVContSwitchPerSec'] # proxy voluntary context switches per sec
     rcpus = data['sumRcatsCpuPercents']
     rtts = data['botRtts']
     if pcpus and rtts: # only write a row if we have data for it
         pcpu_mean, pcpu_stdev, pcpu_99 = get_stats(pcpus)
+        pvcs_mean, pvcs_stdev, pvcs_99 = get_stats(pvcs)
+        pivcs_mean, pivcs_stdev, pivcs_99 = get_stats(pivcs)
         rcpu_mean, rcpu_stdev, rcpu_99 = get_stats(rcpus)
+        rvcs_mean, rvcs_stdev, rvcs_99 = get_stats(rvcs)
+        rivcs_mean, rivcs_stdev, rivcs_99 = get_stats(rivcs)
         rtt_mean, rtt_stdev, rtt_99 = get_stats(rtts)
         row = [run_name, num_users,
-               pcpu_mean, pcpu_stdev, pcpu_99, len(pcpus),
-               rcpu_mean, rcpu_stdev, rcpu_99, len(rcpus),
+               pcpu_mean, pcpu_stdev, 
+               pvcs_mean, pvcs_stdev,
+               pivcs_mean, pivcs_stdev,
+               len(pcpus),
+               rcpu_mean, rcpu_stdev, 
+               rvcs_mean, rvcs_stdev,
+               rivcs_mean, rivcs_stdev,
+               len(rcpus),
                rtt_mean, rtt_stdev, rtt_99, len(rtts)
                ]
         writer.writerow(row)
