@@ -38,6 +38,8 @@ def configure_servers(servers):
                 configure_server(tuples[0],tuples[4])
 
 def configure_server(hostname,dest_folder):
+    # Syncs time with ubuntu server
+    os.system("ssh %s \'sudo ntpdate ntp.ubuntu.com\'" % (hostname))
     # Creates rcat and bin folder
     os.system("ssh %s \'mkdir -p ~/%s\'" % (hostname,dest_folder))
     # Copies all files in src folder to destination root folder (to avoid copying git files)
