@@ -297,7 +297,8 @@ class JigsawServer():
             # Leader is responsible to clear out all previous host data, and register as the first node 
             # Other nodes will only start after the leader is done clearing and registering. This happens when leader sends NEW game.
             datacon.mapper.cleanup_obm()
-            settings["main"]["abandon"] = False
+            if settings["main"]["abandon"] == "true":
+                settings["main"]["abandon"] = True
             self.coordinator = True
             self.start_game()
 
