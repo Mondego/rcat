@@ -430,11 +430,13 @@ class JigsawServer():
                 if self.coordinator == True:
                     self.coordinator = True
                     logging.info("[jigsawapp]: Starting game, please wait...")
+                    newgame = True
                     # Restarting the game at the user's command, or at game over             
                     if settings["main"]["abandon"]:
                         logging.info("[jigsawapp]: Abandoning old game.")
                         datacon.mapper.reset_game(keep_users=True)
                         settings["main"]["abandon"] = False
+                        newgame = False
 
                     count = datacon.db.count(Piece)
                     if count == grid["ncols"] * grid["nrows"]:
@@ -442,7 +444,8 @@ class JigsawServer():
                             datacon.mapper.recover_last_game()
                     else:
                         # Prepares the pieces in the database
-                        if count > 0:
+                        # If newgame is False, means we already reset the game either due to restart or game over
+                        if newgame:
                             datacon.mapper.reset_game()
                         pieces = []
                         for r in range(grid['nrows']):
