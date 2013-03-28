@@ -151,7 +151,7 @@ def launch_apps(servers):
             cmd = "ssh %s \'cd ~/%s/bin; screen -d -m ./run%s.sh\'" % (tuples[0],tuples[4],appname)
             print cmd
             os.system(cmd)
-            time.sleep(1)
+            time.sleep(3)
 
 
 if __name__=="__main__":
