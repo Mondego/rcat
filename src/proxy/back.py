@@ -67,9 +67,10 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         # Currently based on port value of the proxy, for predictability in evaluation tests
         seed = proxyref.port % 10
         servers.remove(self)
-        server_cycle = itertools.cycle(servers)
-        for _ in range(seed):
-            server_cycle.next()
+        if servers:
+            server_cycle = itertools.cycle(servers)
+            for _ in range(seed):
+                server_cycle.next()
 
 class AdminHandler(tornado.websocket.WebSocketHandler):
     admid = None
