@@ -434,8 +434,8 @@ class JigsawServer():
                     self.coordinator = True
                     logging.info("[jigsawapp]: Starting game, please wait...")
                     newgame = True
-                    # Restarting the game at the user's command, or at game over             
-                    if settings["main"]["abandon"]:
+                    # Restarting the game at the user's command, or at game over
+                    if settings["main"]["abandon"] == True:
                         logging.info("[jigsawapp]: Abandoning old game.")
                         datacon.mapper.reset_game(keep_users=True)
                         settings["main"]["abandon"] = False
