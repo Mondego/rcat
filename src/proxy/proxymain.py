@@ -27,7 +27,8 @@ define("benchmark",default=True, help="turns on resource management for the prox
 
 def start(benchmark=False):
     # Clients and servers connect to the Proxy through different URLs
-    logging.config.fileConfig("proxy_logging.conf")    
+    logging.config.fileConfig("proxy_logging.conf")
+    tornado.options.parse_command_line()
     """ 
     TODO: As new options are available, parse them and standardize the options dictionary.
     Current options are:
@@ -64,7 +65,6 @@ def start(benchmark=False):
     (r"/server", back.ServerHandler),
     (r"/admin", back.AdminHandler)
     ])
-    tornado.options.parse_command_line()
     application.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()
     

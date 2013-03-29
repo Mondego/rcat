@@ -34,6 +34,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         # Get a initial seed value, so that all proxies don't connect to the same first application server
         # Currently based on port value of the proxy, for predictability in evaluation tests
         seed = proxyref.port % 100
+        logger.info("### Seed is %s" % seed)
         servers.append(self)
         server_cycle = itertools.cycle(servers)
         for _ in range(seed):
