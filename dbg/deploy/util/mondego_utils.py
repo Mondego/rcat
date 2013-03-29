@@ -14,10 +14,6 @@ list_servers = f.read().splitlines()
 f.close()
 os.system("echo ");
 
-# HACK!!!
-if sys.argv[1] == 'stop':
-	os.system("mysqladmin -u rcat -pisnotamused drop rcat_deploy")
-# END HACK!!!
 for line in list_servers:
 	if line and not line.startswith('#'):
 		user,host = line.split(' ')
@@ -61,3 +57,7 @@ for line in list_servers:
 		else:
 			help_msg()
 
+# HACK!!!
+if sys.argv[1] == 'stop':
+	os.system("mysqladmin -u rcat -pisnotamused drop rcat_deploy")
+# END HACK!!!
