@@ -44,6 +44,7 @@ def start(benchmark=False):
     
     proxy.front = front.ClientLayer(proxy, proxy_options)
     proxy.back = back.ServerLayer(proxy, proxy_options)
+    proxy.port = options.port
 
     logging.info("[proxy]: Proxy Started!")
     

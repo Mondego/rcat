@@ -30,8 +30,14 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         self.stream.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, DISABLE_NAGLE)
 
         logger.info("### New server connected")
+
+        # Get a initial seed value, so that all proxies don't connect to the same first application server
+        # Currently based on port value of the proxy, for predictability in evaluation tests
+        seed = proxyref.port % 10
         servers.append(self)
         server_cycle = itertools.cycle(servers)
+        for _ in range(seed):
+            server_cycle.next()
 
     def on_message(self, message):
         try:
@@ -56,8 +62,14 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
         global server_cycle
 
         logger.info("### Server disconnected")
+
+        # Get a initial seed value, so that all proxies don't connect to the same first application server
+        # Currently based on port value of the proxy, for predictability in evaluation tests
+        seed = proxyref.port % 10
         servers.remove(self)
         server_cycle = itertools.cycle(servers)
+        for _ in range(seed):
+            server_cycle.next()
 
 class AdminHandler(tornado.websocket.WebSocketHandler):
     admid = None

@@ -9,6 +9,7 @@ Module that connects the front (client-side) of the proxy to the back (applicati
 class Proxy():
     front = None
     back = None
+    port = None
 
 class AbstractBack():
     def get_admid(self, server):
