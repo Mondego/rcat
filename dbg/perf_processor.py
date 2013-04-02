@@ -8,6 +8,7 @@ if run_folder.endswith('/'):
     run_folder = run_folder[:-1] # remove trailing '/'
 run_name = run_folder.split('/')[-1]
 
+
 ###################  tools
 
 # from http://stackoverflow.com/a/7464107/856897
@@ -230,18 +231,18 @@ result_file = open(result_filename, 'w', 0)
 writer = csv.writer(result_file)
 header = ['runName', 'numUsers',
           'totalProxyCpuPercentAvg',
-          'totalProxyCpuPercentStdev',
+          #'totalProxyCpuPercentStdev',
           'proxyVContSwitchPerSecAvg',
-          'proxyVContSwitchPerSecStdev',
+          #'proxyVContSwitchPerSecStdev',
           'proxyIVContSwitchPerSecAvg',
-          'proxyIVContSwitchPerSecStdev',
+          #'proxyIVContSwitchPerSecStdev',
           'proxySampleSize',
           'totalRcatCpuPercentAvg',
-          'totalRcatCpuPercentStdev',
+          #'totalRcatCpuPercentStdev',
           'rcatVContSwitchPerSecAvg',
-          'rcatVContSwitchPerSecStdev',
+          #'rcatVContSwitchPerSecStdev',
           'rcatIVContSwitchPerSecAvg',
-          'rcatIVContSwitchPerSecStdev',
+          #'rcatIVContSwitchPerSecStdev',
           'rcatSampleSize',
           'rttAvg',
           'rttStdev',
@@ -267,13 +268,13 @@ for num_users, data in enumerate(alldata):
         rivcs_mean, rivcs_stdev, rivcs_99 = get_stats(rivcs)
         rtt_mean, rtt_stdev, rtt_99 = get_stats(rtts)
         row = [run_name, num_users,
-               pcpu_mean, pcpu_stdev, 
-               pvcs_mean, pvcs_stdev,
-               pivcs_mean, pivcs_stdev,
+               pcpu_mean, #pcpu_stdev, 
+               pvcs_mean, #pvcs_stdev,
+               pivcs_mean, #pivcs_stdev,
                len(pcpus),
-               rcpu_mean, rcpu_stdev, 
-               rvcs_mean, rvcs_stdev,
-               rivcs_mean, rivcs_stdev,
+               rcpu_mean, #rcpu_stdev, 
+               rvcs_mean, #rvcs_stdev,
+               rivcs_mean, #rivcs_stdev,
                len(rcpus),
                rtt_mean, rtt_stdev, rtt_99, len(rtts)
                ]
