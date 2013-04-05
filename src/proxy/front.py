@@ -64,7 +64,7 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
             newmsg["U"] = [self.myid]
             
             json_msg = json.dumps(newmsg)
-            logger.debug(json_msg)
+            #logger.debug(json_msg)
             proxyref.back.send_message_to_server(json_msg,self.sticky_server)
             
         except Exception:
@@ -100,7 +100,7 @@ class ClientLayer(proxy.AbstractFront):
         remove_clients = []
         if clientList==None:
             clientList = clients
-        logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
+        #logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
         for client in clientList:
             if (client in clients):
                 try:

@@ -43,7 +43,7 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         try:
             msg = json.loads(message)
-            logger.debug(message)
+            #logger.debug(message)
             if "U" in msg:
                 users = msg["U"]
                 logger.debug("Sending message " + str(msg["M"]) + " to users " + str(users))
