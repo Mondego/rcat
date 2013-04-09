@@ -51,9 +51,8 @@ def start(benchmark=False):
 
     logging.info("[proxy]: Proxy Started on port %d!" % proxy.port)
     
-    # ../bin/static if from command line
-    # ../../bin/static if inside eclipse
-    static_path = os.path.join("..", "..", "bin", "static") 
+    #static_path = os.path.join("..", "..", "bin", "static") # if run within eclipse 
+    static_path = os.path.join("..", "bin", "static") # if run from command line
     logging.info("[proxy]: static path is " + static_path)
     if not os.path.isfile(os.path.join(static_path, 'jigsaw.html')):
         logging.warn('[proxy]: jigsaw.html was not found in %s' % static_path)
