@@ -21,6 +21,7 @@ import sys
 import tornado.ioloop
 import tornado.web
 import uuid
+import qp
 
 define("port", default=8888, help="run on the given port", type=int)
 define("benchmark",default=True, help="turns on resource management for the proxy")
@@ -45,13 +46,14 @@ def start(benchmark=False):
     
     proxy.front = front.ClientLayer(proxy, proxy_options)
     proxy.back = back.ServerLayer(proxy, proxy_options)
+    proxy.queue_processor = qp.QueueProcessor(proxy, proxy_options)
     proxy.port = options.port
 
     logging.info("[proxy]: Proxy Started on port %d!" % proxy.port)
     
     # ../bin/static if from command line
     # ../../bin/static if inside eclipse
-    static_path = os.path.join("..", "bin", "static") 
+    static_path = os.path.join("..", "..", "bin", "static") 
     logging.info("[proxy]: static path is " + static_path)
     if not os.path.isfile(os.path.join(static_path, 'jigsaw.html')):
         logging.warn('[proxy]: jigsaw.html was not found in %s' % static_path)

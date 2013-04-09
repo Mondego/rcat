@@ -13,6 +13,7 @@ import time
 import tornado.web
 import tornado.websocket
 import uuid
+from collections import deque
 
 temp_users = {}
 clients = {}
@@ -47,6 +48,7 @@ class ClientHandler(tornado.websocket.WebSocketHandler):
 
         self.myid = str(uuid.uuid4())
         clients[self.myid] = self
+        proxyref.msg_queues[self] = deque() # queue of messages to send to this client handler
         
         newmsg = {}
         newmsg["NU"] = [self.myid]
@@ -97,23 +99,27 @@ class ClientLayer(proxy.AbstractFront):
         proxy_options = options
         
     def send_message_to_client(self, message, clientList=None):
+        """ By default, broadcast the message to all clients """
         remove_clients = []
         if clientList==None:
             clientList = clients
         #logger.debug("[ClientLayer]: Sending " + str(message) + "to " + str(clientList))
-        for client in clientList:
-            if (client in clients):
+        for clientid in clientList:
+            if (clientid in clients):
                 try:
-                    clients[client].write_message(message)
+                    handler = clients[clientid]
+                    proxyref.msg_queues[handler].append(message)
+                    #handler.write_message(message)
                 except IOError:
-                    remove_clients.append(client)
+                    remove_clients.append(clientid)
                 except AttributeError:
-                    remove_clients.append(client)
+                    remove_clients.append(clientid)
             else:
-                logger.warn("[Front]: Client " + client + " is not registered in this proxy.")
-        for client in remove_clients:
-            del clients[client]
-            remove_clients = []
+                logger.warn("[Front]: Client " + clientid + " is not registered in this proxy.")
+        for clientid in remove_clients:
+            del proxyref.msg_queues[clients[clientid]]
+            del clients[clientid]
+        remove_clients = []
     
     def move_client(self,user,adm):
         if user in clients:

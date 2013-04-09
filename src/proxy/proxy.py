@@ -10,6 +10,8 @@ class Proxy():
     front = None
     back = None
     port = None
+    msg_queues = {} # maps a client or server handler to its message queue
+    queue_processor = None
 
 class AbstractBack():
     def get_admid(self, server):

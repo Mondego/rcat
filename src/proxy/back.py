@@ -47,14 +47,18 @@ class ServerHandler(tornado.websocket.WebSocketHandler):
             if "U" in msg:
                 users = msg["U"]
                 logger.debug("Sending message " + str(msg["M"]) + " to users " + str(users))
-                proxyref.front.send_message_to_client(msg["M"], users)
+                
+                proxyref.front.send_message_to_client(msg["M"], users) # TODO: queue
+                
             # App connector is registering its admid with this connection
             elif "REG" in msg:
                 admid = msg["REG"]
                 server_admid[self] = admid
                 admin_proxy[admid] = self
             else:
-                proxyref.front.send_message_to_client(msg["M"])
+                
+                proxyref.front.send_message_to_client(msg["M"]) # TODO: QUEUE
+                
         except Exception:
             logger.exception('[Back]: Error processing message on Back module:')
 
